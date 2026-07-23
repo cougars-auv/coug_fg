@@ -290,24 +290,48 @@ class FactorGraphCore {
 
   // --- Multi-agent Neighbor Tracking ---
   struct NeighborState {
-    explicit NeighborState(uint32_t id, size_t step_spacing = 1000)
-        : id(id), init_idx(id * step_spacing), prev_step(init_idx), current_step(init_idx + 1) {}
+    explicit NeighborState(uint32_t agent_id, size_t step_spacing = 1000)
+        : agent_id(agent_id),
+          init_idx(agent_id * step_spacing),
+          prev_step(init_idx),
+          current_step(init_idx + 1) {}
 
-    void Advance() {
+    void Initialize(const gtsam::Pose3& pose, const gtsam::Matrix66& covariance, double time) {
+      prev_pose = pose;
+      curr_pose = pose;
+      prev_covariance = covariance;
+      curr_covariance = covariance;
+      prev_time = time;
+      curr_time = time;
+      initialized = true;
+    }
+
+    void Advance(const gtsam::Pose3& new_pose, const gtsam::Matrix66& new_covariance,
+                 double new_time) {
+      assert(initialized && "NeighborState must be initialized before Advance()");
+
+      // Move current estimate to previous
       prev_step = current_step;
       ++current_step;
 
       prev_pose = curr_pose;
       prev_covariance = curr_covariance;
+      prev_time = curr_time;
+
+      // Store new estimate
+      curr_pose = new_pose;
+      curr_covariance = new_covariance;
+      curr_time = new_time;
     }
 
-    uint32_t id;
+    uint32_t agent_id;
+    const size_t init_idx;
 
-    size_t init_idx;  // Example: neighbor 1 starts at N(1000), neighbor 2 starts at N(2000)
     size_t prev_step;
     size_t current_step;
 
     double prev_time{0.0};
+    double curr_time{0.0};
 
     gtsam::Pose3 prev_pose;
     gtsam::Pose3 curr_pose;

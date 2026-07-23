@@ -288,6 +288,36 @@ class FactorGraphCore {
   gtsam::Vector3 prev_vel_;
   gtsam::imuBias::ConstantBias prev_imu_bias_;
 
+  // --- Multi-agent Neighbor Tracking ---
+  struct NeighborState {
+    explicit NeighborState(uint32_t id, size_t step_spacing = 1000)
+        : id(id), init_idx(id * step_spacing), prev_step(init_idx), current_step(init_idx + 1) {}
+
+    void Advance() {
+      prev_step = current_step;
+      ++current_step;
+
+      prev_pose = curr_pose;
+      prev_covariance = curr_covariance;
+    }
+
+    uint32_t id;
+
+    size_t init_idx;  // Example: neighbor 1 starts at N(1000), neighbor 2 starts at N(2000)
+    size_t prev_step;
+    size_t current_step;
+
+    double prev_time{0.0};
+
+    gtsam::Pose3 prev_pose;
+    gtsam::Pose3 curr_pose;
+
+    gtsam::Matrix66 prev_covariance = gtsam::Matrix66::Identity();
+    gtsam::Matrix66 curr_covariance = gtsam::Matrix66::Identity();
+
+    bool initialized{false};
+  };
+
   // --- Sensor Data ---
   gtsam::Vector3 last_dvl_velocity_ = gtsam::Vector3::Zero();
   gtsam::Matrix3 last_dvl_covariance_ = gtsam::Matrix3::Zero();

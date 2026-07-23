@@ -60,6 +60,7 @@ using coug_fgo::factors::Gps2dFactorArm;
 using coug_fgo::factors::MagFactorArm;
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
+using gtsam::symbol_shorthand::N;  // Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
 

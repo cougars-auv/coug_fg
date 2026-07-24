@@ -250,6 +250,22 @@ class FactorGraphCore {
                                const gtsam::Vector3& held_imu_gyr);
 
   /**
+   * @brief Add a prior factor to neighbor pose.
+   * @param neighbor State values for this neighbor.
+   * @param graph The factor graph to add priors to.
+   * @param values The initial variable estimates.
+   */
+  void addNeighborPriorFactor(utils::NeighborState& neighbor, gtsam::NonlinearFactorGraph& graph,
+                              gtsam::Values& values);
+
+  /**
+   * @brief Add a between factor to neighbor's chain.
+   * @param neighbor State values for this neighbor.
+   * @param graph The target factor graph.
+   */
+  void addNeighborBetweenFactor(utils::NeighborState& neighbor, gtsam::NonlinearFactorGraph& graph);
+
+  /**
    * @brief Adds neighboring-agent odometry, depth, orientation, and range/bearing factors.
    * @param graph The target factor graph.
    * @param values The new variable estimates.
@@ -289,58 +305,7 @@ class FactorGraphCore {
   gtsam::imuBias::ConstantBias prev_imu_bias_;
 
   // --- Multi-agent Neighbor Tracking ---
-  struct NeighborState {
-    explicit NeighborState(uint32_t agent_id, size_t step_spacing = 1000)
-        : agent_id(agent_id),
-          init_idx(agent_id * step_spacing),
-          prev_step(init_idx),
-          current_step(init_idx + 1) {}
-
-    void Initialize(const gtsam::Pose3& pose, const gtsam::Matrix66& covariance, double time) {
-      prev_pose = pose;
-      curr_pose = pose;
-      prev_covariance = covariance;
-      curr_covariance = covariance;
-      prev_time = time;
-      curr_time = time;
-      initialized = true;
-    }
-
-    void Advance(const gtsam::Pose3& new_pose, const gtsam::Matrix66& new_covariance,
-                 double new_time) {
-      assert(initialized && "NeighborState must be initialized before Advance()");
-
-      // Move current estimate to previous
-      prev_step = current_step;
-      ++current_step;
-
-      prev_pose = curr_pose;
-      prev_covariance = curr_covariance;
-      prev_time = curr_time;
-
-      // Store new estimate
-      curr_pose = new_pose;
-      curr_covariance = new_covariance;
-      curr_time = new_time;
-    }
-
-    uint32_t agent_id;
-    const size_t init_idx;
-
-    size_t prev_step;
-    size_t current_step;
-
-    double prev_time{0.0};
-    double curr_time{0.0};
-
-    gtsam::Pose3 prev_pose;
-    gtsam::Pose3 curr_pose;
-
-    gtsam::Matrix66 prev_covariance = gtsam::Matrix66::Identity();
-    gtsam::Matrix66 curr_covariance = gtsam::Matrix66::Identity();
-
-    bool initialized{false};
-  };
+  std::unordered_map<uint32_t, utils::NeighborState> neighbors_;
 
   // --- Sensor Data ---
   gtsam::Vector3 last_dvl_velocity_ = gtsam::Vector3::Zero();

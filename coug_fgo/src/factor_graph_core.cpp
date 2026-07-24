@@ -24,6 +24,7 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/navigation/NavState.h>
+#include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 
 #include <algorithm>
@@ -861,6 +862,81 @@ void FactorGraphCore::addDvlTightPreintFactor(
       gtsam::noiseModel::Gaussian::Covariance(dvl_tight_preintegrator_->covariance()));
 }
 
+// --- Multi-agent factors ---
+
+void FactorGraphCore::addNeighborPriorFactor(utils::NeighborState& neighbor,
+                                             gtsam::NonlinearFactorGraph& graph,
+                                             gtsam::Values& values) {
+  // Start with the covariance reported by the neighboring agent.
+  gtsam::Vector6 prior_pose_sigmas = neighbor.prev_covariance.diagonal().cwiseSqrt();
+
+  // Refine orientation uncertainty using the neighbor AHRS configuration.
+  if (params_.multiagent.neighbor.ahrs.enable_ahrs) {
+    const gtsam::Matrix3 ahrs_cov = resolveCov<3>(
+        false,  // Replace with use_parameter_covariance if added later.
+        params_.multiagent.neighbor.ahrs.orientation_noise_sigmas,
+        params_.multiagent.neighbor.ahrs.covariance_scalar,
+        neighbor.prev_covariance.block<3, 3>(0, 0), covFallbackWarning("Neighbor AHRS"));
+
+    prior_pose_sigmas.head<3>() = ahrs_cov.diagonal().cwiseSqrt();
+  }
+
+  // Refine depth uncertainty using the neighbor depth sensor configuration.
+  if (params_.multiagent.neighbor.depth.enable_depth) {
+    prior_pose_sigmas(5) =
+        std::sqrt(resolveVar(false,  // Replace with use_parameter_covariance if added later.
+                             params_.multiagent.neighbor.depth.position_z_noise_sigma,
+                             params_.multiagent.neighbor.depth.covariance_scalar,
+                             neighbor.prev_covariance(5, 5), covFallbackWarning("Neighbor depth")));
+  }
+
+  // Add the prior factor.
+  graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
+      N(neighbor.init_idx), neighbor.prev_pose,
+      gtsam::noiseModel::Diagonal::Sigmas(prior_pose_sigmas));
+
+  values.insert(N(neighbor.init_idx), neighbor.prev_pose);
+
+  // Log the initialized neighbor.
+  std::ostringstream oss;
+  oss << "Initial neighbor state (Agent " << neighbor.agent_id
+      << ", Init idx: " << neighbor.init_idx << ", Curr idx: " << neighbor.current_step
+      << " t=" << std::fixed << std::setprecision(4) << neighbor.prev_time << "):\n";
+
+  oss << std::scientific;
+  oss << "  Position [m]        : " << neighbor.prev_pose.translation().transpose() << "\n";
+  oss << "  Orientation [rad]   : " << neighbor.prev_pose.rotation().rpy().transpose()
+      << " (RPY)\n";
+
+  oss << "Prior sigmas:\n";
+  oss << "  Position [m]        : " << prior_pose_sigmas.tail<3>().transpose() << "\n";
+  oss << "  Orientation [rad]   : " << prior_pose_sigmas.head<3>().transpose() << " (RPY)\n";
+
+  logMessage(utils::LogLevel::kInfo, oss.str());
+}
+
+void FactorGraphCore::addNeighborBetweenFactor(utils::NeighborState& neighbor,
+                                               gtsam::NonlinearFactorGraph& graph) {
+  if (!neighbor.initialized_flag) {
+    return;
+  }
+
+  // Relative pose and Jacobians
+  gtsam::Matrix66 H_prev;
+  gtsam::Matrix66 H_curr;
+
+  gtsam::Pose3 between_pose = neighbor.prev_pose.between(neighbor.curr_pose, H_prev, H_curr);
+
+  // Approximate relative covariance (ignores cross-correlation)
+  gtsam::Matrix66 between_cov = H_prev * neighbor.prev_covariance * H_prev.transpose() +
+                                H_curr * neighbor.curr_covariance * H_curr.transpose();
+
+  gtsam::SharedNoiseModel between_noise = gtsam::noiseModel::Gaussian::Covariance(between_cov);
+
+  graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+      N(neighbor.prev_step), N(neighbor.current_step), between_pose, between_noise);
+}
+
 void FactorGraphCore::addMultiAgentFactors(
     gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
     gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps, utils::QueueBundle& queues,
@@ -870,40 +946,75 @@ void FactorGraphCore::addMultiAgentFactors(
   (void)timestamps;
   (void)target_time;
 
-  last_multiagent_status_.resize(queues.multiagent.size());
-
   for (size_t i = 0; i < queues.multiagent.size(); ++i) {
-    for (const auto& msg : queues.multiagent[i]) {
-      std::ostringstream oss;
-      oss << "Neighbor [" << i << "] status (t=" << std::fixed << std::setprecision(4)
-          << msg->timestamp << "):\n";
-      oss << std::scientific;
-      oss << "  Position [m]       : " << msg->pose.translation().transpose() << "\n"
-          << "  Position cov [m^2] : " << msg->pose_covariance.diagonal().head<3>().transpose()
-          << "\n"
-          << "  Orientation [rad]  : " << msg->pose.rotation().rpy().transpose() << " (RPY)\n"
-          << "  Orient cov [rad^2] : " << msg->pose_covariance.diagonal().tail<3>().transpose()
-          << "\n"
-          << "  Depth [m]          : " << msg->pressure_depth << "\n"
-          << "  IMU orient. [rad]  : " << msg->imu_orientation.rpy().transpose() << " (RPY)";
-      if (msg->includes_usbl) {
-        oss << "\n  USBL az/el [rad]   : " << msg->usbl_azimuth << ", " << msg->usbl_elevation;
-      }
-      if (msg->includes_range) {
-        oss << "\n  Range [m]          : " << msg->range_dist;
-      }
-      if (msg->includes_position) {
-        oss << "\n  Position depth [m] : " << msg->position_depth;
-      }
-      logMessage(utils::LogLevel::kInfo, oss.str());
+    uint32_t agent_id = static_cast<uint32_t>(i);
+    auto& queue = queues.multiagent[i];
+
+    if (queue.empty()) continue;
+
+    auto [it, inserted] = neighbors_.try_emplace(agent_id, utils::NeighborState(agent_id));
+
+    auto& neighbor = it->second;
+
+    // New agent: initialize from first queue message
+    if (inserted) {
+      const auto& msg = queue.front();
+
+      neighbor.Initialize(msg->pose, msg->pose_covariance, msg->timestamp);
+
+      addNeighborPriorFactor(neighbor, graph, values);
+      timestamps[N(neighbor.init_idx)] = msg->timestamp;
+
+      queue.pop_front();
     }
 
-    if (!queues.multiagent[i].empty()) {
-      last_multiagent_status_[i] = queues.multiagent[i].back();
+    // Add messages from queue
+    for (const auto& msg : queue) {
+      neighbor.Advance(msg->pose, msg->pose_covariance, msg->timestamp);
+
+      values.insert(N(neighbor.current_step), neighbor.curr_pose);
+      addNeighborBetweenFactor(neighbor, graph);
+      timestamps[N(neighbor.current_step)] = msg->timestamp;
     }
+
+    queue.clear();
   }
 
-  // TODO: Add here w Kalliyan
+  // last_multiagent_status_.resize(queues.multiagent.size());
+
+  // for (size_t i = 0; i < queues.multiagent.size(); ++i) {
+  //   // for (const auto& msg : queues.multiagent[i]) {
+  //   //   std::ostringstream oss;
+  //   //   oss << "Neighbor [" << i << "] status (t=" << std::fixed << std::setprecision(4)
+  //   //       << msg->timestamp << "):\n";
+  //   //   oss << std::scientific;
+  //   //   oss << "  Position [m]       : " << msg->pose.translation().transpose() << "\n"
+  //   //       << "  Position cov [m^2] : " <<
+  //   msg->pose_covariance.diagonal().head<3>().transpose()
+  //   //       << "\n"
+  //   //       << "  Orientation [rad]  : " << msg->pose.rotation().rpy().transpose() << " (RPY)\n"
+  //   //       << "  Orient cov [rad^2] : " <<
+  //   msg->pose_covariance.diagonal().tail<3>().transpose()
+  //   //       << "\n"
+  //   //       << "  Depth [m]          : " << msg->pressure_depth << "\n"
+  //   //       << "  IMU orient. [rad]  : " << msg->imu_orientation.rpy().transpose() << " (RPY)";
+  //   //   if (msg->includes_usbl) {
+  //   //     oss << "\n  USBL az/el [rad]   : " << msg->usbl_azimuth << ", " <<
+  //   msg->usbl_elevation;
+  //   //   }
+  //   //   if (msg->includes_range) {
+  //   //     oss << "\n  Range [m]          : " << msg->range_dist;
+  //   //   }
+  //   //   if (msg->includes_position) {
+  //   //     oss << "\n  Position depth [m] : " << msg->position_depth;
+  //   //   }
+  //   //   logMessage(utils::LogLevel::kInfo, oss.str());
+  //   // }
+
+  //   if (!queues.multiagent[i].empty()) {
+  //     last_multiagent_status_[i] = queues.multiagent[i].back();
+  //   }
+  // }
 }
 
 std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,

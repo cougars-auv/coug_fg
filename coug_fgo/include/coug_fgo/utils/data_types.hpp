@@ -163,4 +163,56 @@ struct InitialState {
   std::shared_ptr<TwistData> dvl;
 };
 
+struct NeighborState {
+  explicit NeighborState(uint32_t agent_id, size_t step_spacing = 1000)
+      : agent_id(agent_id),
+        init_idx(agent_id * step_spacing),
+        prev_step(init_idx),
+        current_step(init_idx),
+        initialized_flag(false) {}
+
+  void Initialize(const gtsam::Pose3& pose, const gtsam::Matrix66& covariance, double time) {
+    prev_pose = pose;
+    curr_pose = pose;
+    prev_covariance = covariance;
+    curr_covariance = covariance;
+    prev_time = time;
+    curr_time = time;
+    initialized_flag = true;
+  }
+
+  void Advance(const gtsam::Pose3& new_pose, const gtsam::Matrix66& new_covariance,
+               double new_time) {
+    // Move current estimate to previous
+    prev_step = current_step;
+    ++current_step;
+
+    prev_pose = curr_pose;
+    prev_covariance = curr_covariance;
+    prev_time = curr_time;
+
+    // Store new estimate
+    curr_pose = new_pose;
+    curr_covariance = new_covariance;
+    curr_time = new_time;
+  }
+
+  uint32_t agent_id;
+  const size_t init_idx;
+
+  size_t prev_step;
+  size_t current_step;
+
+  double prev_time{0.0};
+  double curr_time{0.0};
+
+  gtsam::Pose3 prev_pose;  // Last pose est received from neighbor single agent chain
+  gtsam::Pose3 curr_pose;  // Most recent pose received from neighbor single agent chain
+
+  gtsam::Matrix66 prev_covariance = gtsam::Matrix66::Identity();
+  gtsam::Matrix66 curr_covariance = gtsam::Matrix66::Identity();
+
+  bool initialized_flag;
+};
+
 }  // namespace coug_fgo::utils

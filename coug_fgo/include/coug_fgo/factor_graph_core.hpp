@@ -264,7 +264,20 @@ class FactorGraphCore {
    * @param graph The target factor graph.
    */
   void addNeighborBetweenFactor(utils::NeighborState& neighbor, gtsam::NonlinearFactorGraph& graph);
-
+  /**
+   * @brief Add a range factor between neighbor and local agent.
+   * @param neighbor State values for this neighbor.
+   * @param graph The target factor graph.
+   */
+  void addInterAgentRangeFactor(double range_meas, utils::NeighborState& neighbor,
+                                gtsam::NonlinearFactorGraph& graph);
+  /**
+   * @brief Add a bearing factor between neighbor and local agent.
+   * @param neighbor State values for this neighbor.
+   * @param graph The target factor graph.
+   */
+  void addInterAgentBearingFactor(utils::NeighborState& neighbor,
+                                  gtsam::NonlinearFactorGraph& graph);
   /**
    * @brief Adds neighboring-agent odometry, depth, orientation, and range/bearing factors.
    * @param graph The target factor graph.

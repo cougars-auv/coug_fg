@@ -54,6 +54,7 @@
 using coug_fgo::factors::AhrsFactorArm;
 using coug_fgo::factors::AhrsYawFactorArm;
 using coug_fgo::factors::AuvDynamicsFactorArm;
+using coug_fgo::factors::BearingFactorArm;
 using coug_fgo::factors::ConstVelFactor;
 using coug_fgo::factors::DepthFactorArm;
 using coug_fgo::factors::DvlFactorArm;
@@ -61,6 +62,7 @@ using coug_fgo::factors::DvlLoosePreintFactorArm;
 using coug_fgo::factors::DvlTightPreintFactorArm;
 using coug_fgo::factors::Gps2dFactorArm;
 using coug_fgo::factors::MagFactorArm;
+using coug_fgo::factors::RangeFactorArm;
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
 using gtsam::symbol_shorthand::N;  // Pose3 (x,y,z,r,p,y)
@@ -917,6 +919,23 @@ void FactorGraphCore::addNeighborPriorFactor(utils::NeighborState& neighbor,
   logMessage(utils::LogLevel::kInfo, oss.str());
 }
 
+void FactorGraphCore::addInterAgentRangeFactor(double range_meas, utils::NeighborState& neighbor,
+                                               gtsam::NonlinearFactorGraph& graph) {
+  if (!neighbor.initialized_flag) {
+    return;
+  }
+
+  auto range_noise = gtsam::noiseModel::Isotropic::Sigma(1, params_.multiagent.range_noise_sigma);
+
+  graph.emplace_shared<RangeFactorArm>(X(current_step_), N(neighbor.current_step), range_meas,
+                                       tfs_.target_T_modem, tfs_.target_T_modem, range_noise);
+  std::ostringstream oss;
+  oss << "Adding range factor X(" << current_step_ << "), N(" << neighbor.current_step
+      << "), Range meas: " << range_meas;
+
+  logMessage(utils::LogLevel::kInfo, oss.str());
+}
+
 void FactorGraphCore::addNeighborBetweenFactor(utils::NeighborState& neighbor,
                                                gtsam::NonlinearFactorGraph& graph) {
   if (!neighbor.initialized_flag) {
@@ -976,6 +995,7 @@ void FactorGraphCore::addMultiAgentFactors(
 
       values.insert(N(neighbor.current_step), neighbor.curr_pose);
       addNeighborBetweenFactor(neighbor, graph);
+      addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
       timestamps[N(neighbor.current_step)] = msg->timestamp;
     }
 

@@ -40,6 +40,7 @@
 #include "coug_fgo/factors/ahrs_factor.hpp"
 #include "coug_fgo/factors/ahrs_yaw_factor.hpp"
 #include "coug_fgo/factors/auv_dynamics_factor.hpp"
+#include "coug_fgo/factors/bearing_factor.hpp"
 #include "coug_fgo/factors/const_vel_factor.hpp"
 #include "coug_fgo/factors/depth_factor.hpp"
 #include "coug_fgo/factors/dvl_factor.hpp"
@@ -47,6 +48,7 @@
 #include "coug_fgo/factors/dvl_tight_preint_factor.hpp"
 #include "coug_fgo/factors/gps_factor.hpp"
 #include "coug_fgo/factors/mag_factor.hpp"
+#include "coug_fgo/factors/range_factor.hpp"
 #include "coug_fgo/utils/param_enums.hpp"
 
 using coug_fgo::factors::AhrsFactorArm;

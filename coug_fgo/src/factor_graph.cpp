@@ -586,7 +586,7 @@ void FactorGraphNode::publishVelocity(const gtsam::Vector3& current_vel,
   geometry_msgs::msg::TwistWithCovarianceStamped vel_msg;
   vel_msg.header.stamp = timestamp;
 
-  // IMPORTANT! This is the velocity of the target frame with respect to the map frame.
+  // Velocity at the target frame with respect to the map frame.
   vel_msg.header.frame_id = params_.map_frame;
   vel_msg.twist.twist.linear = toVectorMsg(current_vel);
   vel_msg.twist.covariance = toCovariance36Msg(gtsam::Matrix33(vel_covariance));
@@ -607,7 +607,7 @@ void FactorGraphNode::publishImuBias(const gtsam::imuBias::ConstantBias& current
     imu_bias_msg.header.frame_id = imu_frame_;
   }
 
-  // IMPORTANT! We use 'linear' for accelerometer bias and 'angular' for gyroscope bias.
+  // This maps 'linear' to accelerometer bias and 'angular' to gyroscope bias.
   // Preserves accel/gyro cross-covariance; sensor_msgs/Imu has no field for that.
   imu_bias_msg.twist.twist.linear = toVectorMsg(current_imu_bias.accelerometer());
   imu_bias_msg.twist.twist.angular = toVectorMsg(current_imu_bias.gyroscope());

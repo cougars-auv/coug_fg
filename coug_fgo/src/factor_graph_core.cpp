@@ -341,115 +341,23 @@ FactorGraphCore::configureImuPreintegration(const utils::InitialState& init_stat
 
 void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
                                       gtsam::NonlinearFactorGraph& graph, gtsam::Values& values) {
-  // Add initial pose prior
-  gtsam::Vector6 prior_pose_sigmas =
-      (gtsam::Vector6() << params_.prior.parameter_priors.initial_orientation_sigmas[0],
-       params_.prior.parameter_priors.initial_orientation_sigmas[1],
-       params_.prior.parameter_priors.initial_orientation_sigmas[2],
-       params_.prior.parameter_priors.initial_position_sigmas[0],
-       params_.prior.parameter_priors.initial_position_sigmas[1],
-       params_.prior.parameter_priors.initial_position_sigmas[2])
-          .finished();
-
-  if (!params_.prior.use_parameter_priors) {
-    // Add initial position prior
-    if (params_.gps.enable_gps) {
-      const gtsam::Matrix2 gps_cov = resolveCov<2>(
-          params_.gps.use_parameter_covariance,
-          params_.gps.parameter_covariance.position_noise_sigmas, params_.gps.covariance_scalar,
-          init_state.gps->pose_covariance.topLeftCorner<2, 2>(), covFallbackWarning("GPS"));
-      prior_pose_sigmas(3) = std::sqrt(gps_cov(0, 0));
-      prior_pose_sigmas(4) = std::sqrt(gps_cov(1, 1));
-    } else {
-      prior_pose_sigmas(3) = params_.prior.parameter_priors.initial_position_sigmas[0];
-      prior_pose_sigmas(4) = params_.prior.parameter_priors.initial_position_sigmas[1];
-    }
-
-    if (params_.depth.enable_depth) {
-      prior_pose_sigmas(5) = std::sqrt(
-          resolveVar(params_.depth.use_parameter_covariance,
-                     params_.depth.parameter_covariance.position_z_noise_sigma,
-                     params_.depth.covariance_scalar, init_state.depth->pose_covariance(2, 2),
-                     covFallbackWarning("Depth")));
-    } else {
-      prior_pose_sigmas(5) = params_.prior.parameter_priors.initial_position_sigmas[2];
-    }
-
-    // Add initial orientation prior
-    if (params_.ahrs.enable_ahrs) {
-      const gtsam::Matrix3 ahrs_cov =
-          resolveCov<3>(params_.ahrs.use_parameter_covariance,
-                        params_.ahrs.parameter_covariance.orientation_noise_sigmas,
-                        params_.ahrs.covariance_scalar, init_state.ahrs->orientation_covariance,
-                        covFallbackWarning("AHRS"));
-      prior_pose_sigmas(0) = std::sqrt(ahrs_cov(0, 0));
-      prior_pose_sigmas(1) = std::sqrt(ahrs_cov(1, 1));
-      prior_pose_sigmas(2) = std::sqrt(ahrs_cov(2, 2));
-    } else {
-      if (params_.mag.enable_mag) {
-        double h_mag = std::sqrt(params_.mag.reference_field[0] * params_.mag.reference_field[0] +
-                                 params_.mag.reference_field[1] * params_.mag.reference_field[1]);
-        double mag_sigma_norm = std::sqrt(resolveVar(
-            params_.mag.use_parameter_covariance,
-            params_.mag.parameter_covariance.magnetic_field_noise_sigmas[0],
-            params_.mag.covariance_scalar, init_state.mag->magnetic_field_covariance(0, 0),
-            covFallbackWarning("Magnetometer"),
-            MagFactorArm::unitFieldCovarianceScale(init_state.mag->magnetic_field)));
-        prior_pose_sigmas(2) = mag_sigma_norm / h_mag;
-      }
-      const gtsam::Matrix3 accel_cov = resolveCov<3>(
-          params_.imu.use_parameter_covariance, params_.imu.parameter_covariance.accel_noise_sigmas,
-          params_.imu.covariance_scalar, init_state.imu->linear_acceleration_covariance,
-          covFallbackWarning("IMU accelerometer"));
-      const double g_norm =
-          std::max(Eigen::Map<const Eigen::Vector3d>(params_.imu.gravity.data()).norm(), 1e-6);
-      const auto& bias_sig = params_.prior.initial_accel_bias_sigmas;
-      prior_pose_sigmas(0) = std::sqrt(accel_cov(1, 1) + bias_sig[1] * bias_sig[1]) / g_norm;
-      prior_pose_sigmas(1) = std::sqrt(accel_cov(0, 0) + bias_sig[0] * bias_sig[0]) / g_norm;
-    }
-  }
-
   graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
-      X(0), prev_pose_, gtsam::noiseModel::Diagonal::Sigmas(prior_pose_sigmas));
+      X(0), prev_pose_, gtsam::noiseModel::Gaussian::Covariance(init_state.pose_cov));
   values.insert(X(0), prev_pose_);
 
-  // Add initial velocity prior
-  gtsam::SharedNoiseModel prior_vel_noise;
-  gtsam::Vector3 prior_vel_sigmas;
-  if (!params_.prior.use_parameter_priors && params_.dvl.enable_dvl) {
-    // Rotate DVL covariance into the map frame
-    gtsam::Matrix33 dvl_cov = resolveCov<3>(
-        params_.dvl.use_parameter_covariance,
-        params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
-        init_state.dvl->twist_covariance.topLeftCorner<3, 3>(), covFallbackWarning("DVL"));
-    gtsam::Matrix33 map_R_dvl = (prev_pose_.rotation() * tfs_.target_T_dvl.rotation()).matrix();
-    gtsam::Matrix33 map_cov = map_R_dvl * dvl_cov * map_R_dvl.transpose();
-    prior_vel_noise = gtsam::noiseModel::Gaussian::Covariance(map_cov);
-    prior_vel_sigmas = map_cov.diagonal().cwiseSqrt();
-  } else {
-    const auto& sigmas = params_.prior.parameter_priors.initial_velocity_sigmas;
-    prior_vel_sigmas = Eigen::Map<const Eigen::Vector3d>(sigmas.data());
-    prior_vel_noise = gtsam::noiseModel::Diagonal::Sigmas(prior_vel_sigmas);
-  }
-
-  graph.emplace_shared<gtsam::PriorFactor<gtsam::Vector3>>(V(0), prev_vel_, prior_vel_noise);
+  graph.emplace_shared<gtsam::PriorFactor<gtsam::Vector3>>(
+      V(0), prev_vel_, gtsam::noiseModel::Gaussian::Covariance(init_state.vel_cov));
   values.insert(V(0), prev_vel_);
 
-  // Add initial IMU bias prior
-  gtsam::Vector6 prior_imu_bias_sigmas =
-      (gtsam::Vector6() << Eigen::Map<const Eigen::Vector3d>(
-           params_.prior.initial_accel_bias_sigmas.data()),
-       Eigen::Map<const Eigen::Vector3d>(params_.prior.initial_gyro_bias_sigmas.data()))
-          .finished();
-
-  gtsam::SharedNoiseModel prior_imu_bias_noise =
-      gtsam::noiseModel::Diagonal::Sigmas(prior_imu_bias_sigmas);
-
-  graph.emplace_shared<gtsam::PriorFactor<gtsam::imuBias::ConstantBias>>(B(0), prev_imu_bias_,
-                                                                         prior_imu_bias_noise);
+  graph.emplace_shared<gtsam::PriorFactor<gtsam::imuBias::ConstantBias>>(
+      B(0), prev_imu_bias_, gtsam::noiseModel::Gaussian::Covariance(init_state.bias_cov));
   values.insert(B(0), prev_imu_bias_);
 
-  // Log the initial state and priors (target frame in the map frame, bias in the IMU frame)
+  // Log the computed initial state and covariance
+  gtsam::Vector6 prior_pose_sigmas = init_state.pose_cov.diagonal().cwiseSqrt();
+  gtsam::Vector3 prior_vel_sigmas = init_state.vel_cov.diagonal().cwiseSqrt();
+  gtsam::Vector6 prior_imu_bias_sigmas = init_state.bias_cov.diagonal().cwiseSqrt();
+
   std::ostringstream oss;
   oss << "Initial state (t=" << std::fixed << std::setprecision(4) << init_state.time << "):\n";
   oss << std::scientific;

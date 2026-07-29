@@ -108,6 +108,28 @@ class StateInitializer {
    */
   gtsam::imuBias::ConstantBias computeInitialBias() const;
 
+  /**
+   * @brief Rotates the map-frame pose sigmas into the target-frame Pose3 tangent.
+   * @param map_R_target The computed initial rotation.
+   * @return Initial pose covariance, ordered with the rotation block first.
+   */
+  gtsam::Matrix6 computeInitialPoseCovariance(const gtsam::Rot3& map_R_target) const;
+
+  /**
+   * @brief Rotates the base-frame velocity sigmas into the map frame.
+   * @param map_R_target The computed initial rotation.
+   * @param tfs SE(3) sensor transforms for the base frame rotation.
+   * @return Initial velocity covariance in the map frame.
+   */
+  gtsam::Matrix3 computeInitialVelocityCovariance(const gtsam::Rot3& map_R_target,
+                                                  const utils::TfBundle& tfs) const;
+
+  /**
+   * @brief Collects the IMU-frame bias sigmas, which GTSAM whitens in that same frame.
+   * @return Initial bias covariance, ordered with the accelerometer block first.
+   */
+  gtsam::Matrix6 computeInitialBiasCovariance() const;
+
   const factor_graph_node::Params& params_;
   double start_avg_time_{0.0};
   size_t imu_count_ = 0, gps_count_ = 0, depth_count_ = 0, mag_count_ = 0, ahrs_count_ = 0,

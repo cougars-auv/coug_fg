@@ -833,24 +833,24 @@ factor_graph_node:
         default_value: [0.0, 0.0, 0.0]
         validation:
           fixed_size<>: [3]
-      initial_position_sigmas:
-        type: double_array
-        default_value: [0.001, 0.001, 0.001]
-        validation:
-          fixed_size<>: [3]
-          lower_element_bounds<>: [0.0]
-      initial_orientation_sigmas:
-        type: double_array
-        default_value: [0.001, 0.001, 0.001]
-        validation:
-          fixed_size<>: [3]
-          lower_element_bounds<>: [0.0]
-      initial_velocity_sigmas:
-        type: double_array
-        default_value: [0.001, 0.001, 0.001]
-        validation:
-          fixed_size<>: [3]
-          lower_element_bounds<>: [0.0]
+    initial_position_sigmas:
+      type: double_array
+      default_value: [0.001, 0.001, 0.001]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    initial_orientation_sigmas:
+      type: double_array
+      default_value: [0.001, 0.001, 0.001]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    initial_velocity_sigmas:
+      type: double_array
+      default_value: [0.001, 0.001, 0.001]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
     initial_accel_bias_sigmas:
       type: double_array
       default_value: [0.01, 0.01, 0.01]

@@ -147,19 +147,19 @@ struct QueueBundle {
 
 /**
  * @struct InitialState
- * @brief Computed initial state priors and the averaged sensor samples behind them.
+ * @brief Computed initial state priors and averaged sensor samples.
  */
 struct InitialState {
   gtsam::Pose3 pose;
-  gtsam::Vector3 velocity = gtsam::Vector3::Zero();
+  gtsam::Vector3 velocity;
   gtsam::imuBias::ConstantBias bias;
   double time{0.0};
 
+  gtsam::Matrix6 pose_cov;
+  gtsam::Matrix3 vel_cov;
+  gtsam::Matrix6 bias_cov;
+
   std::shared_ptr<ImuData> imu;
-  std::shared_ptr<OdometryData> gps;
-  std::shared_ptr<OdometryData> depth;
-  std::shared_ptr<AhrsData> ahrs;
-  std::shared_ptr<MagneticFieldData> mag;
   std::shared_ptr<TwistData> dvl;
 };
 

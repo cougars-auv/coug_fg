@@ -30,6 +30,24 @@
 
 namespace coug_fgo::utils {
 
+namespace {
+
+/**
+ * @brief Builds a diagonal covariance matrix from a vector of standard deviations.
+ * @param sigmas Per-axis standard deviations (at least N entries).
+ * @return The N x N diagonal matrix with sigmas^2 on the diagonal.
+ */
+template <int N = 3>
+Eigen::Matrix<double, N, N> sigmasSquaredDiag(const std::vector<double>& sigmas) {
+  return Eigen::Matrix<double, N, N>(Eigen::Map<const Eigen::Matrix<double, N, 1>>(sigmas.data())
+                                         .array()
+                                         .square()
+                                         .matrix()
+                                         .asDiagonal());
+}
+
+}  // namespace
+
 StateInitializer::StateInitializer(const factor_graph_node::Params& params) : params_(params) {}
 
 std::optional<InitialState> StateInitializer::update(double current_time, QueueBundle& queues,
@@ -101,6 +119,9 @@ InitialState StateInitializer::compute(const TfBundle& tfs) const {
   state.pose = gtsam::Pose3(map_R_target, computeInitialPosition(map_R_target, tfs));
   state.velocity = computeInitialVelocity(map_R_target, tfs);
   state.bias = computeInitialBias();
+  state.pose_cov = computeInitialPoseCovariance(map_R_target);
+  state.vel_cov = computeInitialVelocityCovariance(map_R_target, tfs);
+  state.bias_cov = computeInitialBiasCovariance();
   switch (parseKeyframeSource(params_.keyframe_source)) {
     case KeyframeSource::kDvl:
       state.time = initial_dvl_->timestamp;
@@ -115,10 +136,6 @@ InitialState StateInitializer::compute(const TfBundle& tfs) const {
   }
 
   state.imu = initial_imu_;
-  state.gps = initial_gps_;
-  state.depth = initial_depth_;
-  state.ahrs = initial_ahrs_;
-  state.mag = initial_mag_;
   state.dvl = initial_dvl_;
   return state;
 }
@@ -290,6 +307,37 @@ gtsam::imuBias::ConstantBias StateInitializer::computeInitialBias() const {
       Eigen::Map<const Eigen::Vector3d>(params_.prior.parameter_priors.initial_accel_bias.data());
 
   return gtsam::imuBias::ConstantBias(init_accel_bias, init_gyro_bias);
+}
+
+gtsam::Matrix6 StateInitializer::computeInitialPoseCovariance(
+    const gtsam::Rot3& map_R_target) const {
+  const gtsam::Matrix3 target_R_map = map_R_target.inverse().matrix();
+
+  gtsam::Matrix6 pose_cov = gtsam::Matrix6::Zero();
+  pose_cov.topLeftCorner<3, 3>() = target_R_map *
+                                   sigmasSquaredDiag(params_.prior.initial_orientation_sigmas) *
+                                   target_R_map.transpose();
+  pose_cov.bottomRightCorner<3, 3>() = target_R_map *
+                                       sigmasSquaredDiag(params_.prior.initial_position_sigmas) *
+                                       target_R_map.transpose();
+
+  return pose_cov;
+}
+
+gtsam::Matrix3 StateInitializer::computeInitialVelocityCovariance(const gtsam::Rot3& map_R_target,
+                                                                  const TfBundle& tfs) const {
+  const gtsam::Matrix3 map_R_base = (map_R_target * tfs.target_T_base.rotation()).matrix();
+
+  return map_R_base * sigmasSquaredDiag(params_.prior.initial_velocity_sigmas) *
+         map_R_base.transpose();
+}
+
+gtsam::Matrix6 StateInitializer::computeInitialBiasCovariance() const {
+  gtsam::Matrix6 bias_cov = gtsam::Matrix6::Zero();
+  bias_cov.topLeftCorner<3, 3>() = sigmasSquaredDiag(params_.prior.initial_accel_bias_sigmas);
+  bias_cov.bottomRightCorner<3, 3>() = sigmasSquaredDiag(params_.prior.initial_gyro_bias_sigmas);
+
+  return bias_cov;
 }
 
 }  // namespace coug_fgo::utils

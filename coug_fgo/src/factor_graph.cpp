@@ -586,7 +586,7 @@ void FactorGraphNode::publishVelocity(const gtsam::Vector3& current_vel,
   geometry_msgs::msg::TwistWithCovarianceStamped vel_msg;
   vel_msg.header.stamp = timestamp;
 
-  // Velocity at the target frame with respect to the map frame.
+  // Velocity of the target frame in the map frame.
   vel_msg.header.frame_id = params_.map_frame;
   vel_msg.twist.twist.linear = toVectorMsg(current_vel);
   vel_msg.twist.covariance = toCovariance36Msg(gtsam::Matrix33(vel_covariance));

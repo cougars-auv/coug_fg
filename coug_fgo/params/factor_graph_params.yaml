@@ -798,7 +798,7 @@ factor_graph_node:
         gt<>: [0.0]
 
   # --- Prior Settings ---
-  prior:
+  priors:
     initialization_duration_sec:
       type: double
       default_value: 5.0

@@ -66,7 +66,7 @@ bool StateInitializer::accumulate(double current_time, QueueBundle& queues) {
                         params_.comparison.enable_loose_dvl_preintegration;
   const bool dvl_req = params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_only;
 
-  if (params_.prior.use_parameter_priors) {
+  if (params_.priors.use_parameter_priors) {
     if (queues.imu.empty()) {
       return false;
     }
@@ -110,7 +110,7 @@ bool StateInitializer::accumulate(double current_time, QueueBundle& queues) {
 
   incrementAverages(queues);
 
-  return (current_time - start_avg_time_) >= params_.prior.initialization_duration_sec;
+  return (current_time - start_avg_time_) >= params_.priors.initialization_duration_sec;
 }
 
 InitialState StateInitializer::compute(const TfBundle& tfs) const {
@@ -205,11 +205,11 @@ void StateInitializer::incrementAverages(QueueBundle& queues) {
 }
 
 gtsam::Rot3 StateInitializer::computeInitialOrientation(const TfBundle& tfs) const {
-  double roll = params_.prior.parameter_priors.initial_orientation[0];
-  double pitch = params_.prior.parameter_priors.initial_orientation[1];
-  double yaw = params_.prior.parameter_priors.initial_orientation[2];
+  double roll = params_.priors.parameter_priors.initial_orientation[0];
+  double pitch = params_.priors.parameter_priors.initial_orientation[1];
+  double yaw = params_.priors.parameter_priors.initial_orientation[2];
 
-  if (params_.prior.use_parameter_priors) {
+  if (params_.priors.use_parameter_priors) {
     gtsam::Rot3 base_R_target = tfs.target_T_base.rotation().inverse();
     return gtsam::Rot3::Ypr(yaw, pitch, roll) * base_R_target;
   }
@@ -252,11 +252,11 @@ gtsam::Rot3 StateInitializer::computeInitialOrientation(const TfBundle& tfs) con
 
 gtsam::Point3 StateInitializer::computeInitialPosition(const gtsam::Rot3& map_R_target,
                                                        const TfBundle& tfs) const {
-  gtsam::Point3 map_p_base(params_.prior.parameter_priors.initial_position[0],
-                           params_.prior.parameter_priors.initial_position[1],
-                           params_.prior.parameter_priors.initial_position[2]);
+  gtsam::Point3 map_p_base(params_.priors.parameter_priors.initial_position[0],
+                           params_.priors.parameter_priors.initial_position[1],
+                           params_.priors.parameter_priors.initial_position[2]);
 
-  if (params_.prior.use_parameter_priors) {
+  if (params_.priors.use_parameter_priors) {
     gtsam::Point3 target_p_base = tfs.target_T_base.translation();
     return map_p_base - map_R_target.rotate(target_p_base);
   }
@@ -279,9 +279,9 @@ gtsam::Point3 StateInitializer::computeInitialPosition(const gtsam::Rot3& map_R_
 
 gtsam::Vector3 StateInitializer::computeInitialVelocity(const gtsam::Rot3& map_R_target,
                                                         const TfBundle& tfs) const {
-  if (params_.prior.use_parameter_priors) {
+  if (params_.priors.use_parameter_priors) {
     gtsam::Vector3 base_v_base =
-        Eigen::Map<const Eigen::Vector3d>(params_.prior.parameter_priors.initial_velocity.data());
+        Eigen::Map<const Eigen::Vector3d>(params_.priors.parameter_priors.initial_velocity.data());
     gtsam::Vector3 target_v_target = tfs.target_T_base.rotation().rotate(base_v_base);
     return map_R_target.rotate(target_v_target);
   }
@@ -297,14 +297,14 @@ gtsam::Vector3 StateInitializer::computeInitialVelocity(const gtsam::Rot3& map_R
 
 gtsam::imuBias::ConstantBias StateInitializer::computeInitialBias() const {
   gtsam::Vector3 init_gyro_bias;
-  if (params_.prior.use_parameter_priors) {
+  if (params_.priors.use_parameter_priors) {
     init_gyro_bias =
-        Eigen::Map<const Eigen::Vector3d>(params_.prior.parameter_priors.initial_gyro_bias.data());
+        Eigen::Map<const Eigen::Vector3d>(params_.priors.parameter_priors.initial_gyro_bias.data());
   } else {
     init_gyro_bias = initial_imu_->angular_velocity;
   }
   gtsam::Vector3 init_accel_bias =
-      Eigen::Map<const Eigen::Vector3d>(params_.prior.parameter_priors.initial_accel_bias.data());
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.parameter_priors.initial_accel_bias.data());
 
   return gtsam::imuBias::ConstantBias(init_accel_bias, init_gyro_bias);
 }
@@ -315,10 +315,10 @@ gtsam::Matrix6 StateInitializer::computeInitialPoseCovariance(
 
   gtsam::Matrix6 pose_cov = gtsam::Matrix6::Zero();
   pose_cov.topLeftCorner<3, 3>() = target_R_map *
-                                   sigmasSquaredDiag(params_.prior.initial_orientation_sigmas) *
+                                   sigmasSquaredDiag(params_.priors.initial_orientation_sigmas) *
                                    target_R_map.transpose();
   pose_cov.bottomRightCorner<3, 3>() = target_R_map *
-                                       sigmasSquaredDiag(params_.prior.initial_position_sigmas) *
+                                       sigmasSquaredDiag(params_.priors.initial_position_sigmas) *
                                        target_R_map.transpose();
 
   return pose_cov;
@@ -328,14 +328,14 @@ gtsam::Matrix3 StateInitializer::computeInitialVelocityCovariance(const gtsam::R
                                                                   const TfBundle& tfs) const {
   const gtsam::Matrix3 map_R_base = (map_R_target * tfs.target_T_base.rotation()).matrix();
 
-  return map_R_base * sigmasSquaredDiag(params_.prior.initial_velocity_sigmas) *
+  return map_R_base * sigmasSquaredDiag(params_.priors.initial_velocity_sigmas) *
          map_R_base.transpose();
 }
 
 gtsam::Matrix6 StateInitializer::computeInitialBiasCovariance() const {
   gtsam::Matrix6 bias_cov = gtsam::Matrix6::Zero();
-  bias_cov.topLeftCorner<3, 3>() = sigmasSquaredDiag(params_.prior.initial_accel_bias_sigmas);
-  bias_cov.bottomRightCorner<3, 3>() = sigmasSquaredDiag(params_.prior.initial_gyro_bias_sigmas);
+  bias_cov.topLeftCorner<3, 3>() = sigmasSquaredDiag(params_.priors.initial_accel_bias_sigmas);
+  bias_cov.bottomRightCorner<3, 3>() = sigmasSquaredDiag(params_.priors.initial_gyro_bias_sigmas);
 
   return bias_cov;
 }

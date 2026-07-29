@@ -44,7 +44,7 @@ class DvlTightPreintegrator {
   void reset() {
     measured_translation_ = gtsam::Vector3::Zero();
     covariance_ = gtsam::Matrix3::Zero();
-    d_translation_d_bias_ = gtsam::Matrix3::Zero();
+    J_p_bg_ = gtsam::Matrix3::Zero();
     cross_cov_rot_trans_ = gtsam::Matrix3::Zero();
     prev_delta_R_ik_ = gtsam::Rot3();
   }
@@ -63,34 +63,24 @@ class DvlTightPreintegrator {
                             const gtsam::Rot3& target_R_dvl, double dt,
                             const gtsam::Matrix3& measured_cov, const gtsam::Matrix3& rot_cov_k,
                             const gtsam::Matrix3& J_bg_k) {
-    // Transport the rotation error frame from the previous step to this one:
-    // delta_phi_k = delta_R_{k-1,k}^T * delta_phi_{k-1} + (new gyro noise)
-    gtsam::Matrix3 A = (prev_delta_R_ik_.inverse() * delta_R_ik).matrix().transpose();
-    cross_cov_rot_trans_ = A * cross_cov_rot_trans_;
+    // Transform the rotation error from the previous frame to this one
+    gtsam::Matrix3 k_R_prev = (prev_delta_R_ik_.inverse() * delta_R_ik).matrix().transpose();
+    cross_cov_rot_trans_ = k_R_prev * cross_cov_rot_trans_;
 
-    // Calculate velocity in the target frame at time k
+    // Transform the velocity into the anchor frame (i) and integrate
     gtsam::Vector3 vel_in_target = target_R_dvl.rotate(measured_vel);
-
-    // Rotate into the target frame at the start of the interval (time i)
     gtsam::Vector3 vel_in_i = delta_R_ik.rotate(vel_in_target);
     measured_translation_ += vel_in_i * dt;
 
-    // Compute Jacobians for uncertainty and bias correction
-    // J_vel maps DVL velocity noise to translation noise
-    gtsam::Matrix3 J_vel = delta_R_ik.matrix() * target_R_dvl.matrix() * dt;
-
-    // J_rot maps Gyro rotation noise to translation noise
-    gtsam::Matrix3 J_rot = -delta_R_ik.matrix() * gtsam::skewSymmetric(vel_in_target) * dt;
-
     // Joint propagation: delta_p_new = delta_p + J_rot * delta_phi + J_vel * delta_v
+    gtsam::Matrix3 J_vel = delta_R_ik.matrix() * target_R_dvl.matrix() * dt;
+    gtsam::Matrix3 J_rot = -delta_R_ik.matrix() * gtsam::skewSymmetric(vel_in_target) * dt;
     covariance_ += (J_vel * measured_cov * J_vel.transpose()) +
                    (J_rot * rot_cov_k * J_rot.transpose()) + (J_rot * cross_cov_rot_trans_) +
                    (J_rot * cross_cov_rot_trans_).transpose();
     cross_cov_rot_trans_ += rot_cov_k * J_rot.transpose();
 
-    // Accumulate first-order Jacobian w.r.t Gyro Bias
-    d_translation_d_bias_ += J_rot * J_bg_k;
-
+    J_p_bg_ += J_rot * J_bg_k;
     prev_delta_R_ik_ = delta_R_ik;
   }
 
@@ -110,12 +100,12 @@ class DvlTightPreintegrator {
    * @brief Gets the first-order derivative of the preintegrated measurement w.r.t gyro bias.
    * @return The 3x3 Jacobian matrix.
    */
-  gtsam::Matrix3 preintMeasDerivativeWrtBias() const { return d_translation_d_bias_; }
+  gtsam::Matrix3 preintMeasDerivativeWrtBias() const { return J_p_bg_; }
 
  private:
   gtsam::Vector3 measured_translation_;
   gtsam::Matrix3 covariance_;
-  gtsam::Matrix3 d_translation_d_bias_;
+  gtsam::Matrix3 J_p_bg_;
   gtsam::Matrix3 cross_cov_rot_trans_;
   gtsam::Rot3 prev_delta_R_ik_;
 };

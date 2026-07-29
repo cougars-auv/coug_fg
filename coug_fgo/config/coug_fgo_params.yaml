@@ -265,8 +265,8 @@
       # If true, forces the initial state to be set by the values below.
       use_parameter_priors: true
       parameter_priors:
-        initial_position: [0.0, 0.0, 0.0] # [m] (in the map frame)
-        initial_orientation: [0.0, 0.0, 0.0] # [roll, pitch, yaw] [rad] (in the map frame)
+        initial_position: [0.0, 0.0, 0.0] # [m] (of the base frame in the map frame)
+        initial_orientation: [0.0, 0.0, 0.0] # [roll, pitch, yaw] [rad] (of the base frame in the map frame)
         initial_velocity: [0.0, 0.0, 0.0] # [m/s] (in the base frame)
         initial_accel_bias: [0.0, 0.0, 0.0] # [m/s^2] (in the IMU frame)
         initial_gyro_bias: [0.0, 0.0, 0.0] # [rad/s] (in the IMU frame)

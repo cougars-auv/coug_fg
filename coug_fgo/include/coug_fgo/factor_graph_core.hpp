@@ -265,6 +265,14 @@ class FactorGraphCore {
    */
   void addNeighborBetweenFactor(utils::NeighborState& neighbor, gtsam::NonlinearFactorGraph& graph);
   /**
+   * @brief Add a unary factor to neighbor's chain.
+   * @param msg Acoustic message from neighbor agent.
+   * @param neighbor State values for this neighbor.
+   * @param graph The target factor graph.
+   */
+  void addNeighborUnaryFactor(utils::AgentStatusData& msg, utils::NeighborState& neighbor,
+                              gtsam::NonlinearFactorGraph& graph);
+  /**
    * @brief Add a range factor between neighbor and local agent.
    * @param neighbor State values for this neighbor.
    * @param graph The target factor graph.

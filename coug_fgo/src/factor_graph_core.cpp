@@ -919,23 +919,6 @@ void FactorGraphCore::addNeighborPriorFactor(utils::NeighborState& neighbor,
   logMessage(utils::LogLevel::kInfo, oss.str());
 }
 
-void FactorGraphCore::addInterAgentRangeFactor(double range_meas, utils::NeighborState& neighbor,
-                                               gtsam::NonlinearFactorGraph& graph) {
-  if (!neighbor.initialized_flag) {
-    return;
-  }
-
-  auto range_noise = gtsam::noiseModel::Isotropic::Sigma(1, params_.multiagent.range_noise_sigma);
-
-  graph.emplace_shared<RangeFactorArm>(X(current_step_), N(neighbor.current_step), range_meas,
-                                       tfs_.target_T_modem, tfs_.target_T_modem, range_noise);
-  std::ostringstream oss;
-  oss << "Adding range factor X(" << current_step_ << "), N(" << neighbor.current_step
-      << "), Range meas: " << range_meas;
-
-  logMessage(utils::LogLevel::kInfo, oss.str());
-}
-
 void FactorGraphCore::addNeighborBetweenFactor(utils::NeighborState& neighbor,
                                                gtsam::NonlinearFactorGraph& graph) {
   if (!neighbor.initialized_flag) {
@@ -958,6 +941,56 @@ void FactorGraphCore::addNeighborBetweenFactor(utils::NeighborState& neighbor,
       N(neighbor.prev_step), N(neighbor.current_step), between_pose, between_noise);
 }
 
+void FactorGraphCore::addNeighborUnaryFactor(utils::AgentStatusData& msg,
+                                             utils::NeighborState& neighbor,
+                                             gtsam::NonlinearFactorGraph& graph) {
+  // Depth and ahrs from the acoustic modem
+  if (params_.multiagent.neighbor.depth.enable_depth) {
+    const double depth_sigma =
+        std::sqrt(resolveVar(params_.depth.use_parameter_covariance,
+                             params_.multiagent.neighbor.depth.position_z_noise_sigma,
+                             params_.multiagent.neighbor.depth.covariance_scalar,
+                             msg.pose_covariance(2, 2), covFallbackWarning("Depth")));
+    gtsam::SharedNoiseModel depth_noise = gtsam::noiseModel::Isotropic::Sigma(1, depth_sigma);
+
+    depth_noise = applyRobustKernel(depth_noise, params_.multiagent.neighbor.depth.robust_kernel,
+                                    params_.multiagent.neighbor.depth.robust_k);
+
+    graph.emplace_shared<DepthFactorArm>(N(neighbor.current_step), msg.pressure_depth,
+                                         tfs_.target_T_modem, depth_noise);
+  }
+  if (params_.multiagent.neighbor.ahrs.enable_ahrs) {
+    gtsam::Vector3 sigmas;
+    sigmas << params_.multiagent.neighbor.ahrs.orientation_noise_sigmas[0],
+        params_.multiagent.neighbor.ahrs.orientation_noise_sigmas[1],
+        params_.multiagent.neighbor.ahrs.orientation_noise_sigmas[2];
+
+    gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Diagonal::Sigmas(sigmas);
+
+    ahrs_noise = applyRobustKernel(ahrs_noise, params_.multiagent.neighbor.ahrs.robust_kernel,
+                                   params_.multiagent.neighbor.ahrs.robust_k);
+    graph.emplace_shared<AhrsFactorArm>(
+        N(neighbor.current_step), msg.imu_orientation, tfs_.target_T_modem,
+        params_.multiagent.neighbor.ahrs.mag_declination_radians, ahrs_noise);
+  }
+}
+
+void FactorGraphCore::addInterAgentRangeFactor(double range_meas, utils::NeighborState& neighbor,
+                                               gtsam::NonlinearFactorGraph& graph) {
+  if (!neighbor.initialized_flag) {
+    return;
+  }
+
+  auto range_noise = gtsam::noiseModel::Isotropic::Sigma(1, params_.multiagent.range_noise_sigma);
+
+  graph.emplace_shared<RangeFactorArm>(X(current_step_), N(neighbor.current_step), range_meas,
+                                       tfs_.target_T_modem, tfs_.target_T_modem, range_noise);
+  std::ostringstream oss;
+  oss << "Adding range factor X(" << current_step_ << "), N(" << neighbor.current_step
+      << "), Range meas: " << range_meas;
+
+  logMessage(utils::LogLevel::kInfo, oss.str());
+}
 void FactorGraphCore::addMultiAgentFactors(
     gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
     gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps, utils::QueueBundle& queues,
@@ -995,7 +1028,8 @@ void FactorGraphCore::addMultiAgentFactors(
 
       values.insert(N(neighbor.current_step), neighbor.curr_pose);
       addNeighborBetweenFactor(neighbor, graph);
-      addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
+      // addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
+      addNeighborUnaryFactor(*msg, neighbor, graph);
       timestamps[N(neighbor.current_step)] = msg->timestamp;
     }
 

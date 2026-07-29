@@ -37,7 +37,7 @@ class DvlTightPreintFactorArm
     : public gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::imuBias::ConstantBias> {
   gtsam::Point3 target_p_dvl_;
   gtsam::Vector3 measured_translation_;
-  gtsam::Matrix3 d_translation_d_bias_;
+  gtsam::Matrix3 J_p_bg_;
   gtsam::Vector3 gyro_bias_hat_;
 
  public:
@@ -48,21 +48,20 @@ class DvlTightPreintFactorArm
    * @param bias_key_i GTSAM key for the IMU bias at the start of the interval.
    * @param target_T_dvl The static transformation from target to DVL.
    * @param measured_translation The preintegrated translation measurement (target frame at i).
-   * @param d_translation_d_bias Jacobian mapping gyro bias changes to measurement changes.
+   * @param J_p_bg Jacobian mapping gyro bias changes to measurement changes.
    * @param gyro_bias_hat The gyro bias estimate used during preintegration.
    * @param noise_model The noise model for the measurement.
    */
   DvlTightPreintFactorArm(gtsam::Key pose_key_i, gtsam::Key pose_key_j, gtsam::Key bias_key_i,
                           const gtsam::Pose3& target_T_dvl,
-                          const gtsam::Vector3& measured_translation,
-                          const gtsam::Matrix3& d_translation_d_bias,
+                          const gtsam::Vector3& measured_translation, const gtsam::Matrix3& J_p_bg,
                           const gtsam::Vector3& gyro_bias_hat,
                           const gtsam::SharedNoiseModel& noise_model)
       : gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::imuBias::ConstantBias>(
             noise_model, pose_key_i, pose_key_j, bias_key_i),
         target_p_dvl_(target_T_dvl.translation()),
         measured_translation_(measured_translation),
-        d_translation_d_bias_(d_translation_d_bias),
+        J_p_bg_(J_p_bg),
         gyro_bias_hat_(gyro_bias_hat) {}
 
   /**
@@ -81,8 +80,7 @@ class DvlTightPreintFactorArm
                               gtsam::OptionalMatrixType H_pose_j = nullptr,
                               gtsam::OptionalMatrixType H_bias_i = nullptr) const override {
     gtsam::Vector3 gyro_bias_update = bias_i.gyroscope() - gyro_bias_hat_;
-    gtsam::Vector3 corrected_translation =
-        measured_translation_ + (d_translation_d_bias_ * gyro_bias_update);
+    gtsam::Vector3 corrected_translation = measured_translation_ + (J_p_bg_ * gyro_bias_update);
 
     gtsam::Matrix36 H_position_j = gtsam::Matrix36::Zero();
     gtsam::Point3 position_j =
@@ -111,7 +109,7 @@ class DvlTightPreintFactorArm
     if (H_bias_i) {
       // Jacobian with respect to bias_i (3x6)
       H_bias_i->setZero(3, 6);
-      H_bias_i->block<3, 3>(0, 3) = -d_translation_d_bias_;
+      H_bias_i->block<3, 3>(0, 3) = -J_p_bg_;
     }
 
     return error;

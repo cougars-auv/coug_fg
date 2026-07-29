@@ -68,10 +68,9 @@ class DvlLoosePreintegrator {
   void integrateMeasurement(const gtsam::Vector3& measured_vel,
                             const gtsam::Rot3& measured_orientation, double dt,
                             const gtsam::Matrix3& measured_cov) {
-    // Relative rotation from the integration start frame
     gtsam::Rot3 i_R_k = map_R_i_.between(measured_orientation);
 
-    // Accumulate the position change in the start frame
+    // Integrate the position change in the start frame
     gtsam::Vector3 vel_in_i = i_R_k.rotate(measured_vel);
     measured_translation_ += vel_in_i * dt;
 
@@ -79,8 +78,7 @@ class DvlLoosePreintegrator {
     gtsam::Matrix3 J = i_R_k.matrix() * dt;
     covariance_ += J * measured_cov * J.transpose();
 
-    // A constant AHRS attitude error perturbs the start-frame reference and each step:
-    // d(delta_p) = sum_k dt * ([i_R_k v_k]x target_R_ahrs - i_R_k [v_k]x dvl_R_ahrs) delta_theta
+    // Accumulate growing AHRS uncertainty (added later to the covariance)
     J_ahrs_ += dt * (gtsam::skewSymmetric(vel_in_i) * target_R_ahrs_ -
                      i_R_k.matrix() * gtsam::skewSymmetric(measured_vel) * dvl_R_ahrs_);
   }

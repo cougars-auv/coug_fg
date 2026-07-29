@@ -903,7 +903,7 @@ void FactorGraphCore::addNeighborPriorFactor(utils::NeighborState& neighbor,
 
   // Log the initialized neighbor.
   std::ostringstream oss;
-  oss << "Initial neighbor state (Agent " << neighbor.agent_id
+  oss << "Initial neighbor state (Agent " << neighbor.agent_queue_idx
       << ", Init idx: " << neighbor.init_idx << ", Curr idx: " << neighbor.current_step
       << " t=" << std::fixed << std::setprecision(4) << neighbor.prev_time << "):\n";
 
@@ -991,6 +991,7 @@ void FactorGraphCore::addInterAgentRangeFactor(double range_meas, utils::Neighbo
 
   logMessage(utils::LogLevel::kInfo, oss.str());
 }
+
 void FactorGraphCore::addMultiAgentFactors(
     gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
     gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps, utils::QueueBundle& queues,
@@ -1001,12 +1002,13 @@ void FactorGraphCore::addMultiAgentFactors(
   (void)target_time;
 
   for (size_t i = 0; i < queues.multiagent.size(); ++i) {
-    uint32_t agent_id = static_cast<uint32_t>(i);
+    uint32_t agent_queue_idx = static_cast<uint32_t>(i);
     auto& queue = queues.multiagent[i];
 
     if (queue.empty()) continue;
 
-    auto [it, inserted] = neighbors_.try_emplace(agent_id, utils::NeighborState(agent_id));
+    auto [it, inserted] =
+        neighbors_.try_emplace(agent_queue_idx, utils::NeighborState(agent_queue_idx));
 
     auto& neighbor = it->second;
 
@@ -1017,6 +1019,8 @@ void FactorGraphCore::addMultiAgentFactors(
       neighbor.Initialize(msg->pose, msg->pose_covariance, msg->timestamp);
 
       addNeighborPriorFactor(neighbor, graph, values);
+      // addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
+      addNeighborUnaryFactor(*msg, neighbor, graph);
       timestamps[N(neighbor.init_idx)] = msg->timestamp;
 
       queue.pop_front();
@@ -1334,9 +1338,37 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
 
   {
     std::scoped_lock state_lock(state_mutex_);
+
+    // Estimates for local agent
     result.pose = prev_pose_;
     result.velocity = prev_vel_;
     result.imu_bias = prev_imu_bias_;
+
+    // Estimates for neighbor agent
+    for (const auto& [agent_queue_idx, neighbor] : neighbors_) {
+      if (!neighbor.initialized_flag) {
+        continue;
+      }
+
+      NeighborEstimate estimate;
+      estimate.agent_queue_idx = agent_queue_idx;
+      estimate.timestamp = neighbor.curr_time;
+
+      gtsam::Key key = N(neighbor.current_step);
+
+      // Extract neighbor pose from optimized graph
+      if (inc_smoother_ && inc_smoother_->getLinearizationPoint().exists(key)) {
+        estimate.pose = inc_smoother_->calculateEstimate<gtsam::Pose3>(key);
+      } else if (isam_ && isam_->getLinearizationPoint().exists(key)) {
+        estimate.pose = isam_->calculateEstimate<gtsam::Pose3>(key);
+      } else if (lm_values_.exists(key)) {
+        estimate.pose = lm_values_.at<gtsam::Pose3>(key);
+      } else {
+        continue;  // no estimate available
+      }
+
+      result.neighbors_est.push_back(std::move(estimate));
+    }
   }
 
   // --- Calculate Covariances ---
@@ -1353,11 +1385,20 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
     }
     return gtsam::Matrix::Identity(dim, dim) * -1.0;
   };
+
+  // Covariances local agent
   result.pose_cov = marginal_cov(params_.publish_pose_cov, X(batch_last_step), 6);
   result.vel_cov =
       marginal_cov(params_.publish_velocity && params_.publish_velocity_cov, V(batch_last_step), 3);
   result.bias_cov =
       marginal_cov(params_.publish_imu_bias && params_.publish_imu_bias_cov, B(batch_last_step), 6);
+
+  // Covariances neighbor agents
+  for (auto& neighbor : result.neighbors_est) {
+    gtsam::Key key = N(neighbors_.at(neighbor.agent_queue_idx).current_step);
+
+    neighbor.pose_cov = marginal_cov(true, key, 6);
+  }
 
   auto cov_end = std::chrono::steady_clock::now();
   result.cov_duration = std::chrono::duration<double>(cov_end - cov_start).count();

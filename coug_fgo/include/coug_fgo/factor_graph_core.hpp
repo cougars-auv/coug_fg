@@ -47,6 +47,18 @@
 namespace coug_fgo {
 
 /**
+ * @struct NeighborEstimate
+ * @brief Output of neighbor pose estimate from a successful optimization step.
+ */
+struct NeighborEstimate {
+  size_t agent_queue_idx;
+  double timestamp{0.0};
+
+  gtsam::Pose3 pose;
+  gtsam::Matrix pose_cov;
+};
+
+/**
  * @struct OptimizeResult
  * @brief Output from a successful optimization step.
  */
@@ -69,6 +81,8 @@ struct OptimizeResult {
   size_t new_factors = 0;
   size_t total_factors = 0;
   size_t total_variables = 0;
+
+  std::vector<NeighborEstimate> neighbors_est;
 };
 
 /**

@@ -174,7 +174,17 @@ class FactorGraphNode : public rclcpp::Node {
    */
   void publishGlobalOdom(const gtsam::Pose3& current_pose, const gtsam::Matrix& pose_covariance,
                          const rclcpp::Time& timestamp);
-
+  /**
+   * @brief Publishes the optimized pose of neighbor agents from local graph as map-frame odometry
+   * of the base frame.
+   * @param agent_queue_idx
+   * @param current_pose The estimated target pose (re-expressed at the base frame).
+   * @param pose_covariance The estimation error covariance.
+   * @param timestamp The message timestamp.
+   */
+  void publishGlobalOdomNeighbor(size_t agent_queue_idx, const gtsam::Pose3& current_pose,
+                                 const gtsam::Matrix& pose_covariance,
+                                 const rclcpp::Time& timestamp);
   /**
    * @brief Broadcasts the map-to-odom transform.
    * @param current_pose The estimated target pose.
@@ -297,6 +307,7 @@ class FactorGraphNode : public rclcpp::Node {
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr velocity_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr imu_bias_pub_;
   rclcpp::Publisher<coug_interfaces::msg::GraphMetrics>::SharedPtr graph_metrics_pub_;
+  std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> multiagent_global_odom_pubs_;
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gps_sub_;

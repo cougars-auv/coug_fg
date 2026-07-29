@@ -164,9 +164,9 @@ struct InitialState {
 };
 
 struct NeighborState {
-  explicit NeighborState(uint32_t agent_id, size_t step_spacing = 1000)
-      : agent_id(agent_id),
-        init_idx(agent_id * step_spacing),
+  explicit NeighborState(uint32_t agent_queue_idx, size_t step_spacing = 1000)
+      : agent_queue_idx(agent_queue_idx),
+        init_idx(agent_queue_idx * step_spacing),
         prev_step(init_idx),
         current_step(init_idx),
         initialized_flag(false) {}
@@ -197,7 +197,7 @@ struct NeighborState {
     curr_time = new_time;
   }
 
-  uint32_t agent_id;
+  uint32_t agent_queue_idx;
   const size_t init_idx;
 
   size_t prev_step;

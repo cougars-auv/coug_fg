@@ -81,6 +81,7 @@ void FactorGraphNode::setupRosInterfaces() {
   // --- ROS Publishers ---
   global_odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(params_.global_odom_topic,
                                                                rclcpp::SystemDefaultsQoS());
+
   if (params_.publish_smoothed_path) {
     smoothed_path_pub_ = create_publisher<nav_msgs::msg::Path>(params_.smoothed_path_topic,
                                                                rclcpp::SystemDefaultsQoS());
@@ -96,6 +97,30 @@ void FactorGraphNode::setupRosInterfaces() {
   if (params_.publish_graph_metrics) {
     graph_metrics_pub_ = create_publisher<coug_interfaces::msg::GraphMetrics>(
         params_.graph_metrics_topic, rclcpp::SystemDefaultsQoS());
+  }
+
+  if (params_.multiagent.enable_multiagent) {
+    multiagent_global_odom_pubs_.resize(params_.multiagent_topics.size());
+
+    for (size_t i = 0; i < params_.multiagent_topics.size(); ++i) {
+      std::string topic = params_.multiagent_topics[i];
+
+      auto pos = topic.find("/base/");
+      if (pos != std::string::npos) {
+        topic = topic.substr(0, pos);
+      }
+
+      std::string global_odom_topic_neighbor = topic + "/est/" + params_.global_odom_topic;
+
+      RCLCPP_INFO(get_logger(), "Multiagent topic[%zu]: %s (Num topics: %zu)", i, topic.c_str(),
+                  params_.multiagent_topics.size());
+
+      RCLCPP_INFO(get_logger(), "Multiagent pub topic[%zu]: %s", i,
+                  global_odom_topic_neighbor.c_str());
+
+      multiagent_global_odom_pubs_[i] = create_publisher<nav_msgs::msg::Odometry>(
+          global_odom_topic_neighbor, rclcpp::SystemDefaultsQoS());
+    }
   }
 
   // --- ROS Services ---
@@ -526,6 +551,56 @@ void FactorGraphNode::publishGlobalOdom(const gtsam::Pose3& current_pose,
   global_odom_pub_->publish(odom_msg);
 }
 
+// This can probably be used for local agent as well, but keeping separate for now
+void FactorGraphNode::publishGlobalOdomNeighbor(size_t agent_queue_idx,
+                                                const gtsam::Pose3& current_pose,
+                                                const gtsam::Matrix& pose_covariance,
+                                                const rclcpp::Time& timestamp) {
+  if (agent_queue_idx >= multiagent_global_odom_pubs_.size()) {
+    RCLCPP_WARN(get_logger(), "No global odom publisher for agent queue idx %zu", agent_queue_idx);
+    return;
+  }
+
+  // Publish pose of baselink, factor graph was useing target frame (dvl)
+  gtsam::Pose3 target_T_base;
+  {
+    std::scoped_lock lock(tf_mutex_);
+    target_T_base = toGtsam(target_T_base_tf_.transform);
+  }
+
+  gtsam::Pose3 map_T_base = current_pose * target_T_base;
+
+  nav_msgs::msg::Odometry odom_msg;
+  odom_msg.header.stamp = timestamp;
+  odom_msg.header.frame_id = params_.map_frame;
+
+  // TODO: Probably add id of neighbor here
+  odom_msg.child_frame_id = params_.base_frame;
+
+  odom_msg.pose.pose = toPoseMsg(map_T_base);
+
+  gtsam::Matrix cov_to_pub = pose_covariance;
+
+  if (params_.publish_pose_cov) {
+    gtsam::Rot3 map_R_base = map_T_base.rotation();
+
+    gtsam::Matrix66 Rot = gtsam::Matrix66::Zero();
+    Rot.block<3, 3>(0, 0) = map_R_base.matrix();
+    Rot.block<3, 3>(3, 3) = map_R_base.matrix();
+
+    gtsam::Matrix66 warped_covariance = target_T_base.inverse().AdjointMap() * pose_covariance *
+                                        target_T_base.inverse().AdjointMap().transpose();
+
+    cov_to_pub = Rot * warped_covariance * Rot.transpose();
+  }
+
+  odom_msg.pose.covariance = toPoseCovarianceMsg(gtsam::Matrix66(cov_to_pub));
+
+  odom_msg.twist.covariance[0] = -1.0;
+
+  multiagent_global_odom_pubs_[agent_queue_idx]->publish(odom_msg);
+}
+
 void FactorGraphNode::broadcastGlobalTf(const gtsam::Pose3& current_pose,
                                         const rclcpp::Time& timestamp) {
   try {
@@ -824,6 +899,9 @@ void FactorGraphNode::optimizeGraph() {
     // --- Publish Results ---
     const rclcpp::Time stamp(static_cast<int64_t>(result->target_time * 1e9));
     publishGlobalOdom(result->pose, result->pose_cov, stamp);
+    for (const auto& neighbor : result->neighbors_est) {
+      publishGlobalOdomNeighbor(neighbor.agent_queue_idx, neighbor.pose, neighbor.pose_cov, stamp);
+    }
 
     if (params_.publish_global_tf) {
       broadcastGlobalTf(result->pose, stamp);

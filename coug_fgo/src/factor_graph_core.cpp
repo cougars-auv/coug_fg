@@ -812,6 +812,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
       imu_it++;
     }
 
+    // Extra measurement to reach exact target time
     if (last_imu_time < t_end) {
       double dt_rem = t_end - last_imu_time;
       if (dt_rem > 1e-6) {

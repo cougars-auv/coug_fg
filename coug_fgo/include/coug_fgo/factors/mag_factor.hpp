@@ -40,6 +40,30 @@ class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Rot3 target_R_sensor_;
 
  public:
+  static constexpr double kMinFieldNorm = 1e-12;
+
+  /**
+   * @brief Normalizes a measured field to the unit-length convention of this factor.
+   * @param measured_field The measured magnetic field vector (sensor frame).
+   * @return The unit-length measurement, or the input if it is too small to normalize.
+   */
+  static gtsam::Point3 unitField(const gtsam::Point3& measured_field) {
+    const double field_norm = measured_field.norm();
+
+    return field_norm > kMinFieldNorm ? gtsam::Point3(measured_field / field_norm) : measured_field;
+  }
+
+  /**
+   * @brief Scales a measured field covariance to match unitField.
+   * @param measured_field The measured magnetic field vector (sensor frame).
+   * @return The variance scale factor, or 1.0 if the field is too small to normalize.
+   */
+  static double unitFieldCovarianceScale(const gtsam::Point3& measured_field) {
+    const double field_norm = measured_field.norm();
+
+    return field_norm > kMinFieldNorm ? 1.0 / (field_norm * field_norm) : 1.0;
+  }
+
   /**
    * @brief Constructs the factor, caching the sensor rotation.
    * @param pose_key GTSAM key for the AUV pose.

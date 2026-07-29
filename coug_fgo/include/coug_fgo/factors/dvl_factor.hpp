@@ -43,6 +43,25 @@ class DvlFactorArm
 
  public:
   /**
+   * @brief Inflates the DVL velocity covariance with the lever-arm-transported gyro noise.
+   * @param velocity_covariance The DVL velocity covariance in the sensor frame.
+   * @param gyro_covariance The per-sample gyro noise covariance in the IMU frame.
+   * @param target_T_sensor The static transformation from target to sensor.
+   * @param target_T_imu The static transformation from target to IMU.
+   * @return The inflated velocity covariance in the sensor frame.
+   */
+  static gtsam::Matrix3 inflatedCovariance(const gtsam::Matrix3& velocity_covariance,
+                                           const gtsam::Matrix3& gyro_covariance,
+                                           const gtsam::Pose3& target_T_sensor,
+                                           const gtsam::Pose3& target_T_imu) {
+    const gtsam::Matrix3 J_gyro = target_T_sensor.rotation().transpose() *
+                                  gtsam::skewSymmetric(target_T_sensor.translation()) *
+                                  target_T_imu.rotation().matrix();
+
+    return velocity_covariance + J_gyro * gyro_covariance * J_gyro.transpose();
+  }
+
+  /**
    * @brief Constructs the factor, caching the DVL and IMU extrinsics.
    * @param pose_key GTSAM key for the AUV pose.
    * @param vel_key GTSAM key for the AUV map-frame velocity.

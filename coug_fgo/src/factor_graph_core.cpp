@@ -389,15 +389,12 @@ void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
       if (params_.mag.enable_mag) {
         double h_mag = std::sqrt(params_.mag.reference_field[0] * params_.mag.reference_field[0] +
                                  params_.mag.reference_field[1] * params_.mag.reference_field[1]);
-        // Normalize sensor-reported covariance to match the normalized reference_field.
-        const double init_field_norm = init_state.mag->magnetic_field.norm();
-        const double mag_cov_scale =
-            init_field_norm > 1e-12 ? 1.0 / (init_field_norm * init_field_norm) : 1.0;
         double mag_sigma_norm = std::sqrt(resolveVar(
             params_.mag.use_parameter_covariance,
             params_.mag.parameter_covariance.magnetic_field_noise_sigmas[0],
             params_.mag.covariance_scalar, init_state.mag->magnetic_field_covariance(0, 0),
-            covFallbackWarning("Magnetometer"), mag_cov_scale));
+            covFallbackWarning("Magnetometer"),
+            MagFactorArm::unitFieldCovarianceScale(init_state.mag->magnetic_field)));
         prior_pose_sigmas(2) = mag_sigma_norm / h_mag;
       }
       const gtsam::Matrix3 accel_cov = resolveCov<3>(
@@ -537,10 +534,14 @@ void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
     return;
   }
 
-  gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
+  const gtsam::Matrix3 ahrs_cov = resolveCov<3>(
       params_.ahrs.use_parameter_covariance,
       params_.ahrs.parameter_covariance.orientation_noise_sigmas, params_.ahrs.covariance_scalar,
-      ahrs_msg->orientation_covariance, covFallbackWarning("AHRS")));
+      ahrs_msg->orientation_covariance, covFallbackWarning("AHRS"));
+
+  // Conjugate map-frame orientation covariance into the sensor-frame tangent space
+  gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Gaussian::Covariance(
+      AhrsFactorArm::sensorFrameCovariance(ahrs_cov, ahrs_msg->orientation));
 
   ahrs_noise = applyRobustKernel(ahrs_noise, params_.ahrs.robust_kernel, params_.ahrs.robust_k);
 
@@ -562,24 +563,22 @@ void FactorGraphCore::addMagFactor(
   gtsam::Point3 ref_vec(params_.mag.reference_field[0], params_.mag.reference_field[1],
                         params_.mag.reference_field[2]);
 
-  // Normalize the measurement to unit length to match the normalized reference_field.
-  const double field_norm = mag_msg->magnetic_field.norm();
-  if (field_norm < 1e-12) {
+  if (mag_msg->magnetic_field.norm() < MagFactorArm::kMinFieldNorm) {
     logMessage(utils::LogLevel::kWarn, "Skipped a zero-magnitude magnetometer measurement.");
     return;
   }
-  const gtsam::Point3 measured_unit = mag_msg->magnetic_field / field_norm;
 
-  gtsam::SharedNoiseModel mag_noise = gtsam::noiseModel::Gaussian::Covariance(
-      resolveCov<3>(params_.mag.use_parameter_covariance,
-                    params_.mag.parameter_covariance.magnetic_field_noise_sigmas,
-                    params_.mag.covariance_scalar, mag_msg->magnetic_field_covariance,
-                    covFallbackWarning("Magnetometer"), 1.0 / (field_norm * field_norm)));
+  gtsam::SharedNoiseModel mag_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
+      params_.mag.use_parameter_covariance,
+      params_.mag.parameter_covariance.magnetic_field_noise_sigmas, params_.mag.covariance_scalar,
+      mag_msg->magnetic_field_covariance, covFallbackWarning("Magnetometer"),
+      MagFactorArm::unitFieldCovarianceScale(mag_msg->magnetic_field)));
 
   mag_noise = applyRobustKernel(mag_noise, params_.mag.robust_kernel, params_.mag.robust_k);
 
-  graph.emplace_shared<MagFactorArm>(X(current_step_), measured_unit, ref_vec, tfs_.target_T_mag,
-                                     mag_noise);
+  graph.emplace_shared<MagFactorArm>(X(current_step_),
+                                     MagFactorArm::unitField(mag_msg->magnetic_field), ref_vec,
+                                     tfs_.target_T_mag, mag_noise);
 }
 
 void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,
@@ -591,10 +590,19 @@ void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,
 
   const auto& dvl_msg = dvl_msgs.back();
 
-  gtsam::SharedNoiseModel dvl_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
+  const gtsam::Matrix3 dvl_cov = resolveCov<3>(
       params_.dvl.use_parameter_covariance, params_.dvl.parameter_covariance.velocity_noise_sigmas,
       params_.dvl.covariance_scalar, dvl_msg->twist_covariance.topLeftCorner<3, 3>(),
-      covFallbackWarning("DVL")));
+      covFallbackWarning("DVL"));
+
+  // Scale continuous-time density to discrete noise for the covariance inflation
+  gtsam::Matrix3 gyro_cov = gtsam::Matrix3::Zero();
+  if (imu_preintegrator_ && params_.imu.sensor_rate_hz > 0.0) {
+    gyro_cov = imu_preintegrator_->params()->gyroscopeCovariance * params_.imu.sensor_rate_hz;
+  }
+
+  gtsam::SharedNoiseModel dvl_noise = gtsam::noiseModel::Gaussian::Covariance(
+      DvlFactorArm::inflatedCovariance(dvl_cov, gyro_cov, tfs_.target_T_dvl, tfs_.target_T_imu));
 
   dvl_noise = applyRobustKernel(dvl_noise, params_.dvl.robust_kernel, params_.dvl.robust_k);
 
@@ -713,6 +721,9 @@ void FactorGraphCore::addDvlLoosePreintFactor(
       ahrs_msgs.back()->orientation_covariance, covFallbackWarning("AHRS"));
 
   gtsam::Rot3 map_R_ahrs_prev = getInterpolatedOrientation(ahrs_msgs, prev_time_);
+
+  // Conjugate map-frame orientation covariance into the window-start attitude
+  ahrs_cov = AhrsFactorArm::sensorFrameCovariance(ahrs_cov, map_R_ahrs_prev);
   gtsam::Rot3 map_R_target_prev = map_R_ahrs_prev * ahrs_R_target;
   dvl_loose_preintegrator_->reset(map_R_target_prev, target_R_ahrs, target_R_dvl, ahrs_cov);
 
@@ -810,8 +821,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
     }
   };
 
-  // Method derived from Forster et al. 2017, IEEE T-RO
-  // TODO: Review this paper more in depth
+  // Method derived from Thoms et al., IEEE JOE 2023
   auto integrateDvlMeasurement = [&](double mid_time, double dt) {
     stepImuPreintegrator(mid_time);
 

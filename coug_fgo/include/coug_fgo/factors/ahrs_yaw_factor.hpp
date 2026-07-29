@@ -27,6 +27,10 @@
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 
+#include <cmath>
+
+#include "coug_fgo/factors/ahrs_factor.hpp"
+
 namespace coug_fgo::factors {
 
 /**
@@ -34,30 +38,31 @@ namespace coug_fgo::factors {
  * @brief GTSAM factor for AHRS heading (yaw) measurements with extrinsic rotation compensation.
  */
 class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
-  gtsam::Rot3 measured_orientation_;
+  double measured_yaw_;
   gtsam::Rot3 target_R_sensor_;
 
  public:
   /**
-   * @brief Constructs the factor, pre-rotating the measurement by the negative declination.
+   * @brief Constructs the factor, pre-computing the declination-corrected map-frame yaw.
    * @param pose_key GTSAM key for the AUV pose.
    * @param measured_orientation The measured orientation of the sensor in the map frame.
    * @param target_T_sensor The static transformation from target to sensor.
    * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @param noise_model The noise model for the measurement (1D).
+   * @param noise_model The noise model for the measurement (1D, map-frame yaw).
    */
   AhrsYawFactorArm(gtsam::Key pose_key, const gtsam::Rot3& measured_orientation,
                    const gtsam::Pose3& target_T_sensor, double mag_declination,
                    const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
-        measured_orientation_(gtsam::Rot3::Yaw(-mag_declination) * measured_orientation),
+        measured_yaw_(
+            AhrsFactorArm::declinationCorrected(measured_orientation, mag_declination).yaw()),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
   /**
    * @brief Evaluates the error and Jacobian for the factor.
    * @param pose The AUV pose estimate.
    * @param H Optional Jacobian matrix.
-   * @return The 1D heading error, the yaw component of Logmap(measured^-1 * predicted).
+   * @return The 1D heading error, wrapped to [-pi, pi].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
@@ -65,22 +70,20 @@ class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
     gtsam::Rot3 predicted_orientation =
         pose.rotation().compose(target_R_sensor_, H ? &H_compose : nullptr);
 
-    // 3D orientation residual (Lie algebra); only the yaw (z) component is kept below.
-    gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
-    gtsam::Rot3 R_err =
-        measured_orientation_.between(predicted_orientation, nullptr, H ? &H_between : nullptr);
+    // Singular at +/-90 deg pitch (gimbal lock)
+    gtsam::Matrix13 H_yaw = gtsam::Matrix13::Zero();
+    const double predicted_yaw = predicted_orientation.yaw(H ? &H_yaw : nullptr);
 
-    gtsam::Matrix33 H_logmap = gtsam::Matrix33::Zero();
-    gtsam::Vector3 error = gtsam::Rot3::Logmap(R_err, H ? &H_logmap : nullptr);
+    // 1D heading residual, wrapped into [-pi, pi]
+    const double error = std::remainder(predicted_yaw - measured_yaw_, 2.0 * M_PI);
 
     if (H) {
       // Jacobian with respect to pose (1x6); heading (yaw) residual only
-      gtsam::Matrix36 H_full = gtsam::Matrix36::Zero();
-      H_full.block<3, 3>(0, 0) = H_logmap * H_between * H_compose;
-      *H = H_full.row(2);
+      H->setZero(1, 6);
+      H->block<1, 3>(0, 0) = H_yaw * H_compose;
     }
 
-    return gtsam::Vector1(error(2));
+    return gtsam::Vector1(error);
   }
 };
 

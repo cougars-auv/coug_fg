@@ -39,18 +39,42 @@ class AhrsFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
 
  public:
   /**
+   * @brief References a measured map-frame orientation to true north.
+   * @param measured_orientation The measured orientation of the sensor in the map frame.
+   * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
+   * @return The measured orientation referenced to true north.
+   */
+  static gtsam::Rot3 declinationCorrected(const gtsam::Rot3& measured_orientation,
+                                          double mag_declination) {
+    return gtsam::Rot3::Yaw(-mag_declination) * measured_orientation;
+  }
+
+  /**
+   * @brief Conjugates a map-frame orientation covariance into the sensor-frame tangent space.
+   * @param map_covariance The orientation covariance about the map-frame axes.
+   * @param measured_orientation The measured orientation of the sensor in the map frame.
+   * @return The equivalent covariance in the sensor-frame tangent space.
+   */
+  static gtsam::Matrix3 sensorFrameCovariance(const gtsam::Matrix3& map_covariance,
+                                              const gtsam::Rot3& measured_orientation) {
+    const gtsam::Matrix3 map_R_sensor = measured_orientation.matrix();
+
+    return map_R_sensor.transpose() * map_covariance * map_R_sensor;
+  }
+
+  /**
    * @brief Constructs the factor, pre-rotating the measurement by the negative declination.
    * @param pose_key GTSAM key for the AUV pose.
    * @param measured_orientation The measured orientation of the sensor in the map frame.
    * @param target_T_sensor The static transformation from target to sensor.
    * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @param noise_model The noise model for the measurement.
+   * @param noise_model The noise model for the measurement (3D, sensor-frame tangent space).
    */
   AhrsFactorArm(gtsam::Key pose_key, const gtsam::Rot3& measured_orientation,
                 const gtsam::Pose3& target_T_sensor, double mag_declination,
                 const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
-        measured_orientation_(gtsam::Rot3::Yaw(-mag_declination) * measured_orientation),
+        measured_orientation_(declinationCorrected(measured_orientation, mag_declination)),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
   /**

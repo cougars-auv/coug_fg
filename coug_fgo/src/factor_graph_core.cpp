@@ -26,6 +26,7 @@
 #include <gtsam/navigation/NavState.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
+#include <gtsam/slam/RangeFactor.h>
 
 #include <algorithm>
 #include <chrono>
@@ -41,6 +42,7 @@
 #include "coug_fgo/factors/ahrs_yaw_factor.hpp"
 #include "coug_fgo/factors/auv_dynamics_factor.hpp"
 #include "coug_fgo/factors/bearing_factor.hpp"
+#include "coug_fgo/factors/between_factor.hpp"
 #include "coug_fgo/factors/const_vel_factor.hpp"
 #include "coug_fgo/factors/depth_factor.hpp"
 #include "coug_fgo/factors/dvl_factor.hpp"
@@ -48,6 +50,7 @@
 #include "coug_fgo/factors/dvl_tight_preint_factor.hpp"
 #include "coug_fgo/factors/gps_factor.hpp"
 #include "coug_fgo/factors/mag_factor.hpp"
+#include "coug_fgo/factors/prior_factor.hpp"
 #include "coug_fgo/factors/range_factor.hpp"
 #include "coug_fgo/utils/param_enums.hpp"
 
@@ -55,6 +58,7 @@ using coug_fgo::factors::AhrsFactorArm;
 using coug_fgo::factors::AhrsYawFactorArm;
 using coug_fgo::factors::AuvDynamicsFactorArm;
 using coug_fgo::factors::BearingFactorArm;
+using coug_fgo::factors::BetweenFactorArm;
 using coug_fgo::factors::ConstVelFactor;
 using coug_fgo::factors::DepthFactorArm;
 using coug_fgo::factors::DvlFactorArm;
@@ -62,6 +66,7 @@ using coug_fgo::factors::DvlLoosePreintFactorArm;
 using coug_fgo::factors::DvlTightPreintFactorArm;
 using coug_fgo::factors::Gps2dFactorArm;
 using coug_fgo::factors::MagFactorArm;
+using coug_fgo::factors::PriorFactorArm;
 using coug_fgo::factors::RangeFactorArm;
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
@@ -871,36 +876,15 @@ void FactorGraphCore::addDvlTightPreintFactor(
 void FactorGraphCore::addNeighborPriorFactor(utils::NeighborState& neighbor,
                                              gtsam::NonlinearFactorGraph& graph,
                                              gtsam::Values& values) {
-  // Start with the covariance reported by the neighboring agent.
-  gtsam::Vector6 prior_pose_sigmas = neighbor.prev_covariance.diagonal().cwiseSqrt();
+  // Neighbor has AgentStatus info, which is pose of baselink in global frame, but we want pose of
+  // target in global frame for factor graph values / intial estimates
+  gtsam::Pose3 world_T_target = neighbor.prev_pose.compose(tfs_.target_T_base.inverse());
+  values.insert(N(neighbor.init_idx), world_T_target);
 
-  // Refine orientation uncertainty using the neighbor AHRS configuration.
-  if (params_.multiagent.neighbor.ahrs.enable_ahrs) {
-    const gtsam::Matrix3 ahrs_cov = resolveCov<3>(
-        false,  // Replace with use_parameter_covariance if added later.
-        params_.multiagent.neighbor.ahrs.orientation_noise_sigmas,
-        params_.multiagent.neighbor.ahrs.covariance_scalar,
-        neighbor.prev_covariance.block<3, 3>(0, 0), covFallbackWarning("Neighbor AHRS"));
-
-    prior_pose_sigmas.head<3>() = ahrs_cov.diagonal().cwiseSqrt();
-  }
-
-  // Refine depth uncertainty using the neighbor depth sensor configuration.
-  if (params_.multiagent.neighbor.depth.enable_depth) {
-    prior_pose_sigmas(5) =
-        std::sqrt(resolveVar(false,  // Replace with use_parameter_covariance if added later.
-                             params_.multiagent.neighbor.depth.position_z_noise_sigma,
-                             params_.multiagent.neighbor.depth.covariance_scalar,
-                             neighbor.prev_covariance(5, 5), covFallbackWarning("Neighbor depth")));
-  }
-
-  // Add the prior factor.
-  graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
-      N(neighbor.init_idx), neighbor.prev_pose,
-      gtsam::noiseModel::Diagonal::Sigmas(prior_pose_sigmas));
-
-  values.insert(N(neighbor.init_idx), neighbor.prev_pose);
-
+  // Baselink pose and noise passed in
+  auto prior_noise = gtsam::noiseModel::Gaussian::Covariance(neighbor.prev_covariance);
+  graph.emplace_shared<PriorFactorArm>(N(neighbor.init_idx), neighbor.prev_pose, tfs_.target_T_base,
+                                       prior_noise);
   // Log the initialized neighbor.
   std::ostringstream oss;
   oss << "Initial neighbor state (Agent " << neighbor.agent_queue_idx
@@ -912,23 +896,25 @@ void FactorGraphCore::addNeighborPriorFactor(utils::NeighborState& neighbor,
   oss << "  Orientation [rad]   : " << neighbor.prev_pose.rotation().rpy().transpose()
       << " (RPY)\n";
 
-  oss << "Prior sigmas:\n";
-  oss << "  Position [m]        : " << prior_pose_sigmas.tail<3>().transpose() << "\n";
-  oss << "  Orientation [rad]   : " << prior_pose_sigmas.head<3>().transpose() << " (RPY)\n";
-
   logMessage(utils::LogLevel::kInfo, oss.str());
 }
 
+// Use origin state method (Walls et al “Cooperative localization by factor composition over a
+// faulty low-bandwidth communication channel")
 void FactorGraphCore::addNeighborBetweenFactor(utils::NeighborState& neighbor,
-                                               gtsam::NonlinearFactorGraph& graph) {
+                                               gtsam::NonlinearFactorGraph& graph,
+                                               gtsam::Values& values) {
   if (!neighbor.initialized_flag) {
     return;
   }
+  // Neighbor has AgentStatus info, which is pose of baselink in global frame, but we want pose of
+  // target in global frame for factor graph values / intial estimates
+  gtsam::Pose3 world_T_target = neighbor.curr_pose.compose(tfs_.target_T_base.inverse());
+  values.insert(N(neighbor.current_step), world_T_target);
 
   // Relative pose and Jacobians
   gtsam::Matrix66 H_prev;
   gtsam::Matrix66 H_curr;
-
   gtsam::Pose3 between_pose = neighbor.prev_pose.between(neighbor.curr_pose, H_prev, H_curr);
 
   // Approximate relative covariance (ignores cross-correlation)
@@ -937,14 +923,15 @@ void FactorGraphCore::addNeighborBetweenFactor(utils::NeighborState& neighbor,
 
   gtsam::SharedNoiseModel between_noise = gtsam::noiseModel::Gaussian::Covariance(between_cov);
 
-  graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-      N(neighbor.prev_step), N(neighbor.current_step), between_pose, between_noise);
+  // Relative pose and noise of baselink passed in
+  graph.emplace_shared<BetweenFactorArm>(N(neighbor.prev_step), N(neighbor.current_step),
+                                         between_pose, tfs_.target_T_base, between_noise);
 }
 
 void FactorGraphCore::addNeighborUnaryFactor(utils::AgentStatusData& msg,
                                              utils::NeighborState& neighbor,
                                              gtsam::NonlinearFactorGraph& graph) {
-  // Depth and ahrs from the acoustic modem
+  // Depth from the acoustic modem
   if (params_.multiagent.neighbor.depth.enable_depth) {
     const double depth_sigma =
         std::sqrt(resolveVar(params_.depth.use_parameter_covariance,
@@ -959,16 +946,17 @@ void FactorGraphCore::addNeighborUnaryFactor(utils::AgentStatusData& msg,
     graph.emplace_shared<DepthFactorArm>(N(neighbor.current_step), msg.pressure_depth,
                                          tfs_.target_T_modem, depth_noise);
   }
+  // Ahrs from the acoustic modem
   if (params_.multiagent.neighbor.ahrs.enable_ahrs) {
     gtsam::Vector3 sigmas;
     sigmas << params_.multiagent.neighbor.ahrs.orientation_noise_sigmas[0],
         params_.multiagent.neighbor.ahrs.orientation_noise_sigmas[1],
         params_.multiagent.neighbor.ahrs.orientation_noise_sigmas[2];
-
     gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Diagonal::Sigmas(sigmas);
 
     ahrs_noise = applyRobustKernel(ahrs_noise, params_.multiagent.neighbor.ahrs.robust_kernel,
                                    params_.multiagent.neighbor.ahrs.robust_k);
+
     graph.emplace_shared<AhrsFactorArm>(
         N(neighbor.current_step), msg.imu_orientation, tfs_.target_T_modem,
         params_.multiagent.neighbor.ahrs.mag_declination_radians, ahrs_noise);
@@ -985,11 +973,11 @@ void FactorGraphCore::addInterAgentRangeFactor(double range_meas, utils::Neighbo
 
   graph.emplace_shared<RangeFactorArm>(X(current_step_), N(neighbor.current_step), range_meas,
                                        tfs_.target_T_modem, tfs_.target_T_modem, range_noise);
-  std::ostringstream oss;
-  oss << "Adding range factor X(" << current_step_ << "), N(" << neighbor.current_step
-      << "), Range meas: " << range_meas;
+  // std::ostringstream oss;
+  // oss << "Adding range factor X(" << current_step_ << "), N(" << neighbor.current_step
+  //     << "), Range meas: " << range_meas;
 
-  logMessage(utils::LogLevel::kInfo, oss.str());
+  // logMessage(utils::LogLevel::kInfo, oss.str());
 }
 
 void FactorGraphCore::addMultiAgentFactors(
@@ -1019,21 +1007,24 @@ void FactorGraphCore::addMultiAgentFactors(
       neighbor.Initialize(msg->pose, msg->pose_covariance, msg->timestamp);
 
       addNeighborPriorFactor(neighbor, graph, values);
-      // addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
       addNeighborUnaryFactor(*msg, neighbor, graph);
+      addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
       timestamps[N(neighbor.init_idx)] = msg->timestamp;
 
       queue.pop_front();
     }
 
-    // Add messages from queue
+    // Add messages from queue. TODO: Match message timestamp to closest local step/timestep
+    // Currently, all messages in queue are added to current_step_, which is not correct
+    // Okay for now bc acoustic messages are low rate
     for (const auto& msg : queue) {
       neighbor.Advance(msg->pose, msg->pose_covariance, msg->timestamp);
 
-      values.insert(N(neighbor.current_step), neighbor.curr_pose);
-      addNeighborBetweenFactor(neighbor, graph);
-      // addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
+      // Add timestep matching code here
+
+      addNeighborBetweenFactor(neighbor, graph, values);
       addNeighborUnaryFactor(*msg, neighbor, graph);
+      addInterAgentRangeFactor(msg->range_dist, neighbor, graph);
       timestamps[N(neighbor.current_step)] = msg->timestamp;
     }
 

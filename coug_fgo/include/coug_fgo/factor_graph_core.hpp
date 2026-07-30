@@ -277,7 +277,8 @@ class FactorGraphCore {
    * @param neighbor State values for this neighbor.
    * @param graph The target factor graph.
    */
-  void addNeighborBetweenFactor(utils::NeighborState& neighbor, gtsam::NonlinearFactorGraph& graph);
+  void addNeighborBetweenFactor(utils::NeighborState& neighbor, gtsam::NonlinearFactorGraph& graph,
+                                gtsam::Values& values);
   /**
    * @brief Add a unary factor to neighbor's chain.
    * @param msg Acoustic message from neighbor agent.
@@ -301,7 +302,7 @@ class FactorGraphCore {
   void addInterAgentBearingFactor(utils::NeighborState& neighbor,
                                   gtsam::NonlinearFactorGraph& graph);
   /**
-   * @brief Adds neighboring-agent odometry, depth, orientation, and range/bearing factors.
+   * @brief Adds neighboring-agent odometry, depth, ahrs, and range/bearing factors.
    * @param graph The target factor graph.
    * @param values The new variable estimates.
    * @param timestamps The new key timestamps.

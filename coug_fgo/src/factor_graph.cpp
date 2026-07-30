@@ -99,6 +99,7 @@ void FactorGraphNode::setupRosInterfaces() {
         params_.graph_metrics_topic, rclcpp::SystemDefaultsQoS());
   }
 
+  // Publish states of neighbor agents from local graph
   if (params_.multiagent.enable_multiagent) {
     multiagent_global_odom_pubs_.resize(params_.multiagent_topics.size());
 
@@ -112,14 +113,11 @@ void FactorGraphNode::setupRosInterfaces() {
 
       std::string global_odom_topic_neighbor = topic + "/est/" + params_.global_odom_topic;
 
-      RCLCPP_INFO(get_logger(), "Multiagent topic[%zu]: %s (Num topics: %zu)", i, topic.c_str(),
-                  params_.multiagent_topics.size());
-
-      RCLCPP_INFO(get_logger(), "Multiagent pub topic[%zu]: %s", i,
-                  global_odom_topic_neighbor.c_str());
-
       multiagent_global_odom_pubs_[i] = create_publisher<nav_msgs::msg::Odometry>(
           global_odom_topic_neighbor, rclcpp::SystemDefaultsQoS());
+
+      RCLCPP_INFO(get_logger(), "Multiagent global pub topic[%zu]: %s", i,
+                  global_odom_topic_neighbor.c_str());
     }
   }
 

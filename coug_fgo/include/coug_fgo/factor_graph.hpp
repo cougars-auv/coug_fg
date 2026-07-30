@@ -177,7 +177,7 @@ class FactorGraphNode : public rclcpp::Node {
   /**
    * @brief Publishes the optimized pose of neighbor agents from local graph as map-frame odometry
    * of the base frame.
-   * @param agent_queue_idx
+   * @param agent_queue_idx Idx of neighbor based on order its queue was added, not agent id
    * @param current_pose The estimated target pose (re-expressed at the base frame).
    * @param pose_covariance The estimation error covariance.
    * @param timestamp The message timestamp.

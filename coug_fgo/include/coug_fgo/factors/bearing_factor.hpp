@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /**
- * @file bearing_factor_arm.hpp
+ * @file bearing_factor.hpp
  * @brief GTSAM factor for acoustic azimuth/elevation measurements between two
  *        agents, each with a static sensor lever arm relative to its own pose.
  * @author Kalliyan Velasco
@@ -53,11 +53,20 @@ namespace coug_fgo::factors {
  * discontinuity inherent to angle differencing.
  */
 class BearingFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
-  gtsam::Point2 measured_azi_el_;   ///< [azimuth, elevation] (rad).
-  gtsam::Pose3 target_T_sensor_l_;  ///< Local pose -> local sensor transform.
-  gtsam::Pose3 target_T_sensor_n_;  ///< Neighbor pose -> neighbor sensor transform.
+  gtsam::Point2 measured_azi_el_;
+  gtsam::Pose3 target_T_sensor_l_;
+  gtsam::Pose3 target_T_sensor_n_;
 
  public:
+  /**
+   * @brief Constructs the factor, caching the sensor lever arms.
+   * @param pose_key_l GTSAM key for the local AUV pose.
+   * @param pose_key_n GTSAM key for the neighbor AUV pose.
+   * @param measured_azi_el The measured azimuth, elevation between both modem sensors (rad).
+   * @param target_T_sensor_l The static transformation from local target to local sensor.
+   * @param target_T_sensor_n The static transformation from neighbor target to neighbor sensor.
+   * @param noise_model The noise model for the measurement (1D, on the range residual).
+   */
   BearingFactorArm(gtsam::Key pose_key_l, gtsam::Key pose_key_n,
                    const gtsam::Point2& measured_azi_el, const gtsam::Pose3& target_T_sensor_l,
                    const gtsam::Pose3& target_T_sensor_n,
@@ -68,13 +77,17 @@ class BearingFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Po
         target_T_sensor_n_(target_T_sensor_n) {}
 
   /**
-   * @brief Computes the Unit3 tangent-space bearing error and analytical
-   *        Jacobians.
+   * @brief Evaluates the error and Jacobians for the factor.
+   * @param pose_l The local AUV target pose estimate.
+   * @param pose_n The neighbor AUV target pose estimate.
+   * @param H_pose_l Optional 2x6 Jacobian wrt the local pose's tangent.
+   * @param H_pose_n Optional 2x6 Jacobian wrt the neighbor pose's tangent.
+   * @return The 2D error (predicted - measured).
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& pose_n,
                               gtsam::OptionalMatrixType H_pose_l = nullptr,
                               gtsam::OptionalMatrixType H_pose_n = nullptr) const override {
-    // Pose target -> pose sensor
+    // Factor graph poses are target poses in world, want sensor pose in world
     gtsam::Matrix66 H_sensor_l_pose;
     const gtsam::Pose3 sensor_l_world =
         pose_l.compose(target_T_sensor_l_, H_pose_l ? &H_sensor_l_pose : nullptr, nullptr);

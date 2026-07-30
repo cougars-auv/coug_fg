@@ -13,9 +13,9 @@
 // limitations under the License.
 
 /**
- * @file range_factor_arm.hpp
- * @brief GTSAM factor for acoustic range measurements between two
- *        agents, each with a static sensor lever arm relative to its own pose.
+ * @file range_factor.hpp
+ * @brief GTSAM factor for a scalar acoustic range measurement between two sensors, each with a
+ * lever arm.
  * @author Kalliyan Velasco
  * @date July 2026
  */
@@ -32,22 +32,22 @@ namespace coug_fgo::factors {
 
 /**
  * @class RangeFactorArm
- * @brief GTSAM factor for a scalar acoustic range measurement between two
- *        agents, each offset from its own pose by a static sensor lever arm.
+ * @brief GTSAM factor for a scalar acoustic range measurement between two sensors, each with a
+ * lever arm.
  */
 class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
-  double measured_range_;            // Measured range (m) between the two sensors.
-  gtsam::Point3 target_p_sensor_l_;  // Static local-pose -> local-sensor lever arm.
-  gtsam::Point3 target_p_sensor_n_;  // Static neighbor-pose -> neighbor-sensor lever arm.
+  double measured_range_;
+  gtsam::Point3 target_p_sensor_l_;
+  gtsam::Point3 target_p_sensor_n_;
 
  public:
   /**
    * @brief Constructs the factor, caching the sensor lever arms.
    * @param pose_key_l GTSAM key for the local AUV pose.
    * @param pose_key_n GTSAM key for the neighbor AUV pose.
-   * @param measured_range The measured range from the acoustic modem (m).
-   * @param target_T_sensor_l The static transformation from local pose to local sensor.
-   * @param target_T_sensor_n The static transformation from neighbor pose to neighbor sensor.
+   * @param measured_range The measured range between both modem sensors (m).
+   * @param target_T_sensor_l The static transformation from local target to local sensor.
+   * @param target_T_sensor_n The static transformation from neighbor target to neighbor sensor.
    * @param noise_model The noise model for the measurement (1D, on the range residual).
    */
   RangeFactorArm(gtsam::Key pose_key_l, gtsam::Key pose_key_n, const double measured_range,
@@ -60,8 +60,8 @@ class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose
 
   /**
    * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_l The local AUV pose estimate.
-   * @param pose_n The neighbor AUV pose estimate.
+   * @param pose_l The local AUV target pose estimate.
+   * @param pose_n The neighbor AUV target pose estimate.
    * @param H_pose_l_target Optional 1x6 Jacobian wrt the local pose's tangent.
    * @param H_pose_n_target Optional 1x6 Jacobian wrt the neighbor pose's tangent.
    * @return The 1D range error (predicted - measured).
@@ -69,14 +69,14 @@ class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& pose_n,
                               gtsam::OptionalMatrixType H_pose_l_target = nullptr,
                               gtsam::OptionalMatrixType H_pose_n_target = nullptr) const override {
-    // Lever-arm offsets in world frame, with Jacobians wrt each pose's tangent (3x6).
+    // Factor graph poses are target poses in world, want sensor pose in world
     gtsam::Matrix H_sensor_l_wrt_pose_l, H_sensor_n_wrt_pose_n;
     gtsam::Point3 sensor_l_world = pose_l.transformFrom(
         target_p_sensor_l_, H_pose_l_target ? &H_sensor_l_wrt_pose_l : nullptr);
     gtsam::Point3 sensor_n_world = pose_n.transformFrom(
         target_p_sensor_n_, H_pose_n_target ? &H_sensor_n_wrt_pose_n : nullptr);
 
-    // Range between the two world-frame sensor points, with Jacobians wrt each point (1x3).
+    // Range between the two sensor points in world frame, with Jacobians wrt each point (1x3).
     gtsam::Matrix H_range_wrt_sensor_l, H_range_wrt_sensor_n;
     double predicted_range = gtsam::distance3(sensor_l_world, sensor_n_world,
                                               H_pose_l_target ? &H_range_wrt_sensor_l : nullptr,

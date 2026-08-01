@@ -242,13 +242,13 @@ factor_graph_node:
           lower_element_bounds<>: [0.0]
     accel_bias_rw_sigmas:
       type: double_array
-      default_value: [0.00014, 0.00014, 0.00014]
+      default_value: [0.000014, 0.000014, 0.000014]
       validation:
         fixed_size<>: [3]
         lower_element_bounds<>: [0.0]
     gyro_bias_rw_sigmas:
       type: double_array
-      default_value: [0.0000339, 0.0000339, 0.0000339]
+      default_value: [0.0000035, 0.0000035, 0.0000035]
       validation:
         fixed_size<>: [3]
         lower_element_bounds<>: [0.0]

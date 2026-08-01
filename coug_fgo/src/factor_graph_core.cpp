@@ -332,7 +332,6 @@ FactorGraphCore::configureImuPreintegration(const utils::InitialState& init_stat
                     covFallbackWarning("IMU gyroscope"), imu_dt);
   imu_params->biasAccCovariance = sigmasSquaredDiag(params_.imu.accel_bias_rw_sigmas);
   imu_params->biasOmegaCovariance = sigmasSquaredDiag(params_.imu.gyro_bias_rw_sigmas);
-  imu_params->biasAccOmegaInt = gtsam::Matrix66::Zero();
   imu_params->integrationCovariance =
       gtsam::Matrix33::Identity() * params_.imu.integration_covariance;
 

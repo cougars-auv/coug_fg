@@ -859,7 +859,7 @@ factor_graph_node:
         lower_element_bounds<>: [0.0]
     initial_gyro_bias_sigmas:
       type: double_array
-      default_value: [0.001, 0.001, 0.001]
+      default_value: [0.000034, 0.000034, 0.000034]
       validation:
         fixed_size<>: [3]
         lower_element_bounds<>: [0.0]

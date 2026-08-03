@@ -415,6 +415,31 @@ void FactorGraphCore::addDepthFactor(
                                        tfs_.target_T_depth, depth_noise);
 }
 
+void FactorGraphCore::addMagFactor(
+    gtsam::NonlinearFactorGraph& graph,
+    const std::deque<std::shared_ptr<utils::MagneticFieldData>>& mag_msgs) {
+  if (mag_msgs.empty()) {
+    return;
+  }
+
+  const auto& mag_msg = mag_msgs.back();
+
+  // IMPORTANT! The reference field must be in the world frame (ENU), not NED.
+  // If getting values from NOAA (NED), convert as: [Y, X, -Z].
+  gtsam::Point3 ref_vec(params_.mag.reference_field[0], params_.mag.reference_field[1],
+                        params_.mag.reference_field[2]);
+
+  gtsam::SharedNoiseModel mag_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
+      params_.mag.use_parameter_covariance,
+      params_.mag.parameter_covariance.magnetic_field_noise_sigmas, params_.mag.covariance_scalar,
+      mag_msg->magnetic_field_covariance, covFallbackWarning("Magnetometer")));
+
+  mag_noise = applyRobustKernel(mag_noise, params_.mag.robust_kernel, params_.mag.robust_k);
+
+  graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field, ref_vec,
+                                     tfs_.target_T_mag, mag_noise);
+}
+
 void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
                                     const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs) {
   if (ahrs_msgs.empty()) {
@@ -454,31 +479,6 @@ void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 
   graph.emplace_shared<AhrsFactorArm>(X(current_step_), ahrs_msg->orientation, tfs_.target_T_ahrs,
                                       params_.ahrs.mag_declination_radians, ahrs_noise);
-}
-
-void FactorGraphCore::addMagFactor(
-    gtsam::NonlinearFactorGraph& graph,
-    const std::deque<std::shared_ptr<utils::MagneticFieldData>>& mag_msgs) {
-  if (mag_msgs.empty()) {
-    return;
-  }
-
-  const auto& mag_msg = mag_msgs.back();
-
-  // IMPORTANT! The reference field must be in the world frame (ENU), not NED.
-  // If getting values from NOAA (NED), convert as: [Y, X, -Z].
-  gtsam::Point3 ref_vec(params_.mag.reference_field[0], params_.mag.reference_field[1],
-                        params_.mag.reference_field[2]);
-
-  gtsam::SharedNoiseModel mag_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
-      params_.mag.use_parameter_covariance,
-      params_.mag.parameter_covariance.magnetic_field_noise_sigmas, params_.mag.covariance_scalar,
-      mag_msg->magnetic_field_covariance, covFallbackWarning("Magnetometer")));
-
-  mag_noise = applyRobustKernel(mag_noise, params_.mag.robust_kernel, params_.mag.robust_k);
-
-  graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field, ref_vec,
-                                     tfs_.target_T_mag, mag_noise);
 }
 
 void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,

@@ -170,20 +170,20 @@ class FactorGraphCore {
                       const std::deque<std::shared_ptr<utils::OdometryData>>& depth_msgs);
 
   /**
-   * @brief Adds an AHRS attitude (or yaw) factor with sensor rotation and declination compensation.
-   * @param graph The target factor graph.
-   * @param ahrs_msgs Drained AHRS IMU structs (only the newest is used).
-   */
-  void addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
-                     const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs);
-
-  /**
    * @brief Adds a magnetometer field factor with sensor rotation compensation.
    * @param graph The target factor graph.
    * @param mag_msgs Drained magnetometer structs (only the newest is used).
    */
   void addMagFactor(gtsam::NonlinearFactorGraph& graph,
                     const std::deque<std::shared_ptr<utils::MagneticFieldData>>& mag_msgs);
+
+  /**
+   * @brief Adds an AHRS attitude (or yaw) factor with sensor rotation and declination compensation.
+   * @param graph The target factor graph.
+   * @param ahrs_msgs Drained AHRS IMU structs (only the newest is used).
+   */
+  void addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
+                     const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs);
 
   /**
    * @brief Adds a DVL body-frame velocity factor with lever arm compensation.

@@ -239,6 +239,13 @@ if(BUILD_TESTING)
   )
   target_link_libraries(test_gps_factor gtsam)
 
+  ament_add_gtest(test_mag_calib_factor test/test_mag_calib_factor.cpp)
+  target_include_directories(test_mag_calib_factor PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    ${GTSAM_EIGEN_INCLUDE_DIR}
+  )
+  target_link_libraries(test_mag_calib_factor gtsam)
+
   ament_add_gtest(test_mag_factor test/test_mag_factor.cpp)
   target_include_directories(test_mag_factor PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

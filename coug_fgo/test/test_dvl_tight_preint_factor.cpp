@@ -15,7 +15,7 @@
 /**
  * @file test_dvl_tight_preint_factor.cpp
  * @brief Unit tests for dvl_tight_preint_factor.hpp.
- * @author Nelson Durrant (w Antigravity)
+ * @author Nelson Durrant (w Gemini 3.5 Flash)
  * @date May 2026
  */
 

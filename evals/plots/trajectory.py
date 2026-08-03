@@ -21,9 +21,9 @@ import scienceplots  # noqa: F401
 import seaborn as sns
 from evo.core.trajectory import PoseTrajectory3D
 from evo.tools import file_interface, plot
+from scoring import estimators, metrics, tum
 
 from plots import state
-from scoring import estimators, metrics, tum
 
 logger = logging.getLogger(__name__)
 

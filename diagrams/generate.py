@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import daft
 import copy
 from pathlib import Path
+
+import daft
 import matplotlib.pyplot as plt
 
 OUTPUT_DIR = Path(__file__).parent

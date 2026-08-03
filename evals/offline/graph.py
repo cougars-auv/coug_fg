@@ -28,7 +28,7 @@ FGO_LIB_PATH = str(
     / "site-packages"
 )
 sys.path.insert(0, FGO_LIB_PATH)
-import coug_fgo_py  # noqa: E402
+import coug_fgo_py
 
 logger = logging.getLogger(__name__)
 

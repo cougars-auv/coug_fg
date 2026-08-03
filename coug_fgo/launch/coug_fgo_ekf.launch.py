@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from launch import LaunchDescription
-from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import (
     EnvironmentVariable,
@@ -21,6 +20,7 @@ from launch.substitutions import (
     PathJoinSubstitution,
     PythonExpression,
 )
+from launch_ros.actions import Node
 
 
 def generate_launch_description() -> LaunchDescription:

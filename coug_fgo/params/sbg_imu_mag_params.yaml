@@ -1,0 +1,19 @@
+sbg_imu_mag_node:
+  # --- Node Settings ---
+  au_to_tesla:
+    type: double
+    default_value: 5.0446e-05
+    validation:
+      gt<>: [0.0]
+
+  # --- ROS Topics ---
+  input_topic:
+    type: string
+    default_value: "imu/mag_au"
+    validation:
+      not_empty<>: []
+  output_topic:
+    type: string
+    default_value: "imu/mag"
+    validation:
+      not_empty<>: []

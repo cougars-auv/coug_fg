@@ -127,10 +127,10 @@ Eigen::Matrix<double, N, N> resolveCov(bool use_param, const std::vector<double>
 
 /**
  * @brief Scalar-variance version of resolveCov.
- * @return param_var if use_param or invalid msg_var, else msg_var*scalar*sensor_unit_scale.
+ * @return param_var if use_param or invalid msg_var, else msg_var*scalar.
  */
 double resolveVar(bool use_param, double sigma, double scalar, double msg_var,
-                  const std::function<void()>& warn_fallback = {}, double sensor_unit_scale = 1.0) {
+                  const std::function<void()>& warn_fallback = {}) {
   if (use_param) {
     return sigma * sigma * scalar;
   }
@@ -140,7 +140,7 @@ double resolveVar(bool use_param, double sigma, double scalar, double msg_var,
     }
     return sigma * sigma * scalar;
   }
-  return msg_var * scalar * sensor_unit_scale;
+  return msg_var * scalar;
 }
 
 /**
@@ -470,21 +470,14 @@ void FactorGraphCore::addMagFactor(
   gtsam::Point3 ref_vec(params_.mag.reference_field[0], params_.mag.reference_field[1],
                         params_.mag.reference_field[2]);
 
-  if (mag_msg->magnetic_field.norm() < MagFactorArm::kMinFieldNorm) {
-    logMessage(utils::LogLevel::kWarn, "Skipped a zero-magnitude magnetometer measurement.");
-    return;
-  }
-
   gtsam::SharedNoiseModel mag_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
       params_.mag.use_parameter_covariance,
       params_.mag.parameter_covariance.magnetic_field_noise_sigmas, params_.mag.covariance_scalar,
-      mag_msg->magnetic_field_covariance, covFallbackWarning("Magnetometer"),
-      MagFactorArm::unitFieldCovarianceScale(mag_msg->magnetic_field)));
+      mag_msg->magnetic_field_covariance, covFallbackWarning("Magnetometer")));
 
   mag_noise = applyRobustKernel(mag_noise, params_.mag.robust_kernel, params_.mag.robust_k);
 
-  graph.emplace_shared<MagFactorArm>(X(current_step_),
-                                     MagFactorArm::unitField(mag_msg->magnetic_field), ref_vec,
+  graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field, ref_vec,
                                      tfs_.target_T_mag, mag_noise);
 }
 

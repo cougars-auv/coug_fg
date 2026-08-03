@@ -320,6 +320,18 @@ def generate_launch_description() -> LaunchDescription:
             ),
             Node(
                 package="coug_fgo",
+                executable="sbg_imu_mag",
+                name="sbg_imu_mag_node",
+                parameters=[
+                    fleet_params,
+                    auv_params,
+                    {
+                        "use_sim_time": use_sim_time,
+                    },
+                ],
+            ),
+            Node(
+                package="coug_fgo",
                 executable="seatrac_x150_imu",
                 name="seatrac_x150_imu_node",
                 parameters=[

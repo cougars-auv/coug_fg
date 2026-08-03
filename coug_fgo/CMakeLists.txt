@@ -64,6 +64,11 @@ generate_parameter_library(
 )
 
 generate_parameter_library(
+  sbg_imu_mag_parameters
+  "params/sbg_imu_mag_params.yaml"
+)
+
+generate_parameter_library(
   seatrac_x150_imu_parameters
   "params/seatrac_x150_imu_params.yaml"
 )
@@ -85,6 +90,7 @@ ament_auto_add_library(factor_graph_component SHARED
   src/odom_ned_to_enu.cpp
   src/odom_to_tf.cpp
   src/navsat_odom.cpp
+  src/sbg_imu_mag.cpp
   src/seatrac_x150_imu.cpp
 )
 
@@ -104,6 +110,7 @@ target_link_libraries(factor_graph_component
   odom_ned_to_enu_parameters
   odom_to_tf_parameters
   navsat_odom_parameters
+  sbg_imu_mag_parameters
   seatrac_x150_imu_parameters
   PkgConfig::GeographicLib
 )
@@ -117,6 +124,7 @@ rclcpp_components_register_nodes(factor_graph_component
   "coug_fgo::OdomNedToEnuNode"
   "coug_fgo::OdomToTfNode"
   "coug_fgo::NavsatOdomNode"
+  "coug_fgo::SbgImuMagNode"
   "coug_fgo::SeatracX150ImuNode"
 )
 
@@ -144,6 +152,9 @@ target_link_libraries(odom_to_tf factor_graph_component)
 
 ament_auto_add_executable(navsat_odom src/navsat_odom_node.cpp)
 target_link_libraries(navsat_odom factor_graph_component)
+
+ament_auto_add_executable(sbg_imu_mag src/sbg_imu_mag_node.cpp)
+target_link_libraries(sbg_imu_mag factor_graph_component)
 
 ament_auto_add_executable(seatrac_x150_imu src/seatrac_x150_imu_node.cpp)
 target_link_libraries(seatrac_x150_imu factor_graph_component)

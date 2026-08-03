@@ -234,7 +234,9 @@ gtsam::Rot3 StateInitializer::computeInitialOrientation(const TfBundle& tfs) con
   } else if (params_.mag.enable_mag || params_.mag.enable_mag_init_only) {
     // Account for magnetometer rotation
     gtsam::Rot3 target_R_mag = tfs.target_T_mag.rotation();
-    gtsam::Vector3 mag_sensor = initial_mag_->magnetic_field;
+    gtsam::Vector3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
+                             params_.mag.hard_iron_bias[2]);
+    gtsam::Vector3 mag_sensor = initial_mag_->magnetic_field - hard_iron;
     gtsam::Vector3 mag_target = target_R_mag.rotate(mag_sensor);
 
     // Project the magnetic field vector using the estimated tilt

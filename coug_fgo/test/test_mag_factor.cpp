@@ -35,8 +35,8 @@ TEST(MagFactorArmTest, Jacobians) {
   gtsam::Key poseKey = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Vector3 reference_field = gtsam::Vector3(0.5, 0.8, -0.2).normalized();
-  gtsam::Vector3 measured_field = gtsam::Vector3(0.4, 0.7, -0.1).normalized();
+  gtsam::Vector3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  gtsam::Vector3 measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
 
   coug_fgo::factors::MagFactorArm factor(poseKey, measured_field, reference_field, target_T_sensor,
                                          model);
@@ -49,7 +49,7 @@ TEST(MagFactorArmTest, Jacobians) {
   gtsam::Matrix actualH;
   factor.evaluateError(pose, &actualH);
 
-  EXPECT_TRUE(gtsam::assert_equal(expectedH, actualH, 1e-5));
+  EXPECT_TRUE(gtsam::assert_equal(expectedH, actualH, 1e-11));
   EXPECT_EQ(actualH.rows(), 3);
   EXPECT_EQ(actualH.cols(), 6);
 }

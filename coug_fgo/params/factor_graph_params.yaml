@@ -219,14 +219,14 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
-      type: bool
-      default_value: false
     sensor_rate_hz:
       type: double
       default_value: 0.0
       validation:
         gt_eq<>: [0.0]
+    use_parameter_covariance:
+      type: bool
+      default_value: false
     parameter_covariance:
       accel_noise_sigmas:
         type: double_array
@@ -393,7 +393,21 @@ factor_graph_node:
       default_value: false
     enable_mag_init_only:
       type: bool
+      default_value: true
+    estimate_hard_iron_bias:
+      type: bool
       default_value: false
+    hard_iron_bias:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    hard_iron_bias_sigmas:
+      type: double_array
+      default_value: [1.0e-05, 1.0e-05, 1.0e-05]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
     use_parameter_frame:
       type: bool
       default_value: false
@@ -427,13 +441,13 @@ factor_graph_node:
     parameter_covariance:
       magnetic_field_noise_sigmas:
         type: double_array
-        default_value: [0.006, 0.006, 0.006]
+        default_value: [3.0e-07, 3.0e-07, 3.0e-07]
         validation:
           fixed_size<>: [3]
           lower_element_bounds<>: [0.0]
     reference_field:
       type: double_array
-      default_value: [0.07857, 0.41316, -0.90726]
+      default_value: [3.9634e-06, 2.08423e-05, -4.57678e-05]
       validation:
         fixed_size<>: [3]
     diagnostic_timeout_sec:

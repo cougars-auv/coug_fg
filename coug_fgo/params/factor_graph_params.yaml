@@ -265,7 +265,7 @@ factor_graph_node:
         lower_element_bounds<>: [0.0]
     integration_covariance:
       type: double
-      default_value: 0.00001
+      default_value: 1.0e-8
       validation:
         gt<>: [0.0]
     gravity:

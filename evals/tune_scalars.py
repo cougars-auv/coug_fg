@@ -24,14 +24,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import optuna
 import yaml
-from tqdm.contrib.logging import logging_redirect_tqdm
-
 from config import BAG_PATHS, EVO_FLAGS, NAMESPACE, config_paths
 from logs import setup_logging
 from offline import pipeline
 from plots import state
 from run_offline_fgo import process_and_evaluate
 from scoring import metrics, tum
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 logger = logging.getLogger(__name__)
 

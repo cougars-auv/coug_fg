@@ -14,7 +14,6 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from scoring import estimators
 
 GT_COLOR = estimators.GROUND_TRUTH_COLOR

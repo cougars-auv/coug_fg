@@ -109,6 +109,12 @@ class StateInitializer {
   gtsam::imuBias::ConstantBias computeInitialBias() const;
 
   /**
+   * @brief Collects the configured magnetometer hard-iron bias.
+   * @return Initial hard-iron bias in the sensor frame.
+   */
+  gtsam::Point3 computeMagBias() const;
+
+  /**
    * @brief Rotates the map-frame pose sigmas into the target-frame Pose3 tangent.
    * @param map_R_target The computed initial rotation.
    * @return Initial pose covariance, ordered with the rotation block first.
@@ -129,6 +135,12 @@ class StateInitializer {
    * @return Initial bias covariance, ordered with the accelerometer block first.
    */
   gtsam::Matrix6 computeInitialBiasCovariance() const;
+
+  /**
+   * @brief Collects the sensor-frame hard-iron bias sigmas.
+   * @return Initial hard-iron bias covariance in the sensor frame.
+   */
+  gtsam::Matrix3 computeMagBiasCovariance() const;
 
   const factor_graph_node::Params& params_;
   double start_avg_time_{0.0};

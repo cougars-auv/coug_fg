@@ -119,9 +119,11 @@ InitialState StateInitializer::compute(const TfBundle& tfs) const {
   state.pose = gtsam::Pose3(map_R_target, computeInitialPosition(map_R_target, tfs));
   state.velocity = computeInitialVelocity(map_R_target, tfs);
   state.bias = computeInitialBias();
+  state.mag_bias = computeMagBias();
   state.pose_cov = computeInitialPoseCovariance(map_R_target);
   state.vel_cov = computeInitialVelocityCovariance(map_R_target, tfs);
   state.bias_cov = computeInitialBiasCovariance();
+  state.mag_bias_cov = computeMagBiasCovariance();
   switch (parseKeyframeSource(params_.keyframe_source)) {
     case KeyframeSource::kDvl:
       state.time = initial_dvl_->timestamp;
@@ -234,8 +236,7 @@ gtsam::Rot3 StateInitializer::computeInitialOrientation(const TfBundle& tfs) con
   } else if (params_.mag.enable_mag || params_.mag.enable_mag_init_only) {
     // Account for magnetometer rotation
     gtsam::Rot3 target_R_mag = tfs.target_T_mag.rotation();
-    gtsam::Vector3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
-                             params_.mag.hard_iron_bias[2]);
+    gtsam::Vector3 hard_iron = computeMagBias();
     gtsam::Vector3 mag_sensor = initial_mag_->magnetic_field - hard_iron;
     gtsam::Vector3 mag_target = target_R_mag.rotate(mag_sensor);
 
@@ -306,9 +307,13 @@ gtsam::imuBias::ConstantBias StateInitializer::computeInitialBias() const {
     init_gyro_bias = initial_imu_->angular_velocity;
   }
   gtsam::Vector3 init_accel_bias =
-      Eigen::Map<const Eigen::Vector3d>(params_.priors.parameter_priors.initial_accel_bias.data());
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_accel_bias.data());
 
   return gtsam::imuBias::ConstantBias(init_accel_bias, init_gyro_bias);
+}
+
+gtsam::Point3 StateInitializer::computeMagBias() const {
+  return Eigen::Map<const Eigen::Vector3d>(params_.priors.hard_iron_bias.data());
 }
 
 gtsam::Matrix6 StateInitializer::computeInitialPoseCovariance(
@@ -340,6 +345,10 @@ gtsam::Matrix6 StateInitializer::computeInitialBiasCovariance() const {
   bias_cov.bottomRightCorner<3, 3>() = sigmasSquaredDiag(params_.priors.initial_gyro_bias_sigmas);
 
   return bias_cov;
+}
+
+gtsam::Matrix3 StateInitializer::computeMagBiasCovariance() const {
+  return sigmasSquaredDiag(params_.priors.hard_iron_bias_sigmas);
 }
 
 }  // namespace coug_fgo::utils

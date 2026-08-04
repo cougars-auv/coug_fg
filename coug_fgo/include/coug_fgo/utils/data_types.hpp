@@ -153,11 +153,13 @@ struct InitialState {
   gtsam::Pose3 pose;
   gtsam::Vector3 velocity;
   gtsam::imuBias::ConstantBias bias;
+  gtsam::Point3 mag_bias;
   double time{0.0};
 
   gtsam::Matrix6 pose_cov;
   gtsam::Matrix3 vel_cov;
   gtsam::Matrix6 bias_cov;
+  gtsam::Matrix3 mag_bias_cov;
 
   std::shared_ptr<ImuData> imu;
   std::shared_ptr<TwistData> dvl;

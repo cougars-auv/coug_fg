@@ -241,8 +241,7 @@ void FactorGraphCore::initialize(const utils::InitialState& init_state,
   prev_pose_ = init_state.pose;
   prev_vel_ = init_state.velocity;
   prev_imu_bias_ = init_state.bias;
-  prev_mag_bias_ = gtsam::Point3(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
-                                 params_.mag.hard_iron_bias[2]);
+  prev_mag_bias_ = init_state.mag_bias;
   prev_time_ = init_state.time;
 
   last_imu_acc_ = init_state.imu->linear_acceleration;
@@ -360,24 +359,19 @@ void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
       B(0), prev_imu_bias_, gtsam::noiseModel::Gaussian::Covariance(init_state.bias_cov));
   values.insert(B(0), prev_imu_bias_);
 
-  gtsam::Point3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
-                          params_.mag.hard_iron_bias[2]);
-
   // Hard-iron bias is static, so one key is shared by every keyframe
   if (params_.mag.estimate_hard_iron_bias) {
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3>>(
-        M(0), hard_iron,
-        gtsam::noiseModel::Gaussian::Covariance(
-            sigmasSquaredDiag(params_.mag.hard_iron_bias_sigmas)));
-    values.insert(M(0), hard_iron);
+        M(0), init_state.mag_bias,
+        gtsam::noiseModel::Gaussian::Covariance(init_state.mag_bias_cov));
+    values.insert(M(0), init_state.mag_bias);
   }
 
   // Log the computed initial state and covariance
   gtsam::Vector6 prior_pose_sigmas = init_state.pose_cov.diagonal().cwiseSqrt();
   gtsam::Vector3 prior_vel_sigmas = init_state.vel_cov.diagonal().cwiseSqrt();
   gtsam::Vector6 prior_imu_bias_sigmas = init_state.bias_cov.diagonal().cwiseSqrt();
-  gtsam::Vector3 prior_mag_bias_sigmas =
-      sigmasSquaredDiag(params_.mag.hard_iron_bias_sigmas).diagonal().cwiseSqrt();
+  gtsam::Vector3 prior_mag_bias_sigmas = init_state.mag_bias_cov.diagonal().cwiseSqrt();
 
   std::ostringstream oss;
   oss << "Initial state (t=" << std::fixed << std::setprecision(4) << init_state.time << "):\n";
@@ -387,7 +381,7 @@ void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
       << "  Velocity [m/s]      : " << init_state.velocity.transpose() << "\n"
       << "  Accel bias [m/s^2]  : " << init_state.bias.accelerometer().transpose() << "\n"
       << "  Gyro bias [rad/s]   : " << init_state.bias.gyroscope().transpose() << "\n"
-      << "  Mag bias [T]        : " << hard_iron.transpose() << "\n"
+      << "  Mag bias [T]        : " << init_state.mag_bias.transpose() << "\n"
       << "Prior sigmas:\n"
       << "  Position [m]        : " << prior_pose_sigmas.tail<3>().transpose() << "\n"
       << "  Orientation [rad]   : " << prior_pose_sigmas.head<3>().transpose() << " (RPY)\n"
@@ -466,11 +460,9 @@ void FactorGraphCore::addMagFactor(
     return;
   }
 
-  gtsam::Point3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
-                          params_.mag.hard_iron_bias[2]);
-
-  graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field - hard_iron, ref_vec,
-                                     tfs_.target_T_mag, mag_noise);
+  // Apply the configured offset directly when it is not being estimated
+  graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field - prev_mag_bias_,
+                                     ref_vec, tfs_.target_T_mag, mag_noise);
 }
 
 void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,

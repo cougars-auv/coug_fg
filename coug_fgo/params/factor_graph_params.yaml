@@ -408,17 +408,6 @@ factor_graph_node:
     estimate_hard_iron_bias:
       type: bool
       default_value: false
-    hard_iron_bias:
-      type: double_array
-      default_value: [0.0, 0.0, 0.0]
-      validation:
-        fixed_size<>: [3]
-    hard_iron_bias_sigmas:
-      type: double_array
-      default_value: [1.0e-05, 1.0e-05, 1.0e-05]
-      validation:
-        fixed_size<>: [3]
-        lower_element_bounds<>: [0.0]
     use_parameter_frame:
       type: bool
       default_value: false
@@ -848,16 +837,21 @@ factor_graph_node:
         default_value: [0.0, 0.0, 0.0]
         validation:
           fixed_size<>: [3]
-      initial_accel_bias:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0]
-        validation:
-          fixed_size<>: [3]
       initial_gyro_bias:
         type: double_array
         default_value: [0.0, 0.0, 0.0]
         validation:
           fixed_size<>: [3]
+    initial_accel_bias:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    hard_iron_bias:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
     initial_position_sigmas:
       type: double_array
       default_value: [0.001, 0.001, 0.001]
@@ -885,6 +879,12 @@ factor_graph_node:
     initial_gyro_bias_sigmas:
       type: double_array
       default_value: [0.000034, 0.000034, 0.000034]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    hard_iron_bias_sigmas:
+      type: double_array
+      default_value: [1.0e-05, 1.0e-05, 1.0e-05]
       validation:
         fixed_size<>: [3]
         lower_element_bounds<>: [0.0]

@@ -75,6 +75,11 @@ def plot_results(results: dict, pose_gt: dict, label: str = "") -> None:
             ["Gyro Bias X", "Gyro Bias Y", "Gyro Bias Z"],
             None,
         ),
+        (
+            ["bias_mag_x", "bias_mag_y", "bias_mag_z"],
+            ["Mag Bias X (T)", "Mag Bias Y (T)", "Mag Bias Z (T)"],
+            None,
+        ),
     ]
 
     _, axes = plt.subplots(len(layout), 3, figsize=(15, 8), num=label or None)

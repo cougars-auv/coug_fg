@@ -28,6 +28,8 @@ FGO_LIB_PATH = str(
     / "site-packages"
 )
 sys.path.insert(0, FGO_LIB_PATH)
+from typing import ClassVar
+
 import coug_fgo_py
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,11 @@ class OfflineFactorGraph:
     """
 
     # IMPORTANT! Offline, the timer relies on IMU message stamps instead of the ROS 2 clock
-    SOURCE_SENSORS = {"DVL": "dvl", "Depth": "depth", "Timer": "imu"}
+    SOURCE_SENSORS: ClassVar[dict[str, str]] = {
+        "DVL": "dvl",
+        "Depth": "depth",
+        "Timer": "imu",
+    }
     INIT_SENSORS = ("imu", "gps", "depth", "mag", "ahrs", "dvl")
 
     def __init__(

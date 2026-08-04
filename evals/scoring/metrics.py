@@ -74,7 +74,7 @@ def compute_ape_rmse(
         ape = metrics.APE(metrics.PoseRelation.translation_part)
         ape.process_data((gt_sync, est_sync))
         return ape.get_statistic(metrics.StatisticsType.rmse)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Could not compute APE RMSE: {e}")
         return float("inf")
 

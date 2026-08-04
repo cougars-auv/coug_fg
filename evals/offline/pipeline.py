@@ -83,7 +83,7 @@ def process_bag_offline(
                         )
                         frame_id, measurement = EXTRACTORS[key](msg)
                         graph.add_message(sensor, frame_id, measurement)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     logger.error(f"Factor graph optimization failed: {e}")
                     crashed = True
                     break
@@ -93,7 +93,7 @@ def process_bag_offline(
     if not crashed:
         try:
             graph.finalize()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Final optimization failed: {e}")
             crashed = True
     results = graph.get_results()

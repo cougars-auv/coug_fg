@@ -92,7 +92,7 @@ def read_timing_metrics(bag_dir: Path, agent_name: str) -> pd.DataFrame:
                         "Covariance": msg.cov_duration,
                     }
                 )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Could not read {bag_dir}: {e}")
 
     return pd.DataFrame(timing_data)
@@ -116,6 +116,6 @@ def read_bag_durations(bag_dir: Path, agent_name: str) -> list[float]:
                 float(reader.deserialize(rawdata, c.msgtype).total_duration)
                 for c, _, rawdata in reader.messages(connections=connections)
             ]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Could not read {bag_dir}: {e}")
         return []

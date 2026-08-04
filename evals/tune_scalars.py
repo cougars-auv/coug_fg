@@ -18,7 +18,7 @@ import math
 import os
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -38,7 +38,7 @@ CONFIG_PATHS = config_paths(NAMESPACE)
 
 DB_PATH = Path(os.path.commonpath(BAG_PATHS)).resolve() / "optuna_study.db"
 DB_URL = f"sqlite:///{DB_PATH}"
-STUDY_NAME = f"{NAMESPACE}_scalar_sweep_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
+STUDY_NAME = f"{NAMESPACE}_scalar_sweep_{datetime.now(tz=timezone.utc).strftime('%Y-%m-%d-%H-%M-%S')}"
 
 SCALARS_TO_TUNE = ["const_vel"]
 N_OPTUNA_TRIALS = 20
@@ -136,18 +136,20 @@ def main() -> None:
     print(f"Best scalars: {study.best_params}")
 
     plot_args = []
-    with logging_redirect_tqdm():
-        with covariance_override_file(study.best_params) as best_override_path:
-            for bag in BAG_PATHS:
-                result = process_and_evaluate(
-                    bag,
-                    CONFIG_PATHS + [best_override_path],
-                    NAMESPACE,
-                    "tuned",
-                    EVO_FLAGS,
-                )
-                if result is not None:
-                    plot_args.append(result)
+    with (
+        logging_redirect_tqdm(),
+        covariance_override_file(study.best_params) as best_override_path,
+    ):
+        for bag in BAG_PATHS:
+            result = process_and_evaluate(
+                bag,
+                CONFIG_PATHS + [best_override_path],
+                NAMESPACE,
+                "tuned",
+                EVO_FLAGS,
+            )
+            if result is not None:
+                plot_args.append(result)
 
     for results, pose_gt, label in plot_args:
         state.plot_results(results, pose_gt, label)

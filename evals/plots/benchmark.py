@@ -56,7 +56,7 @@ def _load_benchmark_rmse(bags_dir: Path) -> dict[str, pd.DataFrame]:
                     data_store[path.name].append(
                         {"Algorithm": label, "RMSE": row["rmse"]}
                     )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Could not read {path}: {e}")
 
     return {k: pd.DataFrame(v) for k, v in data_store.items() if v}

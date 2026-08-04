@@ -114,7 +114,7 @@ def render(target_dir: Path, do_align: bool = False) -> None:
             for algo, traj in est_trajs.items():
                 try:
                     metrics.umeyama_align(traj, gt_traj)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     logger.error(f"Could not align {algo}: {e}")
 
         fig, ax = plt.subplots()

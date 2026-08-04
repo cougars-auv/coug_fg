@@ -156,7 +156,7 @@ def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
         urdf_dirs.insert(
             0, Path(get_package_share_directory("coug_description")) / "urdf"
         )
-    except Exception:
+    except Exception:  # noqa: S110, BLE001
         pass
 
     for urdf_dir in urdf_dirs:

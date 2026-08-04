@@ -35,7 +35,7 @@ def run_logged(args: list[str], cwd: Path | None = None) -> subprocess.Completed
     :param cwd: Working directory to run the command in, if any.
     :return: The completed process.
     """
-    return subprocess.run(args, cwd=cwd)
+    return subprocess.run(args, cwd=cwd, check=False)
 
 
 def evo_agent_dir(bag_path: str | Path, namespace: str) -> Path:

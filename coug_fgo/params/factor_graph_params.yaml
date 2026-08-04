@@ -837,12 +837,12 @@ factor_graph_node:
         default_value: [0.0, 0.0, 0.0]
         validation:
           fixed_size<>: [3]
-      initial_gyro_bias:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0]
-        validation:
-          fixed_size<>: [3]
     initial_accel_bias:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    initial_gyro_bias:
       type: double_array
       default_value: [0.0, 0.0, 0.0]
       validation:

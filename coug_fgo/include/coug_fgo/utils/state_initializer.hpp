@@ -103,8 +103,8 @@ class StateInitializer {
                                         const utils::TfBundle& tfs) const;
 
   /**
-   * @brief Computes initial IMU bias from averaged gyroscope readings.
-   * @return Initial accelerometer and gyroscope bias estimate.
+   * @brief Collects the configured accelerometer and gyroscope biases.
+   * @return Initial accelerometer and gyroscope bias.
    */
   gtsam::imuBias::ConstantBias computeInitialBias() const;
 

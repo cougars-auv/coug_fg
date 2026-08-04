@@ -299,15 +299,10 @@ gtsam::Vector3 StateInitializer::computeInitialVelocity(const gtsam::Rot3& map_R
 }
 
 gtsam::imuBias::ConstantBias StateInitializer::computeInitialBias() const {
-  gtsam::Vector3 init_gyro_bias;
-  if (params_.priors.use_parameter_priors) {
-    init_gyro_bias =
-        Eigen::Map<const Eigen::Vector3d>(params_.priors.parameter_priors.initial_gyro_bias.data());
-  } else {
-    init_gyro_bias = initial_imu_->angular_velocity;
-  }
   gtsam::Vector3 init_accel_bias =
       Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_accel_bias.data());
+  gtsam::Vector3 init_gyro_bias =
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_gyro_bias.data());
 
   return gtsam::imuBias::ConstantBias(init_accel_bias, init_gyro_bias);
 }

@@ -12,6 +12,9 @@ factor_graph_node:
   publish_imu_bias:
     type: bool
     default_value: false
+  publish_mag_bias:
+    type: bool
+    default_value: false
   publish_diagnostics:
     type: bool
     default_value: false
@@ -26,6 +29,9 @@ factor_graph_node:
     type: bool
     default_value: false
   publish_imu_bias_cov:
+    type: bool
+    default_value: false
+  publish_mag_bias_cov:
     type: bool
     default_value: false
 
@@ -140,6 +146,11 @@ factor_graph_node:
   imu_bias_topic:
     type: string
     default_value: "~/imu/bias"
+    validation:
+      not_empty<>: []
+  mag_bias_topic:
+    type: string
+    default_value: "~/imu/mag/bias"
     validation:
       not_empty<>: []
   graph_metrics_topic:

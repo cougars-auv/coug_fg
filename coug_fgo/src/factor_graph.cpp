@@ -39,6 +39,7 @@ using utils::parseSolverType;
 using utils::SolverType;
 using utils::StateInitializer;
 using utils::toCovariance36Msg;
+using utils::toCovariance9Msg;
 using utils::toGtsam;
 using utils::toPoseCovarianceMsg;
 using utils::toPoseMsg;
@@ -92,6 +93,10 @@ void FactorGraphNode::setupRosInterfaces() {
   if (params_.publish_imu_bias) {
     imu_bias_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
         params_.imu_bias_topic, rclcpp::SystemDefaultsQoS());
+  }
+  if (params_.publish_mag_bias) {
+    mag_bias_pub_ = create_publisher<sensor_msgs::msg::MagneticField>(params_.mag_bias_topic,
+                                                                      rclcpp::SystemDefaultsQoS());
   }
   if (params_.publish_graph_metrics) {
     graph_metrics_pub_ = create_publisher<coug_interfaces::msg::GraphMetrics>(
@@ -184,6 +189,10 @@ void FactorGraphNode::setupRosInterfaces() {
               params_.mag.use_parameter_frame ? params_.mag.parameter_frame : msg->header.frame_id;
           loadOrLookupTf(target_T_mag_tf_, child, params_.mag.use_parameter_tf,
                          params_.mag.parameter_tf.position, params_.mag.parameter_tf.orientation);
+          {
+            std::scoped_lock lock(tf_mutex_);
+            mag_frame_ = child;
+          }
           auto data = std::make_shared<utils::MagneticFieldData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->magnetic_field = toGtsam(msg->magnetic_field);
@@ -616,6 +625,22 @@ void FactorGraphNode::publishImuBias(const gtsam::imuBias::ConstantBias& current
   imu_bias_pub_->publish(imu_bias_msg);
 }
 
+void FactorGraphNode::publishMagBias(const gtsam::Point3& current_mag_bias,
+                                     const gtsam::Matrix& mag_bias_covariance,
+                                     const rclcpp::Time& timestamp) {
+  sensor_msgs::msg::MagneticField mag_bias_msg;
+  mag_bias_msg.header.stamp = timestamp;
+  {
+    std::scoped_lock lock(tf_mutex_);
+    mag_bias_msg.header.frame_id = mag_frame_;
+  }
+
+  mag_bias_msg.magnetic_field = toVectorMsg(current_mag_bias);
+  mag_bias_msg.magnetic_field_covariance = toCovariance9Msg(gtsam::Matrix33(mag_bias_covariance));
+
+  mag_bias_pub_->publish(mag_bias_msg);
+}
+
 void FactorGraphNode::publishGraphMetrics(const rclcpp::Time& timestamp) {
   coug_interfaces::msg::GraphMetrics metrics_msg;
   metrics_msg.header.stamp = timestamp;
@@ -839,6 +864,10 @@ void FactorGraphNode::optimizeGraph() {
 
     if (params_.publish_imu_bias) {
       publishImuBias(result->imu_bias, result->bias_cov, stamp);
+    }
+
+    if (params_.publish_mag_bias) {
+      publishMagBias(result->mag_bias, result->mag_bias_cov, stamp);
     }
 
     if (params_.publish_graph_metrics) {

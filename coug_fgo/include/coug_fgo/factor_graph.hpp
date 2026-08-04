@@ -200,12 +200,21 @@ class FactorGraphNode : public rclcpp::Node {
 
   /**
    * @brief Publishes the optimized IMU biases.
-   * @param current_imu_bias The estimated biases.
+   * @param current_imu_bias The estimated biases (IMU frame).
    * @param imu_bias_covariance The estimation error covariance.
    * @param timestamp The message timestamp.
    */
   void publishImuBias(const gtsam::imuBias::ConstantBias& current_imu_bias,
                       const gtsam::Matrix& imu_bias_covariance, const rclcpp::Time& timestamp);
+
+  /**
+   * @brief Publishes the estimated magnetometer hard-iron bias.
+   * @param current_mag_bias The estimated hard-iron bias (sensor frame).
+   * @param mag_bias_covariance The estimation error covariance.
+   * @param timestamp The message timestamp.
+   */
+  void publishMagBias(const gtsam::Point3& current_mag_bias,
+                      const gtsam::Matrix& mag_bias_covariance, const rclcpp::Time& timestamp);
 
   /**
    * @brief Publishes high-frequency timing and graph metadata.
@@ -290,12 +299,14 @@ class FactorGraphNode : public rclcpp::Node {
   geometry_msgs::msg::TransformStamped target_T_modem_tf_;
 
   std::string imu_frame_;
+  std::string mag_frame_;
 
   // --- ROS Interfaces ---
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_odom_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr smoothed_path_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr velocity_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr imu_bias_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_bias_pub_;
   rclcpp::Publisher<coug_interfaces::msg::GraphMetrics>::SharedPtr graph_metrics_pub_;
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;

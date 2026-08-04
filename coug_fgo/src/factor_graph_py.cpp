@@ -29,6 +29,7 @@
 #include <unordered_map>
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
+using gtsam::symbol_shorthand::M;  // Magnetometer hard-iron bias (x,y,z)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 
 namespace coug_fgo {
@@ -99,11 +100,13 @@ void pyLogCallback(utils::LogLevel level, const std::string& msg) {
  * @param pose The optimized pose.
  * @param velocity The optimized velocity, if available.
  * @param bias The optimized IMU bias, if available.
+ * @param mag_bias The optimized magnetometer hard-iron bias, if available.
  * @return Dict with time, position, orientation, velocity, and bias entries.
  */
 pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
                            const std::optional<gtsam::Vector3>& velocity,
-                           const std::optional<gtsam::imuBias::ConstantBias>& bias) {
+                           const std::optional<gtsam::imuBias::ConstantBias>& bias,
+                           const std::optional<gtsam::Point3>& mag_bias) {
   pybind11::dict d;
   gtsam::Quaternion q = pose.rotation().toQuaternion();
 
@@ -128,6 +131,11 @@ pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
     d["bias_gyro_x"] = bias->gyroscope().x();
     d["bias_gyro_y"] = bias->gyroscope().y();
     d["bias_gyro_z"] = bias->gyroscope().z();
+  }
+  if (mag_bias) {
+    d["bias_mag_x"] = mag_bias->x();
+    d["bias_mag_y"] = mag_bias->y();
+    d["bias_mag_z"] = mag_bias->z();
   }
   return d;
 }
@@ -462,8 +470,13 @@ pybind11::dict FactorGraphPy::optimize() {
     return {};
   }
 
+  std::optional<gtsam::Point3> mag_bias;
+  if (params_.mag.estimate_hard_iron_bias) {
+    mag_bias = opt_result->mag_bias;
+  }
+
   pybind11::dict result = toStateDict(opt_result->target_time, opt_result->pose,
-                                      opt_result->velocity, opt_result->imu_bias);
+                                      opt_result->velocity, opt_result->imu_bias, mag_bias);
 
   if (params_.publish_pose_cov) result["pose_cov"] = opt_result->pose_cov;
   if (params_.publish_velocity_cov) result["vel_cov"] = opt_result->vel_cov;
@@ -487,8 +500,13 @@ pybind11::dict FactorGraphPy::optimize() {
       if (estimates.exists(B(step))) {
         bias = estimates.at<gtsam::imuBias::ConstantBias>(B(step));
       }
+      std::optional<gtsam::Point3> step_mag_bias;
+      if (estimates.exists(M(0))) {
+        step_mag_bias = estimates.at<gtsam::Point3>(M(0));
+      }
       smoothed.append(toStateDict(static_cast<double>(time_ns) * 1e-9,
-                                  estimates.at<gtsam::Pose3>(x_key), velocity, bias));
+                                  estimates.at<gtsam::Pose3>(x_key), velocity, bias,
+                                  step_mag_bias));
     }
     result["smoothed_path"] = smoothed;
   }

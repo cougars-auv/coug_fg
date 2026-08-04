@@ -148,6 +148,21 @@ inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix33& cov) {
 }
 
 /**
+ * @brief Converts a GTSAM Matrix33 to a 9-element covariance array.
+ * @param cov The input GTSAM Matrix33.
+ * @return The resulting std::array<double, 9>.
+ */
+inline std::array<double, 9> toCovariance9Msg(const gtsam::Matrix33& cov) {
+  std::array<double, 9> msg;
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      msg[i * 3 + j] = cov(i, j);
+    }
+  }
+  return msg;
+}
+
+/**
  * @brief Converts a GTSAM Matrix66 to a 36-element covariance array.
  * @param cov The input GTSAM Matrix66.
  * @return The resulting std::array<double, 36>.

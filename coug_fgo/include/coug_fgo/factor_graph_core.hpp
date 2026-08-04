@@ -55,9 +55,11 @@ struct OptimizeResult {
   gtsam::Pose3 pose;
   gtsam::Vector3 velocity;
   gtsam::imuBias::ConstantBias imu_bias;
+  gtsam::Point3 mag_bias;
   gtsam::Matrix pose_cov;
   gtsam::Matrix vel_cov;
   gtsam::Matrix bias_cov;
+  gtsam::Matrix mag_bias_cov;
   gtsam::Values all_estimates;
 
   double total_duration = 0.0;
@@ -287,6 +289,7 @@ class FactorGraphCore {
   gtsam::Pose3 prev_pose_;
   gtsam::Vector3 prev_vel_;
   gtsam::imuBias::ConstantBias prev_imu_bias_;
+  gtsam::Point3 prev_mag_bias_;
 
   // --- Sensor Data ---
   gtsam::Vector3 last_dvl_velocity_ = gtsam::Vector3::Zero();

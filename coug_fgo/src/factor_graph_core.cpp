@@ -45,6 +45,7 @@
 #include "coug_fgo/factors/dvl_loose_preint_factor.hpp"
 #include "coug_fgo/factors/dvl_tight_preint_factor.hpp"
 #include "coug_fgo/factors/gps_factor.hpp"
+#include "coug_fgo/factors/mag_calib_factor.hpp"
 #include "coug_fgo/factors/mag_factor.hpp"
 #include "coug_fgo/utils/param_enums.hpp"
 
@@ -57,9 +58,11 @@ using coug_fgo::factors::DvlFactorArm;
 using coug_fgo::factors::DvlLoosePreintFactorArm;
 using coug_fgo::factors::DvlTightPreintFactorArm;
 using coug_fgo::factors::Gps2dFactorArm;
+using coug_fgo::factors::MagCalibFactorArm;
 using coug_fgo::factors::MagFactorArm;
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
+using gtsam::symbol_shorthand::M;  // Magnetometer hard-iron bias (x,y,z)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
 
@@ -238,6 +241,8 @@ void FactorGraphCore::initialize(const utils::InitialState& init_state,
   prev_pose_ = init_state.pose;
   prev_vel_ = init_state.velocity;
   prev_imu_bias_ = init_state.bias;
+  prev_mag_bias_ = gtsam::Point3(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
+                                 params_.mag.hard_iron_bias[2]);
   prev_time_ = init_state.time;
 
   last_imu_acc_ = init_state.imu->linear_acceleration;
@@ -284,6 +289,9 @@ void FactorGraphCore::initialize(const utils::InitialState& init_state,
   initial_timestamps[X(0)] = prev_time_;
   initial_timestamps[V(0)] = prev_time_;
   initial_timestamps[B(0)] = prev_time_;
+  if (params_.mag.estimate_hard_iron_bias) {
+    initial_timestamps[M(0)] = prev_time_;
+  }
 
   gtsam::ISAM2Params isam2_params;
   isam2_params.relinearizeThreshold = params_.relinearize_threshold;
@@ -351,6 +359,18 @@ void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
   graph.emplace_shared<gtsam::PriorFactor<gtsam::imuBias::ConstantBias>>(
       B(0), prev_imu_bias_, gtsam::noiseModel::Gaussian::Covariance(init_state.bias_cov));
   values.insert(B(0), prev_imu_bias_);
+
+  // Hard-iron bias is static, so one key is shared by every keyframe
+  if (params_.mag.estimate_hard_iron_bias) {
+    gtsam::Point3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
+                            params_.mag.hard_iron_bias[2]);
+
+    graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3>>(
+        M(0), hard_iron,
+        gtsam::noiseModel::Gaussian::Covariance(
+            sigmasSquaredDiag(params_.mag.hard_iron_bias_sigmas)));
+    values.insert(M(0), hard_iron);
+  }
 
   // Log the computed initial state and covariance
   gtsam::Vector6 prior_pose_sigmas = init_state.pose_cov.diagonal().cwiseSqrt();
@@ -436,7 +456,16 @@ void FactorGraphCore::addMagFactor(
 
   mag_noise = applyRobustKernel(mag_noise, params_.mag.robust_kernel, params_.mag.robust_k);
 
-  graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field, ref_vec,
+  if (params_.mag.estimate_hard_iron_bias) {
+    graph.emplace_shared<MagCalibFactorArm>(X(current_step_), M(0), mag_msg->magnetic_field,
+                                            ref_vec, tfs_.target_T_mag, mag_noise);
+    return;
+  }
+
+  gtsam::Point3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
+                          params_.mag.hard_iron_bias[2]);
+
+  graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field - hard_iron, ref_vec,
                                      tfs_.target_T_mag, mag_noise);
 }
 
@@ -945,6 +974,11 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   new_timestamps[V(current_step_)] = target_time;
   new_timestamps[B(current_step_)] = target_time;
 
+  // IMPORTANT! Refresh the static key every step or the fixed-lag smoother marginalizes it out
+  if (params_.mag.estimate_hard_iron_bias) {
+    new_timestamps[M(0)] = target_time;
+  }
+
   if (!inc_smoother_ && !isam_) {
     prev_pose_ = pred.pose();
     prev_vel_ = pred.velocity();
@@ -1027,6 +1061,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
       prev_vel_ = inc_smoother_->calculateEstimate<gtsam::Vector3>(V(batch_last_step));
       prev_imu_bias_ =
           inc_smoother_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_last_step));
+      if (params_.mag.estimate_hard_iron_bias) {
+        prev_mag_bias_ = inc_smoother_->calculateEstimate<gtsam::Point3>(M(0));
+      }
     }
 
     if (params_.publish_diagnostics || params_.publish_graph_metrics) {
@@ -1045,6 +1082,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
       prev_pose_ = isam_->calculateEstimate<gtsam::Pose3>(X(batch_last_step));
       prev_vel_ = isam_->calculateEstimate<gtsam::Vector3>(V(batch_last_step));
       prev_imu_bias_ = isam_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_last_step));
+      if (params_.mag.estimate_hard_iron_bias) {
+        prev_mag_bias_ = isam_->calculateEstimate<gtsam::Point3>(M(0));
+      }
     }
 
     if (params_.publish_diagnostics || params_.publish_graph_metrics) {
@@ -1067,6 +1107,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
       prev_pose_ = lm_values_.at<gtsam::Pose3>(X(batch_last_step));
       prev_vel_ = lm_values_.at<gtsam::Vector3>(V(batch_last_step));
       prev_imu_bias_ = lm_values_.at<gtsam::imuBias::ConstantBias>(B(batch_last_step));
+      if (params_.mag.estimate_hard_iron_bias) {
+        prev_mag_bias_ = lm_values_.at<gtsam::Point3>(M(0));
+      }
     }
 
     if (params_.publish_diagnostics || params_.publish_graph_metrics) {
@@ -1080,6 +1123,7 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
     result.pose = prev_pose_;
     result.velocity = prev_vel_;
     result.imu_bias = prev_imu_bias_;
+    result.mag_bias = prev_mag_bias_;
   }
 
   // --- Calculate Covariances ---
@@ -1101,6 +1145,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
       marginal_cov(params_.publish_velocity && params_.publish_velocity_cov, V(batch_last_step), 3);
   result.bias_cov =
       marginal_cov(params_.publish_imu_bias && params_.publish_imu_bias_cov, B(batch_last_step), 6);
+  result.mag_bias_cov = marginal_cov(params_.mag.estimate_hard_iron_bias &&
+                                         params_.publish_mag_bias && params_.publish_mag_bias_cov,
+                                     M(0), 3);
 
   auto cov_end = std::chrono::steady_clock::now();
   result.cov_duration = std::chrono::duration<double>(cov_end - cov_start).count();

@@ -251,6 +251,57 @@
         </DockSplitter>
       </Container>
     </Tab>
+    <Tab containers="1" tab_name="Mag Bias">
+      <Container>
+        <DockSplitter count="3" sizes="0.333805;0.33239;0.333805" orientation="-">
+          <DockArea name="...">
+            <plot flip_x="false" mode="TimeSeries" flip_y="false" line_width="1.0">
+              <range bottom="-0.000020" left="25.941049" top="0.000020" right="30.956488" />
+              <limitY />
+              <curve color="#000000" name="/AUV_NS/imu/mag/bias/magnetic_field/x" />
+              <curve color="#ff0000"
+                name="/AUV_NS/factor_graph_node_tpi/imu/mag/bias/magnetic_field/x" />
+              <curve color="#55aaff"
+                name="/AUV_NS/factor_graph_node_lpi/imu/mag/bias/magnetic_field/x" />
+              <curve color="#ffaa00"
+                name="/AUV_NS/factor_graph_node_isam2/imu/mag/bias/magnetic_field/x" />
+              <curve color="#00ff00"
+                name="/AUV_NS/factor_graph_node/imu/mag/bias/magnetic_field/x" />
+            </plot>
+          </DockArea>
+          <DockArea name="...">
+            <plot flip_x="false" mode="TimeSeries" flip_y="false" line_width="1.0">
+              <range bottom="-0.000020" left="25.941049" top="0.000020" right="30.956488" />
+              <limitY />
+              <curve color="#000000" name="/AUV_NS/imu/mag/bias/magnetic_field/y" />
+              <curve color="#ff0000"
+                name="/AUV_NS/factor_graph_node_tpi/imu/mag/bias/magnetic_field/y" />
+              <curve color="#55aaff"
+                name="/AUV_NS/factor_graph_node_lpi/imu/mag/bias/magnetic_field/y" />
+              <curve color="#ffaa00"
+                name="/AUV_NS/factor_graph_node_isam2/imu/mag/bias/magnetic_field/y" />
+              <curve color="#00ff00"
+                name="/AUV_NS/factor_graph_node/imu/mag/bias/magnetic_field/y" />
+            </plot>
+          </DockArea>
+          <DockArea name="...">
+            <plot flip_x="false" mode="TimeSeries" flip_y="false" line_width="1.0">
+              <range bottom="-0.000005" left="25.941049" top="0.000030" right="30.956488" />
+              <limitY />
+              <curve color="#000000" name="/AUV_NS/imu/mag/bias/magnetic_field/z" />
+              <curve color="#ff0000"
+                name="/AUV_NS/factor_graph_node_tpi/imu/mag/bias/magnetic_field/z" />
+              <curve color="#55aaff"
+                name="/AUV_NS/factor_graph_node_lpi/imu/mag/bias/magnetic_field/z" />
+              <curve color="#ffaa00"
+                name="/AUV_NS/factor_graph_node_isam2/imu/mag/bias/magnetic_field/z" />
+              <curve color="#00ff00"
+                name="/AUV_NS/factor_graph_node/imu/mag/bias/magnetic_field/z" />
+            </plot>
+          </DockArea>
+        </DockSplitter>
+      </Container>
+    </Tab>
     <currentTabIndex index="0" />
   </tabbed_widget>
   <use_relative_time_offset enabled="1" />
@@ -275,7 +326,7 @@
       <boolean_strings_to_number value="true" />
       <remove_suffix_from_strings value="true" />
       <selected_topics
-        value="/AUV_NS/imu/bias;/AUV_NS/VelocitySensor;/AUV_NS/odometry/global;AUV_NS/odometry/global_isam2;/AUV_NS/odometry/global_lpi;/AUV_NS/odometry/global_tpi;/AUV_NS/odometry/global_iekf;/AUV_NS/odometry/global_ukf;/AUV_NS/odometry/global_ekf;/AUV_NS/odometry/truth;/AUV_NS/factor_graph_node/velocity;/AUV_NS/factor_graph_node/imu/bias;/AUV_NS/factor_graph_node_isam2/imu/bias;/AUV_NS/factor_graph_node_isam2/velocity;/AUV_NS/factor_graph_node_lpi/velocity;/AUV_NS/factor_graph_node_lpi/imu/bias;/AUV_NS/factor_graph_node_tpi/velocity;/AUV_NS/factor_graph_node_tpi/imu/bias;/AUV_NS/iekf_node/velocity;/AUV_NS/iekf_node/imu/bias" />
+        value="/AUV_NS/imu/bias;/AUV_NS/imu/mag/bias;/AUV_NS/VelocitySensor;/AUV_NS/odometry/global;/AUV_NS/odometry/global_isam2;/AUV_NS/odometry/global_lpi;/AUV_NS/odometry/global_tpi;/AUV_NS/odometry/global_iekf;/AUV_NS/odometry/global_ukf;/AUV_NS/odometry/global_ekf;/AUV_NS/odometry/truth;/AUV_NS/factor_graph_node/velocity;/AUV_NS/factor_graph_node/imu/bias;/AUV_NS/factor_graph_node/imu/mag/bias;/AUV_NS/factor_graph_node_isam2/imu/bias;/AUV_NS/factor_graph_node_isam2/imu/mag/bias;/AUV_NS/factor_graph_node_isam2/velocity;/AUV_NS/factor_graph_node_lpi/velocity;/AUV_NS/factor_graph_node_lpi/imu/bias;/AUV_NS/factor_graph_node_lpi/imu/mag/bias;/AUV_NS/factor_graph_node_tpi/velocity;/AUV_NS/factor_graph_node_tpi/imu/bias;/AUV_NS/factor_graph_node_tpi/imu/mag/bias;/AUV_NS/iekf_node/velocity;/AUV_NS/iekf_node/imu/bias" />
     </plugin>
     <plugin ID="UDP Server" />
     <plugin ID="WebSocket Server" />

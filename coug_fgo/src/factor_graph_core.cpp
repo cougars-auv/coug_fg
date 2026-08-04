@@ -360,11 +360,11 @@ void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
       B(0), prev_imu_bias_, gtsam::noiseModel::Gaussian::Covariance(init_state.bias_cov));
   values.insert(B(0), prev_imu_bias_);
 
+  gtsam::Point3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
+                          params_.mag.hard_iron_bias[2]);
+
   // Hard-iron bias is static, so one key is shared by every keyframe
   if (params_.mag.estimate_hard_iron_bias) {
-    gtsam::Point3 hard_iron(params_.mag.hard_iron_bias[0], params_.mag.hard_iron_bias[1],
-                            params_.mag.hard_iron_bias[2]);
-
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3>>(
         M(0), hard_iron,
         gtsam::noiseModel::Gaussian::Covariance(
@@ -376,6 +376,8 @@ void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
   gtsam::Vector6 prior_pose_sigmas = init_state.pose_cov.diagonal().cwiseSqrt();
   gtsam::Vector3 prior_vel_sigmas = init_state.vel_cov.diagonal().cwiseSqrt();
   gtsam::Vector6 prior_imu_bias_sigmas = init_state.bias_cov.diagonal().cwiseSqrt();
+  gtsam::Vector3 prior_mag_bias_sigmas =
+      sigmasSquaredDiag(params_.mag.hard_iron_bias_sigmas).diagonal().cwiseSqrt();
 
   std::ostringstream oss;
   oss << "Initial state (t=" << std::fixed << std::setprecision(4) << init_state.time << "):\n";
@@ -385,12 +387,14 @@ void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
       << "  Velocity [m/s]      : " << init_state.velocity.transpose() << "\n"
       << "  Accel bias [m/s^2]  : " << init_state.bias.accelerometer().transpose() << "\n"
       << "  Gyro bias [rad/s]   : " << init_state.bias.gyroscope().transpose() << "\n"
+      << "  Mag bias [T]        : " << hard_iron.transpose() << "\n"
       << "Prior sigmas:\n"
       << "  Position [m]        : " << prior_pose_sigmas.tail<3>().transpose() << "\n"
       << "  Orientation [rad]   : " << prior_pose_sigmas.head<3>().transpose() << " (RPY)\n"
       << "  Velocity [m/s]      : " << prior_vel_sigmas.transpose() << "\n"
       << "  Accel bias [m/s^2]  : " << prior_imu_bias_sigmas.head<3>().transpose() << "\n"
-      << "  Gyro bias [rad/s]   : " << prior_imu_bias_sigmas.tail<3>().transpose();
+      << "  Gyro bias [rad/s]   : " << prior_imu_bias_sigmas.tail<3>().transpose() << "\n"
+      << "  Mag bias [T]        : " << prior_mag_bias_sigmas.transpose();
   logMessage(utils::LogLevel::kInfo, oss.str());
 }
 

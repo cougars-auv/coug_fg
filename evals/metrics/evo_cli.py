@@ -129,7 +129,11 @@ def build_benchmark_tables(agent_dir: Path, metrics_names: tuple[str, ...]) -> N
         old_table.unlink()
 
     for metric in metrics_names:
-        metric_zips = sorted(agent_dir.glob(f"*/{metric}.zip"))
+        metric_zips = sorted(
+            zip_path
+            for est in estimators.ESTIMATORS
+            if (zip_path := agent_dir / est.key / f"{metric}.zip").exists()
+        )
         if not metric_zips:
             continue
         args = ["evo_res", *map(str, metric_zips)]

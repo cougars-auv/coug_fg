@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -81,10 +82,17 @@ def label_for_folder(folder: str) -> str | None:
     return next((e.label for e in ESTIMATORS if e.key == folder), None)
 
 
+def row_token(est: Estimator) -> str:
+    """Return the trailing token an estimator's exported TUM file name ends with."""
+    return est.topic.replace("/", "_") if est.topic else est.key
+
+
 def label_for_row(row_key: str) -> str | None:
-    """Return the label for a benchmark CSV row key by longest matching folder key."""
-    for est in sorted(ESTIMATORS, key=lambda e: len(e.key), reverse=True):
-        if est.key in str(row_key):
+    """Return the label for a benchmark CSV row key, or None if unregistered."""
+    stem = Path(str(row_key)).stem
+    for est in sorted(ESTIMATORS, key=lambda e: len(row_token(e)), reverse=True):
+        token = row_token(est)
+        if stem == token or stem.endswith(f"_{token}"):
             return est.label
     return None
 

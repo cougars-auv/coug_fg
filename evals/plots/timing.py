@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import scienceplots  # noqa: F401
 import seaborn as sns
+from metrics import tum
 from rosbags.highlevel import AnyReader
-from scoring import tum
 
 logger = logging.getLogger(__name__)
 

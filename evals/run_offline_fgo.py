@@ -22,9 +22,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from config import BAG_PATHS, EVO_FLAGS, NAMESPACE, config_paths
 from logs import setup_logging
+from metrics import evo_cli, trajectories, tum
 from offline import pipeline
 from plots import state
-from scoring import metrics, tum
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ def process_and_evaluate(
     :return: ``(results, pose_gt, label)`` tuple, or None if no results.
     """
     logger.info(f"Processing bag: {bag_path}")
-    pose_gt, gt_path = tum.load_ground_truth(bag_path, namespace)
+    pose_gt, gt_path = evo_cli.load_ground_truth(bag_path, namespace)
     results, _ = pipeline.process_bag_offline(
         bag_path, config_paths, namespace, **kwargs
     )
@@ -79,9 +79,9 @@ def process_and_evaluate(
     tum.save_tum(est_path, results)
 
     if pose_gt and gt_path is not None:
-        metrics.run_evo_evaluations(gt_path, est_path, evo_dir, evo_flags)
+        evo_cli.run_evo_evaluations(gt_path, est_path, evo_dir, evo_flags)
         if "--align" in evo_flags:
-            metrics.align_dicts(results, pose_gt)
+            trajectories.align_dicts(results, pose_gt)
 
     return results, pose_gt, Path(bag_path).name
 

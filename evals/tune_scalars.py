@@ -26,10 +26,10 @@ import optuna
 import yaml
 from config import BAG_PATHS, EVO_FLAGS, NAMESPACE, config_paths
 from logs import setup_logging
+from metrics import evo_cli, trajectories
 from offline import pipeline
 from plots import state
 from run_offline_fgo import process_and_evaluate
-from scoring import metrics, tum
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ QUIET_LOGGERS = (
     "offline.pipeline",
     "offline.graph",
     "offline.urdf",
-    # "scoring.tum",
+    # "metrics.evo_cli",
     "coug_fgo.core",
 )
 
@@ -111,7 +111,7 @@ def _objective(trial: optuna.Trial, ground_truths: list[dict]) -> float:
             results, crashed = pipeline.process_bag_offline(
                 bag, CONFIG_PATHS + [override_path], NAMESPACE
             )
-            rmses.append(metrics.compute_ape_rmse(pose_gt, results, crashed))
+            rmses.append(trajectories.compute_ape_rmse(pose_gt, results, crashed))
 
     if not rmses:
         return float("inf")
@@ -121,7 +121,7 @@ def _objective(trial: optuna.Trial, ground_truths: list[dict]) -> float:
 def main() -> None:
     setup_logging()
 
-    ground_truths = [tum.load_ground_truth(bag, NAMESPACE)[0] for bag in BAG_PATHS]
+    ground_truths = [evo_cli.load_ground_truth(bag, NAMESPACE)[0] for bag in BAG_PATHS]
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     study = optuna.create_study(

@@ -19,7 +19,7 @@ import estimators
 import yaml
 from plots import benchmark, lag, timing, trajectory
 
-from scoring import metrics, tum
+from metrics import evo_cli, tum
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ def _evaluate_estimator(
 
     logger.info(f"Evaluating {est.key}...")
     if est_tum is None and topic_name:
-        est_tum = tum.export_bag_tum(bag_path, topic_name, out_dir)
+        est_tum = evo_cli.export_bag_tum(bag_path, topic_name, out_dir)
 
     if est_tum is None:
         logger.error(f"Could not find or export TUM for {est.key}.")
@@ -99,7 +99,7 @@ def _evaluate_estimator(
             f"Found TUM for {est.key}, but no ground truth to benchmark against."
         )
         return
-    metrics.run_evo_evaluations(gt_tum, est_tum, out_dir, evo_flags)
+    evo_cli.run_evo_evaluations(gt_tum, est_tum, out_dir, evo_flags)
 
 
 def _evaluate_agent(
@@ -125,14 +125,14 @@ def _evaluate_agent(
     if not has_gt and not has_est:
         return
 
-    gt_tum = tum.ensure_ground_truth(bag_path, agent) if has_gt else None
+    gt_tum = evo_cli.ensure_ground_truth(bag_path, agent) if has_gt else None
     if gt_tum is None:
         logger.warning(f"No ground truth found for {agent}.")
 
     for est in estimators.ESTIMATORS:
         _evaluate_estimator(bag_path, est, agent, agent_dir, gt_tum, counts, evo_flags)
 
-    metrics.build_benchmark_tables(agent_dir, BENCHMARK_METRICS)
+    evo_cli.build_benchmark_tables(agent_dir, BENCHMARK_METRICS)
 
 
 def evaluate_bags(target_dir: Path, agents: list[str], evo_flags: list[str]) -> None:

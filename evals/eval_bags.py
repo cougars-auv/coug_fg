@@ -19,7 +19,7 @@ from pathlib import Path
 
 from config import AGENTS, EVO_FLAGS, TARGET_DIR
 from logs import setup_logging
-from scoring import evaluation
+from metrics import evaluation
 
 logger = logging.getLogger(__name__)
 

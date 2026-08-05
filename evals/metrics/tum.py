@@ -13,28 +13,15 @@
 # limitations under the License.
 
 import logging
-import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
-import estimators
 import numpy as np
 from scipy.spatial.transform import Rotation
 
 logger = logging.getLogger(__name__)
 
 TUM_KEYS = ("time", "x", "y", "z", "qx", "qy", "qz", "qw")
-
-
-def run_logged(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
-    """
-    Run a subprocess. It will write directly to the terminal.
-
-    :param args: Command and arguments to execute.
-    :param cwd: Working directory to run the command in, if any.
-    :return: The completed process.
-    """
-    return subprocess.run(args, cwd=cwd, check=False)
 
 
 def evo_agent_dir(bag_path: str | Path, namespace: str) -> Path:
@@ -74,55 +61,29 @@ def latest_tum(directory: Path) -> Path | None:
     return tum_files[-1] if tum_files else None
 
 
-def ensure_ground_truth(bag_path: str | Path, namespace: str) -> Path | None:
+def load_tum(path: Path) -> dict:
     """
-    Return the agent's ground truth TUM file, exporting it from the bag if needed.
+    Read a TUM-format text file into state arrays.
 
-    :param bag_path: Path to the ROS 2 bag directory.
-    :param namespace: AUV namespace the ground truth belongs to.
-    :return: Path to the ground truth TUM file, or None if it could not be produced.
+    :param path: TUM file to read.
+    :return: Arrays keyed by state name (TUM_KEYS plus euler angles), or empty on error.
     """
-    agent_dir = evo_agent_dir(bag_path, namespace)
-    tum_path = latest_tum(agent_dir)
-    if tum_path is None:
-        logger.warning(
-            f"No ground truth TUM found in {agent_dir}; attempting export..."
-        )
-        truth_topic = f"/{namespace}/{estimators.TRUTH_TOPIC}"
-        tum_path = export_bag_tum(bag_path, truth_topic, agent_dir)
-    return tum_path
-
-
-def load_ground_truth(bag_path: str | Path, namespace: str) -> tuple[dict, Path | None]:
-    """
-    Load the ground truth into state arrays, exporting it from the bag first if needed.
-
-    :param bag_path: Path to the ROS 2 bag directory.
-    :param namespace: AUV namespace the ground truth was exported under.
-    :return: Tuple of arrays keyed by state name, and the path to the TUM file.
-    """
-    tum_path = ensure_ground_truth(bag_path, namespace)
-    if tum_path is None:
-        logger.error(f"Could not find or export ground truth for {namespace}.")
-        return {}, None
     try:
-        data = np.loadtxt(tum_path, comments="#", ndmin=2)
+        data = np.loadtxt(path, comments="#", ndmin=2)
     except (OSError, ValueError):
-        logger.error(f"Could not load ground truth from {tum_path}")
-        return {}, None
+        logger.error(f"Could not load TUM trajectory from {path}")
+        return {}
     if data.size == 0:
-        logger.error(f"Ground truth file is empty: {tum_path}")
-        return {}, None
+        logger.error(f"TUM file is empty: {path}")
+        return {}
     if data.shape[1] < len(TUM_KEYS):
-        logger.error(f"Ground truth file has too few columns: {tum_path}")
-        return {}, None
+        logger.error(f"TUM file has too few columns: {path}")
+        return {}
 
     pose = {k: data[:, i] for i, k in enumerate(TUM_KEYS)}
     roll, pitch, yaw = Rotation.from_quat(data[:, 4:8]).as_euler("xyz").T
     pose.update({"roll": roll, "pitch": pitch, "yaw": yaw})
-
-    logger.info(f"Loaded ground truth: {tum_path}")
-    return pose, tum_path
+    return pose
 
 
 def save_tum(path: Path, results: dict) -> None:
@@ -138,20 +99,3 @@ def save_tum(path: Path, results: dict) -> None:
         fmt="%.9f",
     )
     logger.info(f"Saved TUM trajectory: {path}")
-
-
-def export_bag_tum(bag_path: str | Path, topic: str, out_dir: Path) -> Path | None:
-    """
-    Export a recorded trajectory topic from a bag to a TUM file with evo.
-
-    :param bag_path: Path to the ROS 2 bag directory.
-    :param topic: Trajectory topic to export (e.g. an odometry topic).
-    :param out_dir: Directory to write the exported TUM file into.
-    :return: Path to the exported TUM file, or None if the export failed.
-    """
-    out_dir.mkdir(parents=True, exist_ok=True)
-    args = ["evo_traj", "bag2", str(Path(bag_path).resolve()), topic, "--save_as_tum"]
-    if run_logged(args, cwd=out_dir).returncode != 0:
-        return None
-
-    return latest_tum(out_dir)

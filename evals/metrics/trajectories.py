@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-from pathlib import Path
 
 import numpy as np
 from evo.core import lie_algebra as lie
@@ -21,33 +20,23 @@ from evo.core import metrics, sync
 from evo.core.trajectory import PoseTrajectory3D
 from scipy.spatial.transform import Rotation
 
-from scoring.tum import run_logged
-
 logger = logging.getLogger(__name__)
 
 
-def run_evo_evaluations(
-    gt_file: str | Path, est_file: str | Path, evo_dir: Path, evo_flags: list[str]
-) -> None:
+def dict_to_trajectory(pose: dict) -> PoseTrajectory3D:
     """
-    Run the evo APE and RPE evaluations and save the result archives.
+    Convert pose arrays into an evo PoseTrajectory3D.
 
-    :param gt_file: Ground truth trajectory in TUM format.
-    :param est_file: Estimated trajectory in TUM format.
-    :param evo_dir: Directory to save the evo result archives in.
-    :param evo_flags: Extra evo flags forwarded to every APE and RPE run.
+    :param pose: Dictionary of pose arrays keyed by state name.
+    :return: An evo PoseTrajectory3D object.
     """
-    base_flags = ["--t_max_diff", "0.05", "--no_warnings"]
-
-    for metric, cmd in [("APE", "evo_ape"), ("RPE", "evo_rpe")]:
-        for pose_relation, suffix in [("trans_part", "trans"), ("angle_deg", "rot")]:
-            args = [cmd, "tum", str(gt_file), str(est_file), "-r", pose_relation]
-            args += base_flags + evo_flags
-            args += ["--save_results", str(evo_dir / f"{metric.lower()}_{suffix}.zip")]
-            if metric == "RPE":
-                args += ["--delta", "1", "--delta_unit", "m", "--all_pairs"]
-
-            run_logged(args)
+    return PoseTrajectory3D(
+        positions_xyz=np.column_stack([pose["x"], pose["y"], pose["z"]]),
+        orientations_quat_wxyz=np.column_stack(
+            [pose["qw"], pose["qx"], pose["qy"], pose["qz"]]
+        ),
+        timestamps=pose["time"],
+    )
 
 
 def compute_ape_rmse(
@@ -77,22 +66,6 @@ def compute_ape_rmse(
     except Exception as e:  # noqa: BLE001
         logger.error(f"Could not compute APE RMSE: {e}")
         return float("inf")
-
-
-def dict_to_trajectory(pose: dict) -> PoseTrajectory3D:
-    """
-    Convert pose arrays into an evo PoseTrajectory3D.
-
-    :param pose: Dictionary of pose arrays keyed by state name.
-    :return: An evo PoseTrajectory3D object.
-    """
-    return PoseTrajectory3D(
-        positions_xyz=np.column_stack([pose["x"], pose["y"], pose["z"]]),
-        orientations_quat_wxyz=np.column_stack(
-            [pose["qw"], pose["qx"], pose["qy"], pose["qz"]]
-        ),
-        timestamps=pose["time"],
-    )
 
 
 def umeyama_align(est: PoseTrajectory3D, ref: PoseTrajectory3D) -> None:
@@ -129,25 +102,3 @@ def align_dicts(est: dict, ref: dict) -> None:
     est["roll"], est["pitch"], est["yaw"] = (
         Rotation.from_quat(quats_xyzw).as_euler("xyz").T
     )
-
-
-def build_benchmark_tables(agent_dir: Path, metrics_names: tuple[str, ...]) -> None:
-    """
-    Aggregate an agent's evo result archives into per-metric benchmark tables.
-
-    :param agent_dir: The agent's evo output directory holding the result zips.
-    :param metrics_names: Metric names to tabulate (e.g. ``ape_trans``).
-    """
-    if not any(agent_dir.glob("*/*.zip")):
-        return
-
-    for old_table in agent_dir.glob("benchmark_*.csv"):
-        old_table.unlink()
-
-    for metric in metrics_names:
-        metric_zips = sorted(agent_dir.glob(f"*/{metric}.zip"))
-        if not metric_zips:
-            continue
-        args = ["evo_res", *map(str, metric_zips)]
-        args += ["--save_table", str(agent_dir / f"benchmark_{metric}.csv")]
-        run_logged(args)

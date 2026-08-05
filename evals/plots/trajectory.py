@@ -22,7 +22,7 @@ import scienceplots  # noqa: F401
 import seaborn as sns
 from evo.core.trajectory import PoseTrajectory3D
 from evo.tools import file_interface, plot
-from scoring import metrics, tum
+from metrics import trajectories, tum
 
 from plots import state
 
@@ -114,7 +114,7 @@ def render(target_dir: Path, do_align: bool = False) -> None:
         if gt_traj is not None and do_align:
             for algo, traj in est_trajs.items():
                 try:
-                    metrics.umeyama_align(traj, gt_traj)
+                    trajectories.umeyama_align(traj, gt_traj)
                 except Exception as e:  # noqa: BLE001
                     logger.error(f"Could not align {algo}: {e}")
 

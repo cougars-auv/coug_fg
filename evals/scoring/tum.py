@@ -17,10 +17,9 @@ import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
+import estimators
 import numpy as np
 from scipy.spatial.transform import Rotation
-
-from scoring import estimators
 
 logger = logging.getLogger(__name__)
 

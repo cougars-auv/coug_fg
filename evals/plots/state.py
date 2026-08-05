@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import estimators
 import matplotlib.pyplot as plt
 import numpy as np
-from scoring import estimators
 
 GT_COLOR = estimators.GROUND_TRUTH_COLOR
 FGO_COLOR = estimators.timed_estimators()[0].color

@@ -15,10 +15,11 @@
 import logging
 from pathlib import Path
 
+import estimators
 import yaml
 from plots import benchmark, lag, timing, trajectory
 
-from scoring import estimators, metrics, tum
+from scoring import metrics, tum
 
 logger = logging.getLogger(__name__)
 

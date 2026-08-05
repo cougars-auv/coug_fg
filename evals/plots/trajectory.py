@@ -15,13 +15,14 @@
 import logging
 from pathlib import Path
 
+import estimators
 import matplotlib.pyplot as plt
 import numpy as np
 import scienceplots  # noqa: F401
 import seaborn as sns
 from evo.core.trajectory import PoseTrajectory3D
 from evo.tools import file_interface, plot
-from scoring import estimators, metrics, tum
+from scoring import metrics, tum
 
 from plots import state
 

@@ -15,13 +15,14 @@
 import logging
 from pathlib import Path
 
+import estimators
 import matplotlib.pyplot as plt
 import pandas as pd
 import scienceplots  # noqa: F401
 import seaborn as sns
 import yaml
 from rosbags.highlevel import AnyReader
-from scoring import estimators, tum
+from scoring import tum
 
 logger = logging.getLogger(__name__)
 

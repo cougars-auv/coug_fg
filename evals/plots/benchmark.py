@@ -15,11 +15,11 @@
 import logging
 from pathlib import Path
 
+import estimators
 import matplotlib.pyplot as plt
 import pandas as pd
 import scienceplots  # noqa: F401
 import seaborn as sns
-from scoring import estimators
 
 logger = logging.getLogger(__name__)
 

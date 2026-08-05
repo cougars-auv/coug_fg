@@ -19,13 +19,73 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import scienceplots  # noqa: F401
 import seaborn as sns
-from scoring import bags, estimators, tum
+import yaml
+from rosbags.highlevel import AnyReader
+from scoring import estimators, tum
 
 logger = logging.getLogger(__name__)
 
 plt.style.use(["science", "ieee"])
 
 FGO_COLOR = estimators.timed_estimators()[0].color
+FGO_TOPIC = f"{estimators.timed_estimators()[0].node}/metrics"
+
+
+def _get_smoother_lag(bag_dir: Path, agent_name: str) -> float | None:
+    """
+    Read the smoother lag parameter from a bag's saved config files.
+
+    :param bag_dir: Path to the ROS 2 bag directory.
+    :param agent_name: Agent namespace used to select namespaced parameters.
+    :return: The smoother lag in seconds, or None if it was not found.
+    """
+    config_paths = [
+        bag_dir / "config" / "fleet" / "coug_fgo_params.yaml",
+        bag_dir / "config" / f"{agent_name}_params.yaml",
+    ]
+
+    params: dict = {}
+    for path in config_paths:
+        try:
+            with open(path) as f:
+                config = yaml.safe_load(f)
+        except (OSError, yaml.YAMLError):
+            continue
+        try:
+            params.update(config["/**"]["ros__parameters"])
+        except (KeyError, TypeError):
+            pass
+        try:
+            params.update(config[f"/{agent_name}"]["**"]["ros__parameters"])
+        except (KeyError, TypeError):
+            pass
+
+    if "smoother_lag" not in params:
+        return None
+    return float(params["smoother_lag"])
+
+
+def _read_bag_durations(bag_dir: Path, agent_name: str) -> list[float]:
+    """
+    Read the total solver durations from a bag's metrics topic.
+
+    :param bag_dir: Path to the ROS 2 bag directory.
+    :param agent_name: Agent namespace to read the metrics topic for.
+    :return: Total optimization durations in seconds.
+    """
+    topic = f"/{agent_name}/{FGO_TOPIC}"
+    try:
+        with AnyReader([bag_dir]) as reader:
+            connections = [c for c in reader.connections if c.topic == topic]
+            if not connections:
+                return []
+            return [
+                float(reader.deserialize(rawdata, c.msgtype).total_duration)
+                for c, _, rawdata in reader.messages(connections=connections)
+            ]
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Could not read {bag_dir}: {e}")
+        return []
 
 
 def _collect_durations_by_lag(target_dir: Path) -> pd.DataFrame:
@@ -38,14 +98,14 @@ def _collect_durations_by_lag(target_dir: Path) -> pd.DataFrame:
     timing_data = []
 
     for bag_dir, agent_dir in tum.iter_evaluated_agents(target_dir):
-        lag = bags.get_smoother_lag(bag_dir, agent_dir.name)
+        lag = _get_smoother_lag(bag_dir, agent_dir.name)
         if lag is None:
             logger.warning(
                 f"No smoother_lag found in {bag_dir} for {agent_dir.name}, skipping."
             )
             continue
 
-        for duration in bags.read_bag_durations(bag_dir, agent_dir.name):
+        for duration in _read_bag_durations(bag_dir, agent_dir.name):
             timing_data.append(
                 {
                     "Smoother Lag (s)": lag,

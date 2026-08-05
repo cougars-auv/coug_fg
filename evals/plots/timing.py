@@ -19,7 +19,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import scienceplots  # noqa: F401
 import seaborn as sns
-from scoring import bags, estimators, tum
+from rosbags.highlevel import AnyReader
+from scoring import estimators, tum
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,44 @@ plt.style.use(["science", "ieee"])
 
 COLORS = estimators.color_map()
 ALGORITHMS = [e.label for e in estimators.timed_estimators()]
+NAME_MAPPING = {e.node: e.label for e in estimators.timed_estimators()}
+
+
+def _read_timing_metrics(bag_dir: Path, agent_name: str) -> pd.DataFrame:
+    """
+    Read the solver timing metrics for one agent from a bag.
+
+    :param bag_dir: Path to the ROS 2 bag directory.
+    :param agent_name: Agent namespace to read the metrics topics for.
+    :return: DataFrame of per-message timing durations by algorithm.
+    """
+    timing_data = []
+    try:
+        with AnyReader([bag_dir]) as reader:
+            available_topics = {c.topic: c for c in reader.connections}
+            topic_to_algo = {
+                f"/{agent_name}/{node}/metrics": algo
+                for node, algo in NAME_MAPPING.items()
+            }
+            topics_to_read = [
+                available_topics[t] for t in topic_to_algo if t in available_topics
+            ]
+            if not topics_to_read:
+                return pd.DataFrame()
+            for connection, _, rawdata in reader.messages(connections=topics_to_read):
+                msg = reader.deserialize(rawdata, connection.msgtype)
+                timing_data.append(
+                    {
+                        "Algorithm": topic_to_algo[connection.topic],
+                        "Total": msg.total_duration,
+                        "Smoother": msg.smoother_duration,
+                        "Covariance": msg.cov_duration,
+                    }
+                )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Could not read {bag_dir}: {e}")
+
+    return pd.DataFrame(timing_data)
 
 
 def render(target_dir: Path) -> None:
@@ -37,7 +76,7 @@ def render(target_dir: Path) -> None:
     """
     logger.info("Rendering timing plots...")
     for bag_dir, agent_dir in tum.iter_evaluated_agents(target_dir):
-        df = bags.read_timing_metrics(bag_dir, agent_dir.name)
+        df = _read_timing_metrics(bag_dir, agent_dir.name)
         if df.empty:
             logger.warning(
                 f"No timing metrics found for {agent_dir.name} in {bag_dir.name}."

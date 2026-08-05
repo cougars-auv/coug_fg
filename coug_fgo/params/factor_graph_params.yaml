@@ -402,9 +402,6 @@ factor_graph_node:
     enable_mag:
       type: bool
       default_value: false
-    enable_mag_init_only:
-      type: bool
-      default_value: true
     estimate_hard_iron_bias:
       type: bool
       default_value: false

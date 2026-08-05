@@ -216,8 +216,7 @@ pybind11::dict FactorGraphPy::get_params() const {
       sensor_dict(params_.gps, params_.gps.enable_gps, params_.gps.enable_gps_init_only);
   sensors["depth"] =
       sensor_dict(params_.depth, params_.depth.enable_depth, params_.depth.enable_depth_init_only);
-  sensors["mag"] =
-      sensor_dict(params_.mag, params_.mag.enable_mag, params_.mag.enable_mag_init_only);
+  sensors["mag"] = sensor_dict(params_.mag, params_.mag.enable_mag, false);
   sensors["ahrs"] =
       sensor_dict(params_.ahrs, params_.ahrs.enable_ahrs, params_.ahrs.enable_ahrs_init_only);
   sensors["dvl"] =

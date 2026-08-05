@@ -142,8 +142,9 @@ class FactorGraphNode : public rclcpp::Node {
    * @param use_parameter_tf Build the transform from parameters instead of the TF tree.
    * @param pos Parameter translation [x, y, z].
    * @param quat Parameter orientation [x, y, z, w].
+   * @return True once the transform is resolved and safe to convert.
    */
-  void loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, const std::string& child,
+  bool loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, const std::string& child,
                       bool use_parameter_tf, const std::vector<double>& pos,
                       const std::vector<double>& quat);
 
@@ -247,6 +248,7 @@ class FactorGraphNode : public rclcpp::Node {
 
   // --- Node State ---
   std::atomic<bool> is_initialized_{false};
+  bool init_data_ready_{false};
   rclcpp::Time last_update_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_opt_time_{0, 0, RCL_ROS_TIME};
   std::optional<double> last_target_time_;

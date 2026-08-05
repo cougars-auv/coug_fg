@@ -122,13 +122,13 @@ void FactorGraphNode::setupRosInterfaces() {
       [this](const sensor_msgs::msg::Imu::SharedPtr msg) {
         std::string child =
             params_.imu.use_parameter_frame ? params_.imu.parameter_frame : msg->header.frame_id;
-        loadOrLookupTf(target_T_imu_tf_, child, params_.imu.use_parameter_tf,
-                       params_.imu.parameter_tf.position, params_.imu.parameter_tf.orientation);
+        if (!loadOrLookupTf(target_T_imu_tf_, child, params_.imu.use_parameter_tf,
+                            params_.imu.parameter_tf.position,
+                            params_.imu.parameter_tf.orientation)) {
+          return;
+        }
         {
           std::scoped_lock lock(tf_mutex_);
-          if (target_T_imu_tf_.header.frame_id.empty()) {
-            return;
-          }
           imu_frame_ = child;
         }
         auto data = std::make_shared<utils::ImuData>();
@@ -147,8 +147,11 @@ void FactorGraphNode::setupRosInterfaces() {
         [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
           std::string child =
               params_.gps.use_parameter_frame ? params_.gps.parameter_frame : msg->child_frame_id;
-          loadOrLookupTf(target_T_gps_tf_, child, params_.gps.use_parameter_tf,
-                         params_.gps.parameter_tf.position, params_.gps.parameter_tf.orientation);
+          if (!loadOrLookupTf(target_T_gps_tf_, child, params_.gps.use_parameter_tf,
+                              params_.gps.parameter_tf.position,
+                              params_.gps.parameter_tf.orientation)) {
+            return;
+          }
           auto data = std::make_shared<utils::OdometryData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->pose = toGtsam(msg->pose.pose);
@@ -164,9 +167,11 @@ void FactorGraphNode::setupRosInterfaces() {
         [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
           std::string child = params_.depth.use_parameter_frame ? params_.depth.parameter_frame
                                                                 : msg->child_frame_id;
-          loadOrLookupTf(target_T_depth_tf_, child, params_.depth.use_parameter_tf,
-                         params_.depth.parameter_tf.position,
-                         params_.depth.parameter_tf.orientation);
+          if (!loadOrLookupTf(target_T_depth_tf_, child, params_.depth.use_parameter_tf,
+                              params_.depth.parameter_tf.position,
+                              params_.depth.parameter_tf.orientation)) {
+            return;
+          }
           auto data = std::make_shared<utils::OdometryData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->pose = toGtsam(msg->pose.pose);
@@ -181,14 +186,17 @@ void FactorGraphNode::setupRosInterfaces() {
         sensor_options);
   }
 
-  if (params_.mag.enable_mag || params_.mag.enable_mag_init_only) {
+  if (params_.mag.enable_mag) {
     mag_sub_ = create_subscription<sensor_msgs::msg::MagneticField>(
         params_.mag_topic, rclcpp::SensorDataQoS(),
         [this](const sensor_msgs::msg::MagneticField::SharedPtr msg) {
           std::string child =
               params_.mag.use_parameter_frame ? params_.mag.parameter_frame : msg->header.frame_id;
-          loadOrLookupTf(target_T_mag_tf_, child, params_.mag.use_parameter_tf,
-                         params_.mag.parameter_tf.position, params_.mag.parameter_tf.orientation);
+          if (!loadOrLookupTf(target_T_mag_tf_, child, params_.mag.use_parameter_tf,
+                              params_.mag.parameter_tf.position,
+                              params_.mag.parameter_tf.orientation)) {
+            return;
+          }
           {
             std::scoped_lock lock(tf_mutex_);
             mag_frame_ = child;
@@ -209,8 +217,11 @@ void FactorGraphNode::setupRosInterfaces() {
         [this](const sensor_msgs::msg::Imu::SharedPtr msg) {
           std::string child = params_.ahrs.use_parameter_frame ? params_.ahrs.parameter_frame
                                                                : msg->header.frame_id;
-          loadOrLookupTf(target_T_ahrs_tf_, child, params_.ahrs.use_parameter_tf,
-                         params_.ahrs.parameter_tf.position, params_.ahrs.parameter_tf.orientation);
+          if (!loadOrLookupTf(target_T_ahrs_tf_, child, params_.ahrs.use_parameter_tf,
+                              params_.ahrs.parameter_tf.position,
+                              params_.ahrs.parameter_tf.orientation)) {
+            return;
+          }
           auto data = std::make_shared<utils::AhrsData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->orientation = toGtsam(msg->orientation);
@@ -226,8 +237,11 @@ void FactorGraphNode::setupRosInterfaces() {
         [this](const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
           std::string child =
               params_.dvl.use_parameter_frame ? params_.dvl.parameter_frame : msg->header.frame_id;
-          loadOrLookupTf(target_T_dvl_tf_, child, params_.dvl.use_parameter_tf,
-                         params_.dvl.parameter_tf.position, params_.dvl.parameter_tf.orientation);
+          if (!loadOrLookupTf(target_T_dvl_tf_, child, params_.dvl.use_parameter_tf,
+                              params_.dvl.parameter_tf.position,
+                              params_.dvl.parameter_tf.orientation)) {
+            return;
+          }
           auto data = std::make_shared<utils::TwistData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->linear_velocity = toGtsam(msg->twist.twist.linear);
@@ -249,9 +263,11 @@ void FactorGraphNode::setupRosInterfaces() {
           std::string child = params_.dynamics.use_parameter_frame
                                   ? params_.dynamics.parameter_frame
                                   : msg->header.frame_id;
-          loadOrLookupTf(target_T_com_tf_, child, params_.dynamics.use_parameter_tf,
-                         params_.dynamics.parameter_tf.position,
-                         params_.dynamics.parameter_tf.orientation);
+          if (!loadOrLookupTf(target_T_com_tf_, child, params_.dynamics.use_parameter_tf,
+                              params_.dynamics.parameter_tf.position,
+                              params_.dynamics.parameter_tf.orientation)) {
+            return;
+          }
           auto data = std::make_shared<utils::WrenchData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->force = toGtsam(msg->wrench.force);
@@ -273,9 +289,11 @@ void FactorGraphNode::setupRosInterfaces() {
             std::string child = params_.multiagent.use_parameter_frame
                                     ? params_.multiagent.parameter_frame
                                     : msg->header.frame_id;
-            loadOrLookupTf(target_T_modem_tf_, child, params_.multiagent.use_parameter_tf,
-                           params_.multiagent.parameter_tf.position,
-                           params_.multiagent.parameter_tf.orientation);
+            if (!loadOrLookupTf(target_T_modem_tf_, child, params_.multiagent.use_parameter_tf,
+                                params_.multiagent.parameter_tf.position,
+                                params_.multiagent.parameter_tf.orientation)) {
+              return;
+            }
             auto data = std::make_shared<utils::AgentStatusData>();
             data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
             data->pose = toGtsam(msg->local_odometry);
@@ -421,13 +439,13 @@ bool FactorGraphNode::checkAndUpdateRateLimit(rclcpp::Time& last_time, double ma
   return true;
 }
 
-void FactorGraphNode::loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out,
+bool FactorGraphNode::loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out,
                                      const std::string& child, bool use_parameter_tf,
                                      const std::vector<double>& pos,
                                      const std::vector<double>& quat) {
   std::scoped_lock lock(tf_mutex_);
   if (!tf_out.header.frame_id.empty()) {
-    return;
+    return true;
   }
 
   if (use_parameter_tf) {
@@ -451,24 +469,29 @@ void FactorGraphNode::loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_ou
                            params_.target_frame.c_str(), child.c_str(), ex.what());
     }
   }
+
+  return !tf_out.header.frame_id.empty();
 }
 
 utils::TfBundle FactorGraphNode::buildCurrentTfBundle() {
   std::scoped_lock lock(tf_mutex_);
   utils::TfBundle tfs;
-  tfs.target_T_imu = toGtsam(target_T_imu_tf_.transform);
-  tfs.target_T_gps = toGtsam(target_T_gps_tf_.transform);
-  tfs.target_T_depth = toGtsam(target_T_depth_tf_.transform);
-  tfs.target_T_mag = toGtsam(target_T_mag_tf_.transform);
-  tfs.target_T_ahrs = toGtsam(target_T_ahrs_tf_.transform);
-  tfs.target_T_dvl = toGtsam(target_T_dvl_tf_.transform);
-  tfs.target_T_base = toGtsam(target_T_base_tf_.transform);
-  if (!target_T_com_tf_.header.frame_id.empty()) {
-    tfs.target_T_com = toGtsam(target_T_com_tf_.transform);
-  }
-  if (!target_T_modem_tf_.header.frame_id.empty()) {
-    tfs.target_T_modem = toGtsam(target_T_modem_tf_.transform);
-  }
+
+  auto resolve = [](const geometry_msgs::msg::TransformStamped& tf_in, gtsam::Pose3& pose_out) {
+    if (!tf_in.header.frame_id.empty()) {
+      pose_out = toGtsam(tf_in.transform);
+    }
+  };
+
+  resolve(target_T_imu_tf_, tfs.target_T_imu);
+  resolve(target_T_gps_tf_, tfs.target_T_gps);
+  resolve(target_T_depth_tf_, tfs.target_T_depth);
+  resolve(target_T_mag_tf_, tfs.target_T_mag);
+  resolve(target_T_ahrs_tf_, tfs.target_T_ahrs);
+  resolve(target_T_dvl_tf_, tfs.target_T_dvl);
+  resolve(target_T_base_tf_, tfs.target_T_base);
+  resolve(target_T_com_tf_, tfs.target_T_com);
+  resolve(target_T_modem_tf_, tfs.target_T_modem);
   return tfs;
 }
 
@@ -705,50 +728,35 @@ void FactorGraphNode::backendThreadLoop() {
 }
 
 void FactorGraphNode::initializeGraph() {
-  // --- Wait for Sensor TFs ---
-  bool imu_ok, gps_ok, depth_ok, mag_ok, ahrs_ok, dvl_ok;
-  {
-    std::scoped_lock lock(tf_mutex_);
-    imu_ok = !target_T_imu_tf_.header.frame_id.empty();
-    gps_ok = !(params_.gps.enable_gps || params_.gps.enable_gps_init_only) ||
-             !target_T_gps_tf_.header.frame_id.empty();
-    depth_ok = !(params_.depth.enable_depth || params_.depth.enable_depth_init_only) ||
-               !target_T_depth_tf_.header.frame_id.empty();
-    mag_ok = !(params_.mag.enable_mag || params_.mag.enable_mag_init_only) ||
-             !target_T_mag_tf_.header.frame_id.empty();
-    ahrs_ok = !(params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only ||
-                params_.comparison.enable_loose_dvl_preintegration) ||
-              !target_T_ahrs_tf_.header.frame_id.empty();
-    dvl_ok = !(params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_only) ||
-             !target_T_dvl_tf_.header.frame_id.empty();
-  }
+  // --- Wait for Required Sensor Data ---
+  if (!init_data_ready_) {
+    std::string missing;
+    auto need = [&missing](bool required, bool empty, const char* name) {
+      if (required && empty) {
+        missing += missing.empty() ? name : std::string(", ") + name;
+      }
+    };
+    need(true, imu_queue_.empty(), "IMU");
+    need(params_.gps.enable_gps || params_.gps.enable_gps_init_only, gps_queue_.empty(), "GPS");
+    need(params_.depth.enable_depth || params_.depth.enable_depth_init_only, depth_queue_.empty(),
+         "depth");
+    need(params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only ||
+             params_.comparison.enable_loose_dvl_preintegration,
+         ahrs_queue_.empty(), "AHRS");
+    need(params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_only, dvl_queue_.empty(), "DVL");
 
-  if (!(imu_ok && gps_ok && depth_ok && mag_ok && ahrs_ok && dvl_ok)) {
-    std::vector<std::string> pending;
-    if (!imu_ok) pending.emplace_back("IMU");
-    if (!gps_ok) pending.emplace_back("GPS");
-    if (!mag_ok) pending.emplace_back("magnetometer");
-    if (!ahrs_ok) pending.emplace_back("AHRS");
-    if (!depth_ok) pending.emplace_back("depth");
-    if (!dvl_ok) pending.emplace_back("DVL");
-
-    std::string sensor_list = pending.front();
-    for (size_t i = 1; i < pending.size(); ++i) {
-      sensor_list += ", " + pending[i];
-    }
-
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Waiting for sensor transforms: %s",
-                         sensor_list.c_str());
-    return;
-  }
-
-  loadOrLookupTf(target_T_base_tf_, params_.base_frame, params_.base.use_parameter_tf,
-                 params_.base.parameter_tf.position, params_.base.parameter_tf.orientation);
-  {
-    std::scoped_lock lock(tf_mutex_);
-    if (target_T_base_tf_.header.frame_id.empty()) {
+    if (!missing.empty()) {
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Waiting for initialization data: %s.",
+                           missing.c_str());
       return;
     }
+    init_data_ready_ = true;
+  }
+
+  // Look up target to base frame TF
+  if (!loadOrLookupTf(target_T_base_tf_, params_.base_frame, params_.base.use_parameter_tf,
+                      params_.base.parameter_tf.position, params_.base.parameter_tf.orientation)) {
+    return;
   }
 
   // --- Compute Initial State ---
@@ -987,6 +995,7 @@ void FactorGraphNode::resetGraph(const std_srvs::srv::Trigger::Request::SharedPt
   state_init_ = std::make_unique<StateInitializer>(params_);
 
   is_initialized_.store(false);
+  init_data_ready_ = false;
   last_target_time_.reset();
   last_update_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
   last_opt_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);

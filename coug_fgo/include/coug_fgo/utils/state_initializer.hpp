@@ -144,8 +144,7 @@ class StateInitializer {
 
   const factor_graph_node::Params& params_;
   double start_avg_time_{0.0};
-  size_t imu_count_ = 0, gps_count_ = 0, depth_count_ = 0, mag_count_ = 0, ahrs_count_ = 0,
-         dvl_count_ = 0;
+  size_t imu_count_ = 0, gps_count_ = 0, depth_count_ = 0, ahrs_count_ = 0, dvl_count_ = 0;
   gtsam::Rot3 ahrs_ref_;
   gtsam::Vector3 ahrs_log_sum_ = gtsam::Vector3::Zero();
 
@@ -153,7 +152,6 @@ class StateInitializer {
   std::shared_ptr<utils::OdometryData> initial_gps_;
   std::shared_ptr<utils::OdometryData> initial_depth_;
   std::shared_ptr<utils::AhrsData> initial_ahrs_;
-  std::shared_ptr<utils::MagneticFieldData> initial_mag_;
   std::shared_ptr<utils::TwistData> initial_dvl_;
 };
 

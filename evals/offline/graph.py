@@ -53,7 +53,7 @@ class OfflineFactorGraph:
         "Depth": "depth",
         "Timer": "imu",
     }
-    INIT_SENSORS = ("imu", "gps", "depth", "mag", "ahrs", "dvl")
+    INIT_SENSORS = ("imu", "gps", "depth", "ahrs", "dvl")
 
     def __init__(
         self,
@@ -172,7 +172,7 @@ class OfflineFactorGraph:
 
     def pending_init_sensors(self) -> list[str]:
         """
-        Return enabled sensors still missing a resolved transform.
+        Return enabled sensors that have not reported yet.
 
         :return: Sensor keys blocking initialization, in priority order.
         """
@@ -226,7 +226,7 @@ class OfflineFactorGraph:
             self._optimize_graph()
 
     def _initialize_graph(self) -> None:
-        """Attempt initialization once all enabled sensor TFs are resolved."""
+        """Attempt initialization once every sensor the initializer needs has reported."""
         if self.pending_init_sensors():
             return
 

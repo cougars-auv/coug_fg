@@ -61,7 +61,6 @@ std::optional<InitialState> StateInitializer::update(double current_time, QueueB
 bool StateInitializer::accumulate(double current_time, QueueBundle& queues) {
   const bool gps_req = params_.gps.enable_gps || params_.gps.enable_gps_init_only;
   const bool depth_req = params_.depth.enable_depth || params_.depth.enable_depth_init_only;
-  const bool mag_req = params_.mag.enable_mag || params_.mag.enable_mag_init_only;
   const bool ahrs_req = params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only ||
                         params_.comparison.enable_loose_dvl_preintegration;
   const bool dvl_req = params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_only;
@@ -97,7 +96,6 @@ bool StateInitializer::accumulate(double current_time, QueueBundle& queues) {
   const bool all_present = (imu_count_ > 0 || !queues.imu.empty()) &&
                            (!gps_req || gps_count_ > 0 || !queues.gps.empty()) &&
                            (!depth_req || depth_count_ > 0 || !queues.depth.empty()) &&
-                           (!mag_req || mag_count_ > 0 || !queues.mag.empty()) &&
                            (!ahrs_req || ahrs_count_ > 0 || !queues.ahrs.empty()) &&
                            (!dvl_req || dvl_count_ > 0 || !queues.dvl.empty());
   if (!all_present) {
@@ -185,13 +183,6 @@ void StateInitializer::incrementAverages(QueueBundle& queues) {
             });
   }
 
-  if (params_.mag.enable_mag || params_.mag.enable_mag_init_only) {
-    average(initial_mag_, mag_count_, queues.mag,
-            [](MagneticFieldData& avg, const MagneticFieldData& msg, double n) {
-              avg.magnetic_field += (msg.magnetic_field - avg.magnetic_field) / n;
-            });
-  }
-
   if (params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only) {
     // Average rotations in the tangent space anchored at the first sample
     if (ahrs_count_ == 0 && !queues.ahrs.empty()) {
@@ -207,50 +198,22 @@ void StateInitializer::incrementAverages(QueueBundle& queues) {
 }
 
 gtsam::Rot3 StateInitializer::computeInitialOrientation(const TfBundle& tfs) const {
-  double roll = params_.priors.parameter_priors.initial_orientation[0];
-  double pitch = params_.priors.parameter_priors.initial_orientation[1];
-  double yaw = params_.priors.parameter_priors.initial_orientation[2];
-
-  if (params_.priors.use_parameter_priors) {
-    gtsam::Rot3 base_R_target = tfs.target_T_base.rotation().inverse();
-    return gtsam::Rot3::Ypr(yaw, pitch, roll) * base_R_target;
-  }
-
-  // Account for IMU rotation
-  gtsam::Vector3 accel_imu = initial_imu_->linear_acceleration;
-  gtsam::Vector3 accel_target = tfs.target_T_imu.rotation().rotate(accel_imu);
-
-  // Use gravity to estimate initial roll and pitch (tilt estimation)
-  roll = std::atan2(accel_target.y(), accel_target.z());
-  pitch = std::atan2(-accel_target.x(), std::sqrt(accel_target.y() * accel_target.y() +
-                                                  accel_target.z() * accel_target.z()));
-
-  if (params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only) {
+  if (!params_.priors.use_parameter_priors &&
+      (params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only)) {
     // Account for AHRS sensor rotation
     gtsam::Rot3 target_R_ahrs = tfs.target_T_ahrs.rotation();
     gtsam::Rot3 map_R_ahrs = initial_ahrs_->orientation;
     gtsam::Rot3 map_R_target_measured = map_R_ahrs * target_R_ahrs.inverse();
-    yaw = factors::AhrsFactorArm::declinationCorrected(map_R_target_measured,
-                                                       params_.ahrs.mag_declination_radians)
-              .yaw();
-  } else if (params_.mag.enable_mag || params_.mag.enable_mag_init_only) {
-    // Account for magnetometer rotation
-    gtsam::Rot3 target_R_mag = tfs.target_T_mag.rotation();
-    gtsam::Vector3 hard_iron = computeMagBias();
-    gtsam::Vector3 mag_sensor = initial_mag_->magnetic_field - hard_iron;
-    gtsam::Vector3 mag_target = target_R_mag.rotate(mag_sensor);
-
-    // Project the magnetic field vector using the estimated tilt
-    gtsam::Rot3 R_rp = gtsam::Rot3::Ypr(0.0, pitch, roll);
-    gtsam::Vector3 mag_horizontal = R_rp.rotate(mag_target);
-
-    double measured_yaw = std::atan2(mag_horizontal.y(), mag_horizontal.x());
-    double ref_yaw = std::atan2(params_.mag.reference_field[1], params_.mag.reference_field[0]);
-
-    yaw = ref_yaw - measured_yaw;
+    return factors::AhrsFactorArm::declinationCorrected(map_R_target_measured,
+                                                        params_.ahrs.mag_declination_radians);
   }
 
-  return gtsam::Rot3::Ypr(yaw, pitch, roll);
+  double roll = params_.priors.parameter_priors.initial_orientation[0];
+  double pitch = params_.priors.parameter_priors.initial_orientation[1];
+  double yaw = params_.priors.parameter_priors.initial_orientation[2];
+
+  gtsam::Rot3 base_R_target = tfs.target_T_base.rotation().inverse();
+  return gtsam::Rot3::Ypr(yaw, pitch, roll) * base_R_target;
 }
 
 gtsam::Point3 StateInitializer::computeInitialPosition(const gtsam::Rot3& map_R_target,
@@ -259,12 +222,13 @@ gtsam::Point3 StateInitializer::computeInitialPosition(const gtsam::Rot3& map_R_
                            params_.priors.parameter_priors.initial_position[1],
                            params_.priors.parameter_priors.initial_position[2]);
 
+  gtsam::Point3 target_p_base = tfs.target_T_base.translation();
+  gtsam::Point3 map_p_target = map_p_base - map_R_target.rotate(target_p_base);
+
   if (params_.priors.use_parameter_priors) {
-    gtsam::Point3 target_p_base = tfs.target_T_base.translation();
-    return map_p_base - map_R_target.rotate(target_p_base);
+    return map_p_target;
   }
 
-  gtsam::Point3 map_p_target = map_p_base;
   if (params_.gps.enable_gps || params_.gps.enable_gps_init_only) {
     // Account for GPS lever arm
     gtsam::Point3 map_p_target_gps = map_R_target.rotate(tfs.target_T_gps.translation());

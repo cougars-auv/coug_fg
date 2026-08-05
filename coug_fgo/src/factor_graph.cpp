@@ -824,6 +824,14 @@ void FactorGraphNode::updateGraph() {
       (last_target_time_.has_value() && *target_time <= *last_target_time_)) {
     return;
   }
+
+  if (last_target_time_.has_value() &&
+      (*target_time - *last_target_time_) < params_.min_keyframe_interval_sec) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                         "Keyframe rejected: only %.4f s since the last keyframe (minimum %.4f s).",
+                         *target_time - *last_target_time_, params_.min_keyframe_interval_sec);
+    return;
+  }
   last_target_time_ = *target_time;
 
   // --- Update Request ---

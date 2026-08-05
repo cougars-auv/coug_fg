@@ -328,6 +328,17 @@ class OfflineFactorGraph:
             self._last_target_time is not None and target_time <= self._last_target_time
         ):
             return
+
+        min_interval = self.params["min_keyframe_interval_sec"]
+        if (
+            self._last_target_time is not None
+            and target_time - self._last_target_time < min_interval
+        ):
+            logger.warning(
+                f"Keyframe rejected: only {target_time - self._last_target_time:.4f} s "
+                f"since the last keyframe (minimum {min_interval:.4f} s)."
+            )
+            return
         self._last_target_time = target_time
 
         # --- Update Request ---

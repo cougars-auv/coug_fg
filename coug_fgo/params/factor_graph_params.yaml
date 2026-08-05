@@ -88,6 +88,11 @@ factor_graph_node:
     default_value: 10.0
     validation:
       gt<>: [0.0]
+  min_keyframe_interval_sec:
+    type: double
+    default_value: 0.02
+    validation:
+      gt_eq<>: [0.0]
 
   # --- ROS Topics and Frames ---
   imu_topic:

@@ -17,8 +17,8 @@ from pathlib import Path
 NAMESPACE = "turtlmap"
 TARGET_DIR = Path.home() / "cougars-dev/bags/turtlmap/turtlmap_ros2_eval"
 BAG_PATHS = [
-    str(TARGET_DIR / "log1_ros2_eval_2026-07-16-11-57-41"),
-    str(TARGET_DIR / "log2_ros2_eval_2026-07-16-12-04-30"),
+    str(TARGET_DIR / "log1_ros2_eval_2026-08-05-15-23-45"),
+    str(TARGET_DIR / "log2_ros2_eval_2026-08-05-15-18-17"),
 ]
 EVO_FLAGS = ["--align"]  # , "--project_to_plane", "xy"]
 

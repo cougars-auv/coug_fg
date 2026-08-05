@@ -244,6 +244,7 @@ class OfflineFactorGraph:
 
     def _notify_frontend(self) -> None:
         """Initialize the graph or run a rate-limited update."""
+        # IMPORTANT! Offline, the frontend and backend run inline instead of on threads
         if not self.is_initialized:
             self._initialize_graph()
         elif self._check_and_update_rate_limit(
@@ -254,8 +255,9 @@ class OfflineFactorGraph:
 
     def _notify_backend(self) -> None:
         """Run a rate-limited optimization."""
+        # IMPORTANT! Offline, LevenbergMarquardt batch optimizes once in finalize()
         if self.is_lm:
-            return  # LevenbergMarquardt uses finalize()
+            return
         if self.is_initialized and self._check_and_update_rate_limit(
             "optimize", self.params["max_opt_rate_hz"]
         ):
@@ -369,6 +371,7 @@ class OfflineFactorGraph:
         :param max_rate_hz: Maximum rate in Hz, or non-positive to disable the limit.
         :return: True if the action is allowed at the current stream time.
         """
+        # IMPORTANT! Offline, rate limits throttle in data time instead of wall time
         if max_rate_hz <= 0.0:
             return True
         last_time = self._rate_limits.get(key)

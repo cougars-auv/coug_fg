@@ -27,7 +27,7 @@ class UrdfTree:
     """
     Offline TF resolver parsed from a URDF or xacro description.
 
-    :author: Nelson Durrant
+    :author: Nelson Durrant (w Opus 4.8)
     :date: July 2026
     """
 

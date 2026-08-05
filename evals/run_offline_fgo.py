@@ -100,6 +100,11 @@ def main() -> None:
         help="Bag directories to process offline",
     )
     parser.add_argument(
+        "--tag",
+        default="offline",
+        help="Subdirectory and file suffix to save this run's outputs under",
+    )
+    parser.add_argument(
         "--evo-flags",
         default=" ".join(EVO_FLAGS),
         help="Extra evo flags forwarded to APE and RPE runs, e.g. "
@@ -116,7 +121,7 @@ def main() -> None:
                 bag,
                 config_paths(args.namespace),
                 args.namespace,
-                "offline",
+                args.tag,
                 args.evo_flags.split(),
             )
             if result is not None:

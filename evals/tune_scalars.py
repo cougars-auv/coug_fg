@@ -144,7 +144,7 @@ def main() -> None:
                 bag,
                 CONFIG_PATHS + [best_override_path],
                 NAMESPACE,
-                "tuned",
+                STUDY_NAME,
                 EVO_FLAGS,
             )
             if result is not None:

@@ -693,9 +693,13 @@ void FactorGraphCore::addDvlLoosePreintFactor(
     last_dvl_time = target_time;
   }
 
-  graph.emplace_shared<DvlLoosePreintFactorArm>(
-      X(prev_step_), X(current_step_), tfs_.target_T_dvl, dvl_loose_preintegrator_->delta(),
-      gtsam::noiseModel::Gaussian::Covariance(dvl_loose_preintegrator_->covariance()));
+  gtsam::SharedNoiseModel preint_noise =
+      gtsam::noiseModel::Gaussian::Covariance(dvl_loose_preintegrator_->covariance());
+
+  preint_noise = applyRobustKernel(preint_noise, params_.dvl.robust_kernel, params_.dvl.robust_k);
+
+  graph.emplace_shared<DvlLoosePreintFactorArm>(X(prev_step_), X(current_step_), tfs_.target_T_dvl,
+                                                dvl_loose_preintegrator_->delta(), preint_noise);
 }
 
 void FactorGraphCore::addDvlTightPreintFactor(
@@ -789,11 +793,15 @@ void FactorGraphCore::addDvlTightPreintFactor(
     last_dvl_time = target_time;
   }
 
+  gtsam::SharedNoiseModel preint_noise =
+      gtsam::noiseModel::Gaussian::Covariance(dvl_tight_preintegrator_->covariance());
+
+  preint_noise = applyRobustKernel(preint_noise, params_.dvl.robust_kernel, params_.dvl.robust_k);
+
   graph.emplace_shared<DvlTightPreintFactorArm>(
       X(prev_step_), X(current_step_), B(prev_step_), tfs_.target_T_dvl,
       dvl_tight_preintegrator_->delta(), dvl_tight_preintegrator_->preintMeasDerivativeWrtBias(),
-      prev_imu_bias_.gyroscope(),
-      gtsam::noiseModel::Gaussian::Covariance(dvl_tight_preintegrator_->covariance()));
+      prev_imu_bias_.gyroscope(), preint_noise);
 }
 
 void FactorGraphCore::addMultiAgentFactors(

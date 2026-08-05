@@ -49,7 +49,6 @@ QUIET_LOGGERS = (
     "offline.pipeline",
     "offline.graph",
     "offline.urdf",
-    # "metrics.evo_cli",
     "coug_fgo.core",
 )
 

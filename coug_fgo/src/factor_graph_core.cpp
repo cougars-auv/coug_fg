@@ -546,6 +546,9 @@ void FactorGraphCore::addConstVelFactor(gtsam::NonlinearFactorGraph& graph, doub
 
   gtsam::SharedNoiseModel zero_accel_noise = gtsam::noiseModel::Diagonal::Sigmas(scaled_sigma);
 
+  zero_accel_noise = applyRobustKernel(zero_accel_noise, params_.const_vel.robust_kernel,
+                                       params_.const_vel.robust_k);
+
   graph.emplace_shared<ConstVelFactor>(X(prev_step_), V(prev_step_), X(current_step_),
                                        V(current_step_), zero_accel_noise);
 }

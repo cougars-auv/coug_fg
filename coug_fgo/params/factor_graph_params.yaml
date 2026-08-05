@@ -614,6 +614,16 @@ factor_graph_node:
       validation:
         fixed_size<>: [3]
         lower_element_bounds<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
 
   dynamics:
     enable_dynamics:

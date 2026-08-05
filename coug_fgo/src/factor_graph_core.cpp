@@ -520,14 +520,7 @@ void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,
       params_.dvl.covariance_scalar, dvl_msg->twist_covariance.topLeftCorner<3, 3>(),
       covFallbackWarning("DVL"));
 
-  // Scale continuous-time density to discrete noise for the covariance inflation
-  gtsam::Matrix3 gyro_cov = gtsam::Matrix3::Zero();
-  if (imu_preintegrator_ && params_.imu.sensor_rate_hz > 0.0) {
-    gyro_cov = imu_preintegrator_->params()->gyroscopeCovariance * params_.imu.sensor_rate_hz;
-  }
-
-  gtsam::SharedNoiseModel dvl_noise = gtsam::noiseModel::Gaussian::Covariance(
-      DvlFactorArm::inflatedCovariance(dvl_cov, gyro_cov, tfs_.target_T_dvl, tfs_.target_T_imu));
+  gtsam::SharedNoiseModel dvl_noise = gtsam::noiseModel::Gaussian::Covariance(dvl_cov);
 
   dvl_noise = applyRobustKernel(dvl_noise, params_.dvl.robust_kernel, params_.dvl.robust_k);
 

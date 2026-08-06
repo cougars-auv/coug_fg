@@ -22,7 +22,15 @@ BAG_PATHS = [
 ]
 EVO_FLAGS = ["--align"]  # , "--project_to_plane", "xy"]
 
-AGENTS = ["coug1sim", "coug2sim", "coug3sim", "blue1sim", "bluerov2", "turtlmap"]
+AGENTS = [
+    "coug1sim",
+    "coug2sim",
+    "coug3sim",
+    "blue1sim",
+    "wamv1sim",
+    "bluerov2",
+    "turtlmap",
+]
 
 
 def config_paths(namespace: str) -> list[str]:

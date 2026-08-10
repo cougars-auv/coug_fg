@@ -487,6 +487,7 @@ gtsam::Matrix6 FactorGraphCore::computeInitialPoseCovariance(
 
   const gtsam::Matrix3 target_R_map = map_R_target.inverse().matrix();
 
+  // Account for AHRS rotation and GPS/depth lever arm
   gtsam::Matrix6 pose_cov = gtsam::Matrix6::Zero();
   pose_cov.topLeftCorner<3, 3>() = target_R_map * map_orientation_cov * target_R_map.transpose();
   pose_cov.bottomRightCorner<3, 3>() = target_R_map * map_position_cov * target_R_map.transpose();

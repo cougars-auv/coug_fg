@@ -291,6 +291,8 @@ class OfflineFactorGraph:
         if self.core.initialize(**queues):
             self.is_initialized = True
             logger.info("Graph initialized successfully.")
+        else:
+            self._restore_all_queues(queues)
 
     def _update_graph(self) -> None:
         """Advance the graph to the newest stamp from the active source."""

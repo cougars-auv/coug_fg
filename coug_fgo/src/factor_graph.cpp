@@ -758,6 +758,7 @@ void FactorGraphNode::initializeGraph() {
   utils::QueueBundle init_queues = drainAllQueues();
 
   if (!core_->initialize(init_queues, buildCurrentTfBundle())) {
+    restoreAllQueues(init_queues);
     return;
   }
 

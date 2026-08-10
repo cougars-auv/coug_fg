@@ -175,10 +175,14 @@ gtsam::SharedNoiseModel applyRobustKernel(const gtsam::SharedNoiseModel& noise,
  * @brief Interpolates AHRS-derived orientation at a target timestamp via SLERP.
  * @param ahrs_msgs Time-sorted AHRS structs bracketing the target time.
  * @param target_time The desired interpolation timestamp.
- * @return The interpolated rotation as a GTSAM Rot3.
+ * @return The interpolated rotation as a GTSAM Rot3, or identity if there are no samples.
  */
 gtsam::Rot3 getInterpolatedOrientation(
     const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs, double target_time) {
+  if (ahrs_msgs.empty()) {
+    return gtsam::Rot3();
+  }
+
   auto it_after = std::lower_bound(ahrs_msgs.begin(), ahrs_msgs.end(), target_time,
                                    [](const auto& msg, double t) { return msg->timestamp < t; });
 
@@ -336,30 +340,31 @@ std::optional<InitialState> FactorGraphCore::computeInitialState(
   const bool use_dvl = params_.dvl.enable_dvl_init_priors && !use_param_priors;
 
   // Additional sensor data needed for init
-  const bool hold_depth = params_.depth.enable_depth &&
-                          (kf == KeyframeSource::kDepth || backup_kf == KeyframeSource::kDepth);
-  const bool hold_dvl =
+  const bool need_dvl =
       params_.dvl.enable_dvl && (params_.comparison.enable_loose_dvl_preintegration ||
-                                 params_.comparison.enable_tight_dvl_preintegration ||
-                                 kf == KeyframeSource::kDvl || backup_kf == KeyframeSource::kDvl);
-  const bool hold_ahrs = params_.comparison.enable_loose_dvl_preintegration;
+                                 params_.comparison.enable_tight_dvl_preintegration);
+  const bool need_ahrs = params_.comparison.enable_loose_dvl_preintegration;
+
+  const bool start_depth = params_.depth.enable_depth &&
+                           (kf == KeyframeSource::kDepth || backup_kf == KeyframeSource::kDepth);
+  const bool start_dvl =
+      params_.dvl.enable_dvl && (kf == KeyframeSource::kDvl || backup_kf == KeyframeSource::kDvl);
 
   auto ready = [](bool needed, const auto& msgs) { return !needed || !msgs.empty(); };
-  if (queues.imu.empty() || !ready(use_gps, queues.gps) ||
-      !ready(use_depth || hold_depth, queues.depth) || !ready(use_ahrs || hold_ahrs, queues.ahrs) ||
-      !ready(use_dvl || hold_dvl, queues.dvl)) {
+  if (queues.imu.empty() || !ready(use_gps, queues.gps) || !ready(use_depth, queues.depth) ||
+      !ready(use_ahrs || need_ahrs, queues.ahrs) || !ready(use_dvl || need_dvl, queues.dvl)) {
     return std::nullopt;
   }
 
   auto newest = [](bool take, const auto& msgs) {
-    return take ? msgs.back() : std::decay_t<decltype(msgs.back())>{};
+    return (take && !msgs.empty()) ? msgs.back() : std::decay_t<decltype(msgs.back())>{};
   };
   auto gps = newest(use_gps, queues.gps);
   auto depth = newest(use_depth, queues.depth);
   auto ahrs = newest(use_ahrs, queues.ahrs);
   auto dvl = newest(use_dvl, queues.dvl);
-  auto held_depth = newest(hold_depth, queues.depth);
-  auto held_dvl = newest(hold_dvl, queues.dvl);
+  auto depth_at_start = newest(start_depth, queues.depth);
+  auto dvl_at_start = newest(start_dvl || need_dvl, queues.dvl);
   auto imu = queues.imu.back();
 
   InitialState state;
@@ -380,16 +385,16 @@ std::optional<InitialState> FactorGraphCore::computeInitialState(
       sigmasSquaredDiag(params_.priors.initial_gyro_bias_sigmas);
   state.mag_bias_cov = sigmasSquaredDiag(params_.priors.hard_iron_bias_sigmas);
 
-  if (kf == KeyframeSource::kDvl && held_dvl) {
-    state.time = held_dvl->timestamp;
-  } else if (kf == KeyframeSource::kDepth && held_depth) {
-    state.time = held_depth->timestamp;
+  if (kf == KeyframeSource::kDvl && dvl_at_start) {
+    state.time = dvl_at_start->timestamp;
+  } else if (kf == KeyframeSource::kDepth && depth_at_start) {
+    state.time = depth_at_start->timestamp;
   } else {
     state.time = imu->timestamp;
   }
 
   state.imu = imu;
-  state.dvl = held_dvl;
+  state.dvl = dvl_at_start;
   return state;
 }
 
@@ -824,14 +829,14 @@ void FactorGraphCore::addDvlLoosePreintFactor(
 
       dvl_loose_preintegrator_->integrateMeasurement(last_dvl_velocity_, map_R_dvl_mid, dt,
                                                      last_dvl_covariance_);
-
-      last_dvl_velocity_ = dvl_msg->linear_velocity;
-
-      last_dvl_covariance_ = resolveCov<3>(
-          params_.dvl.use_parameter_covariance,
-          params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
-          dvl_msg->twist_covariance.topLeftCorner<3, 3>(), covFallbackWarning("DVL"));
     }
+
+    last_dvl_velocity_ = dvl_msg->linear_velocity;
+
+    last_dvl_covariance_ = resolveCov<3>(
+        params_.dvl.use_parameter_covariance,
+        params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
+        dvl_msg->twist_covariance.topLeftCorner<3, 3>(), covFallbackWarning("DVL"));
     last_dvl_time = current_dvl_time;
   }
 
@@ -930,13 +935,13 @@ void FactorGraphCore::addDvlTightPreintFactor(
     double dt = current_dvl_time - last_dvl_time;
     if (dt > 1e-9) {
       integrateDvlMeasurement(0.5 * (last_dvl_time + current_dvl_time), dt);
-
-      last_dvl_velocity_ = dvl_msg->linear_velocity;
-      last_dvl_covariance_ = resolveCov<3>(
-          params_.dvl.use_parameter_covariance,
-          params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
-          dvl_msg->twist_covariance.topLeftCorner<3, 3>(), covFallbackWarning("DVL"));
     }
+
+    last_dvl_velocity_ = dvl_msg->linear_velocity;
+    last_dvl_covariance_ = resolveCov<3>(
+        params_.dvl.use_parameter_covariance,
+        params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
+        dvl_msg->twist_covariance.topLeftCorner<3, 3>(), covFallbackWarning("DVL"));
     last_dvl_time = current_dvl_time;
   }
 

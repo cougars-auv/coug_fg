@@ -6,7 +6,7 @@
     publish_velocity: false # Publish the estimated velocity (of the target frame in the map frame).
     publish_imu_bias: false # Publish the estimated IMU biases (accel + gyro).
     publish_mag_bias: false # Publish the estimated magnetometer hard-iron bias.
-    publish_diagnostics: true # Publish diagnostic information.
+    publish_diagnostics: false # Publish diagnostic information.
     publish_graph_metrics: false # Publish high-frequency timing and graph metadata.
 
     # These are computationally expensive to calculate, so disable if not needed.
@@ -268,18 +268,24 @@
     # --- Initial State Priors ---
     priors:
       # If true, forces the initial state to be set by the values below.
+      # Also overrides use_parameter_priors_covariance to set it to true.
       use_parameter_priors: true
       parameter_priors:
         initial_position: [0.0, 0.0, 0.0] # [m] (of the base frame in the map frame)
         initial_orientation: [0.0, 0.0, 0.0] # [roll, pitch, yaw] [rad] (of the base frame in the map frame)
         initial_velocity: [0.0, 0.0, 0.0] # [m/s] (in the base frame)
+
       initial_accel_bias: [0.0, 0.0, 0.0] # [m/s^2] (in the IMU frame)
       initial_gyro_bias: [0.0, 0.0, 0.0] # [rad/s] (in the IMU frame)
       hard_iron_bias: [0.0, 0.0, 0.0] # [T] (in the sensor frame)
 
-      initial_position_sigmas: [0.001, 0.001, 0.001] # [m] (in the map frame)
-      initial_orientation_sigmas: [0.001, 0.001, 0.001] # [roll, pitch, yaw] [rad] (in the map frame)
-      initial_velocity_sigmas: [0.001, 0.001, 0.001] # [m/s] (in the base frame)
+      # If true, forces the initial state covariance to be set by the values below.
+      use_parameter_priors_covariance: true
+      parameter_priors_covariance:
+        initial_position_sigmas: [0.001, 0.001, 0.001] # [m] (in the map frame)
+        initial_orientation_sigmas: [0.001, 0.001, 0.001] # [roll, pitch, yaw] [rad] (in the map frame)
+        initial_velocity_sigmas: [0.001, 0.001, 0.001] # [m/s] (in the base frame)
+
       initial_accel_bias_sigmas: [0.01, 0.01, 0.01] # [m/s^2] (in the IMU frame)
       # IMPORTANT! The gravity-aligned component is unobservable with AHRS/mag/GPS off, so this bounds heading drift.
       # SBG Ellipse-N: 7 °/h in-run gyro bias instability.
@@ -298,7 +304,7 @@
   dvl_a50_twist_node:
     ros__parameters:
       # --- Node Settings ---
-      publish_diagnostics: true # Publish diagnostic information.
+      publish_diagnostics: false # Publish diagnostic information.
       diagnostic_timeout_sec: 0.5 # [s]
 
       simulate_dropout: false
@@ -321,7 +327,7 @@
   dvl_a50_odom_node:
     ros__parameters:
       # --- Node Settings ---
-      publish_diagnostics: true # Publish diagnostic information.
+      publish_diagnostics: false # Publish diagnostic information.
       diagnostic_timeout_sec: 0.5 # [s]
 
       override_timestamp: false # Restamp with ROS receive time if the A50 clock isn't synced.
@@ -339,7 +345,7 @@
   fluid_pressure_odom_node:
     ros__parameters:
       # --- Node Settings ---
-      publish_diagnostics: true # Publish diagnostic information.
+      publish_diagnostics: false # Publish diagnostic information.
       diagnostic_timeout_sec: 0.5 # [s]
 
       pressure_scale: 1.0 # Scale factor to convert the input reading to Pascals.
@@ -361,7 +367,7 @@
   navsat_odom_node:
     ros__parameters:
       # --- Node Settings ---
-      publish_diagnostics: true # Publish diagnostic information.
+      publish_diagnostics: false # Publish diagnostic information.
       diagnostic_timeout_sec: 1.0 # [s]
 
       position_covariance_threshold: 0.0 # [m^2] Max horizontal variance to publish odom. 0.0 disables.
@@ -394,7 +400,7 @@
   seatrac_x150_imu_node:
     ros__parameters:
       # --- Node Settings ---
-      publish_diagnostics: true # Publish diagnostic information.
+      publish_diagnostics: false # Publish diagnostic information.
       diagnostic_timeout_sec: 0.5 # [s]
 
       # Blueprint Subsea SeaTrac X150 AHRS: ±0.2° pitch/roll, ±1.0° yaw standard deviation.

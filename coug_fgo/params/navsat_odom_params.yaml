@@ -17,7 +17,7 @@ navsat_odom_node:
 
   set_origin:
     type: bool
-    default_value: true
+    default_value: false
   origin_pub_rate_hz:
     type: double
     default_value: 1.0

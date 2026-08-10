@@ -115,7 +115,7 @@ class FactorGraphCore {
    * @brief Computes the initial state from the newest sensor samples and seeds the graph.
    * @param queues Bundle of drained sensor message deques (only the newest of each is used).
    * @param tfs GTSAM Pose3 sensor transforms.
-   * @return True once the graph is initialized, false while a required sensor is still missing.
+   * @return True once the graph is seeded, false while a required sensor is missing.
    */
   bool initialize(const utils::QueueBundle& queues, const utils::TfBundle& tfs);
 
@@ -161,13 +161,13 @@ class FactorGraphCore {
   /**
    * @brief Computes the initial pose, velocity, bias, and start time from the newest samples.
    * @param queues Bundle of drained sensor message deques (only the newest of each is used).
-   * @return The computed initial state, or nullopt if a required sensor has not reported yet.
+   * @return The computed initial state, or nullopt while a required sensor is missing.
    */
   std::optional<InitialState> computeInitialState(const utils::QueueBundle& queues) const;
 
   /**
-   * @brief Computes initial orientation from the AHRS sample, falling back to the parameter prior.
-   * @param ahrs The newest AHRS sample, or null to use the parameter prior.
+   * @brief Computes initial orientation from the AHRS sample or the parameter prior.
+   * @param ahrs The newest AHRS sample, or null for the parameter prior.
    * @return Initial rotation of the target frame in the map frame.
    */
   gtsam::Rot3 computeInitialOrientation(const std::shared_ptr<utils::AhrsData>& ahrs) const;
@@ -175,8 +175,8 @@ class FactorGraphCore {
   /**
    * @brief Computes initial position using GPS and depth with lever arm compensation.
    * @param map_R_target The computed initial rotation.
-   * @param gps The newest GPS sample, or null to leave x/y at the parameter prior.
-   * @param depth The newest depth sample, or null to leave z at the parameter prior.
+   * @param gps The newest GPS sample, or null for the parameter prior.
+   * @param depth The newest depth sample, or null for the parameter prior.
    * @return Initial position of the target frame in the map frame.
    */
   gtsam::Point3 computeInitialPosition(const gtsam::Rot3& map_R_target,
@@ -186,25 +186,33 @@ class FactorGraphCore {
   /**
    * @brief Computes initial map-frame velocity from the DVL body-frame measurement.
    * @param map_R_target The computed initial rotation.
-   * @param dvl The newest DVL sample, or null to fall back to the configured start velocity.
+   * @param dvl The newest DVL sample, or null for the parameter prior.
    * @return Initial velocity of the target frame in the map frame.
    */
   gtsam::Vector3 computeInitialVelocity(const gtsam::Rot3& map_R_target,
                                         const std::shared_ptr<utils::TwistData>& dvl) const;
 
   /**
-   * @brief Rotates the map-frame pose sigmas into the target-frame Pose3 tangent.
+   * @brief Rotates the map-frame pose covariance into the target-frame Pose3 tangent.
    * @param map_R_target The computed initial rotation.
+   * @param gps The newest GPS sample, sourcing the x/y block.
+   * @param depth The newest depth sample, sourcing the z block.
+   * @param ahrs The newest AHRS sample, sourcing the rotation block.
    * @return Initial pose covariance, ordered with the rotation block first.
    */
-  gtsam::Matrix6 computeInitialPoseCovariance(const gtsam::Rot3& map_R_target) const;
+  gtsam::Matrix6 computeInitialPoseCovariance(const gtsam::Rot3& map_R_target,
+                                              const std::shared_ptr<utils::OdometryData>& gps,
+                                              const std::shared_ptr<utils::OdometryData>& depth,
+                                              const std::shared_ptr<utils::AhrsData>& ahrs) const;
 
   /**
-   * @brief Rotates the base-frame velocity sigmas into the map frame.
+   * @brief Rotates the initial velocity covariance into the map frame.
    * @param map_R_target The computed initial rotation.
+   * @param dvl The newest DVL sample, sourcing the covariance.
    * @return Initial velocity covariance in the map frame.
    */
-  gtsam::Matrix3 computeInitialVelocityCovariance(const gtsam::Rot3& map_R_target) const;
+  gtsam::Matrix3 computeInitialVelocityCovariance(
+      const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::TwistData>& dvl) const;
 
   // --- Configuration ---
   /**

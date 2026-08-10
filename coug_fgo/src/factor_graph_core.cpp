@@ -175,7 +175,7 @@ gtsam::SharedNoiseModel applyRobustKernel(const gtsam::SharedNoiseModel& noise,
  * @brief Interpolates AHRS-derived orientation at a target timestamp via SLERP.
  * @param ahrs_msgs Time-sorted AHRS structs bracketing the target time.
  * @param target_time The desired interpolation timestamp.
- * @return The interpolated rotation as a GTSAM Rot3, or identity if there are no samples.
+ * @return The interpolated rotation, or identity if there are no samples.
  */
 gtsam::Rot3 getInterpolatedOrientation(
     const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs, double target_time) {
@@ -376,8 +376,8 @@ std::optional<InitialState> FactorGraphCore::computeInitialState(
       Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_gyro_bias.data()));
   state.mag_bias = Eigen::Map<const Eigen::Vector3d>(params_.priors.hard_iron_bias.data());
 
-  state.pose_cov = computeInitialPoseCovariance(map_R_target);
-  state.vel_cov = computeInitialVelocityCovariance(map_R_target);
+  state.pose_cov = computeInitialPoseCovariance(map_R_target, gps, depth, ahrs);
+  state.vel_cov = computeInitialVelocityCovariance(map_R_target, dvl);
   state.bias_cov = gtsam::Matrix6::Zero();
   state.bias_cov.topLeftCorner<3, 3>() =
       sigmasSquaredDiag(params_.priors.initial_accel_bias_sigmas);
@@ -456,25 +456,62 @@ gtsam::Vector3 FactorGraphCore::computeInitialVelocity(
 }
 
 gtsam::Matrix6 FactorGraphCore::computeInitialPoseCovariance(
-    const gtsam::Rot3& map_R_target) const {
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::OdometryData>& gps,
+    const std::shared_ptr<utils::OdometryData>& depth,
+    const std::shared_ptr<utils::AhrsData>& ahrs) const {
+  const auto& sigmas = params_.priors.parameter_priors_covariance;
+  gtsam::Matrix3 map_orientation_cov = sigmasSquaredDiag(sigmas.initial_orientation_sigmas);
+  gtsam::Matrix3 map_position_cov = sigmasSquaredDiag(sigmas.initial_position_sigmas);
+
+  if (!params_.priors.use_parameter_priors && !params_.priors.use_parameter_priors_covariance) {
+    if (ahrs) {
+      map_orientation_cov = resolveCov<3>(
+          params_.ahrs.use_parameter_covariance,
+          params_.ahrs.parameter_covariance.orientation_noise_sigmas,
+          params_.ahrs.covariance_scalar, ahrs->orientation_covariance, covFallbackWarning("AHRS"));
+    }
+    if (gps) {
+      map_position_cov.topLeftCorner<2, 2>() = resolveCov<2>(
+          params_.gps.use_parameter_covariance,
+          params_.gps.parameter_covariance.position_noise_sigmas, params_.gps.covariance_scalar,
+          gps->pose_covariance.topLeftCorner<2, 2>(), covFallbackWarning("GPS"));
+    }
+    if (depth) {
+      map_position_cov(2, 2) =
+          resolveVar(params_.depth.use_parameter_covariance,
+                     params_.depth.parameter_covariance.position_z_noise_sigma,
+                     params_.depth.covariance_scalar, depth->pose_covariance(2, 2),
+                     covFallbackWarning("Depth"));
+    }
+  }
+
   const gtsam::Matrix3 target_R_map = map_R_target.inverse().matrix();
 
   gtsam::Matrix6 pose_cov = gtsam::Matrix6::Zero();
-  pose_cov.topLeftCorner<3, 3>() = target_R_map *
-                                   sigmasSquaredDiag(params_.priors.initial_orientation_sigmas) *
-                                   target_R_map.transpose();
-  pose_cov.bottomRightCorner<3, 3>() = target_R_map *
-                                       sigmasSquaredDiag(params_.priors.initial_position_sigmas) *
-                                       target_R_map.transpose();
+  pose_cov.topLeftCorner<3, 3>() = target_R_map * map_orientation_cov * target_R_map.transpose();
+  pose_cov.bottomRightCorner<3, 3>() = target_R_map * map_position_cov * target_R_map.transpose();
 
   return pose_cov;
 }
 
 gtsam::Matrix3 FactorGraphCore::computeInitialVelocityCovariance(
-    const gtsam::Rot3& map_R_target) const {
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::TwistData>& dvl) const {
+  if (!params_.priors.use_parameter_priors && !params_.priors.use_parameter_priors_covariance &&
+      dvl) {
+    // Account for DVL rotation
+    const gtsam::Matrix3 map_R_dvl = (map_R_target * tfs_.target_T_dvl.rotation()).matrix();
+    const gtsam::Matrix3 dvl_cov = resolveCov<3>(
+        params_.dvl.use_parameter_covariance,
+        params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
+        dvl->twist_covariance.topLeftCorner<3, 3>(), covFallbackWarning("DVL"));
+
+    return map_R_dvl * dvl_cov * map_R_dvl.transpose();
+  }
+
   const gtsam::Matrix3 map_R_base = (map_R_target * tfs_.target_T_base.rotation()).matrix();
 
-  return map_R_base * sigmasSquaredDiag(params_.priors.initial_velocity_sigmas) *
+  return map_R_base *
+         sigmasSquaredDiag(params_.priors.parameter_priors_covariance.initial_velocity_sigmas) *
          map_R_base.transpose();
 }
 

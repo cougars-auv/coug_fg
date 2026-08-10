@@ -53,7 +53,7 @@ factor_graph_node:
       gt_eq<>: [-1.0]
   smoother_lag:
     type: double
-    default_value: 10.0
+    default_value: 20.0
     validation:
       gt<>: [0.0]
   relinearize_threshold:
@@ -75,7 +75,7 @@ factor_graph_node:
       one_of<>: [["None", "DVL", "Depth", "Timer"]]
   backup_keyframe_source:
     type: string
-    default_value: "None"
+    default_value: "Depth"
     validation:
       one_of<>: [["None", "DVL", "Depth", "Timer"]]
   keyframe_timeout_sec:
@@ -132,7 +132,7 @@ factor_graph_node:
       not_empty<>: []
   multiagent_topics:
     type: string_array
-    default_value: []
+    default_value: ["/coug2sim/base/agent/status", "/coug3sim/base/agent/status"]
   global_odom_topic:
     type: string
     default_value: "odometry/global"
@@ -237,7 +237,7 @@ factor_graph_node:
         gt<>: [0.0]
     sensor_rate_hz:
       type: double
-      default_value: 0.0
+      default_value: 200.0
       validation:
         gt_eq<>: [0.0]
     use_parameter_covariance:
@@ -275,7 +275,7 @@ factor_graph_node:
         gt<>: [0.0]
     gravity:
       type: double_array
-      default_value: [0.0, 0.0, -9.81]
+      default_value: [0.0, 0.0, -9.8]
       validation:
         fixed_size<>: [3]
     diagnostic_timeout_sec:
@@ -409,7 +409,7 @@ factor_graph_node:
       default_value: false
     estimate_hard_iron_bias:
       type: bool
-      default_value: false
+      default_value: true
     use_parameter_frame:
       type: bool
       default_value: false
@@ -511,7 +511,7 @@ factor_graph_node:
     parameter_covariance:
       orientation_noise_sigmas:
         type: double_array
-        default_value: [0.00349, 0.00349, 0.01745]
+        default_value: [0.00698, 0.00698, 0.01745]
         validation:
           fixed_size<>: [3]
           lower_element_bounds<>: [0.0]
@@ -827,7 +827,7 @@ factor_graph_node:
   priors:
     use_parameter_priors:
       type: bool
-      default_value: false
+      default_value: true
     parameter_priors:
       initial_position:
         type: double_array
@@ -859,24 +859,28 @@ factor_graph_node:
       default_value: [0.0, 0.0, 0.0]
       validation:
         fixed_size<>: [3]
-    initial_position_sigmas:
-      type: double_array
-      default_value: [0.001, 0.001, 0.001]
-      validation:
-        fixed_size<>: [3]
-        lower_element_bounds<>: [0.0]
-    initial_orientation_sigmas:
-      type: double_array
-      default_value: [0.001, 0.001, 0.001]
-      validation:
-        fixed_size<>: [3]
-        lower_element_bounds<>: [0.0]
-    initial_velocity_sigmas:
-      type: double_array
-      default_value: [0.001, 0.001, 0.001]
-      validation:
-        fixed_size<>: [3]
-        lower_element_bounds<>: [0.0]
+    use_parameter_priors_covariance:
+      type: bool
+      default_value: true
+    parameter_priors_covariance:
+      initial_position_sigmas:
+        type: double_array
+        default_value: [0.001, 0.001, 0.001]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+      initial_orientation_sigmas:
+        type: double_array
+        default_value: [0.001, 0.001, 0.001]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+      initial_velocity_sigmas:
+        type: double_array
+        default_value: [0.001, 0.001, 0.001]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
     initial_accel_bias_sigmas:
       type: double_array
       default_value: [0.01, 0.01, 0.01]

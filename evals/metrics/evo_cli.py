@@ -23,17 +23,6 @@ from metrics import tum
 logger = logging.getLogger(__name__)
 
 
-def run_logged(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
-    """
-    Run a subprocess. It will write directly to the terminal.
-
-    :param args: Command and arguments to execute.
-    :param cwd: Working directory to run the command in, if any.
-    :return: The completed process.
-    """
-    return subprocess.run(args, cwd=cwd, check=False)
-
-
 def export_bag_tum(bag_path: str | Path, topic: str, out_dir: Path) -> Path | None:
     """
     Export a recorded trajectory topic from a bag to a TUM file with evo.
@@ -45,7 +34,7 @@ def export_bag_tum(bag_path: str | Path, topic: str, out_dir: Path) -> Path | No
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     args = ["evo_traj", "bag2", str(Path(bag_path).resolve()), topic, "--save_as_tum"]
-    if run_logged(args, cwd=out_dir).returncode != 0:
+    if subprocess.run(args, cwd=out_dir, check=False).returncode != 0:
         return None
 
     return tum.latest_tum(out_dir)
@@ -112,7 +101,7 @@ def run_evo_evaluations(
             if metric == "RPE":
                 args += ["--delta", "1", "--delta_unit", "m", "--all_pairs"]
 
-            run_logged(args)
+            subprocess.run(args, check=False)
 
 
 def build_benchmark_tables(agent_dir: Path, metrics_names: tuple[str, ...]) -> None:
@@ -138,4 +127,4 @@ def build_benchmark_tables(agent_dir: Path, metrics_names: tuple[str, ...]) -> N
             continue
         args = ["evo_res", *map(str, metric_zips)]
         args += ["--save_table", str(agent_dir / f"benchmark_{metric}.csv")]
-        run_logged(args)
+        subprocess.run(args, check=False)

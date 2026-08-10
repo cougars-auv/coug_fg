@@ -82,18 +82,15 @@ def label_for_folder(folder: str) -> str | None:
     return next((e.label for e in ESTIMATORS if e.key == folder), None)
 
 
-def row_token(est: Estimator) -> str:
-    """Return the trailing token an estimator's exported TUM file name ends with."""
-    return est.topic.replace("/", "_") if est.topic else est.key
-
-
 def label_for_row(row_key: str) -> str | None:
     """Return the label for a benchmark CSV row key, or None if unregistered."""
     stem = Path(str(row_key)).stem
-    for est in sorted(ESTIMATORS, key=lambda e: len(row_token(e)), reverse=True):
-        token = row_token(est)
+    tokens = [
+        (e.topic.replace("/", "_") if e.topic else e.key, e.label) for e in ESTIMATORS
+    ]
+    for token, label in sorted(tokens, key=lambda t: len(t[0]), reverse=True):
         if stem == token or stem.endswith(f"_{token}"):
-            return est.label
+            return label
     return None
 
 

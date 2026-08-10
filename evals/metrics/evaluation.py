@@ -26,16 +26,6 @@ logger = logging.getLogger(__name__)
 BENCHMARK_METRICS = ("ape_trans", "ape_rot", "rpe_trans", "rpe_rot")
 
 
-def _find_bags(target_dir: Path) -> list[Path]:
-    """
-    Return every bag directory at or beneath a target directory.
-
-    :param target_dir: A bag directory or a directory containing bags.
-    :return: Bag directories, identified by their ``metadata.yaml`` files.
-    """
-    return sorted(meta.parent for meta in target_dir.rglob("metadata.yaml"))
-
-
 def _bag_message_counts(bag_path: Path) -> dict[str, int]:
     """
     Map each recorded topic in a bag to its message count.
@@ -143,7 +133,7 @@ def evaluate_bags(target_dir: Path, agents: list[str], evo_flags: list[str]) -> 
     :param agents: AUV namespaces to evaluate; absent agents are skipped.
     :param evo_flags: Extra evo flags forwarded to APE and RPE runs.
     """
-    bags = _find_bags(target_dir)
+    bags = sorted(meta.parent for meta in target_dir.rglob("metadata.yaml"))
     if not bags:
         logger.error(f"No bags found in {target_dir}")
         return

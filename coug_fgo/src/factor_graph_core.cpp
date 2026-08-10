@@ -81,16 +81,6 @@ using utils::SolverType;
 namespace {
 
 /**
- * @brief Checks a covariance matrix for non-finite or non-positive diagonal entries.
- * @param m The covariance matrix to check.
- * @return True if the covariance is unusable as a noise model.
- */
-template <typename Derived>
-bool isInvalidCovDiag(const Eigen::MatrixBase<Derived>& m) {
-  return !m.allFinite() || (m.diagonal().array() <= 0.0).any();
-}
-
-/**
  * @brief Builds a diagonal covariance matrix from a vector of standard deviations.
  * @param sigmas Per-axis standard deviations (at least N entries).
  * @return The N x N diagonal matrix with sigmas^2 on the diagonal.
@@ -122,7 +112,7 @@ Eigen::Matrix<double, N, N> resolveCov(bool use_param, const std::vector<double>
   if (use_param) {
     return sigmasSquaredDiag<N>(sigmas) * scalar;
   }
-  if (isInvalidCovDiag(msg_cov)) {
+  if (!msg_cov.allFinite() || (msg_cov.diagonal().array() <= 0.0).any()) {
     if (warn_fallback) {
       warn_fallback();
     }

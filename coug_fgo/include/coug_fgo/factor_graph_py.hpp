@@ -33,7 +33,6 @@
 
 #include "coug_fgo/factor_graph_core.hpp"
 #include "coug_fgo/factor_graph_parameters.hpp"
-#include "coug_fgo/utils/state_initializer.hpp"
 
 namespace coug_fgo {
 
@@ -82,13 +81,12 @@ class FactorGraphPy {
               const Eigen::Vector4d& quat_xyzw);
 
   /**
-   * @brief Feeds measurement batches to the state initializer and initializes when ready.
-   * @param current_time Newest timestamp across the batches, in seconds.
+   * @brief Seeds the graph from the newest sample in each measurement batch.
    * @return True if the graph is initialized (or was already initialized).
    */
-  bool initialize(double current_time, const ImuBatch& imu, const OdomBatch& gps,
-                  const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,
-                  const TwistBatch& dvl, const WrenchBatch& wrench);
+  bool initialize(const ImuBatch& imu, const OdomBatch& gps, const DepthBatch& depth,
+                  const MagBatch& mag, const AhrsBatch& ahrs, const TwistBatch& dvl,
+                  const WrenchBatch& wrench, const MultiAgentBatch& multiagent);
 
   /**
    * @brief Builds factors for one keyframe from the given measurement batches.
@@ -133,7 +131,6 @@ class FactorGraphPy {
   // --- Core ---
   factor_graph_node::Params params_;
   std::unique_ptr<FactorGraphCore> core_;
-  std::unique_ptr<utils::StateInitializer> state_init_;
 
   // --- State ---
   utils::TfBundle tfs_;

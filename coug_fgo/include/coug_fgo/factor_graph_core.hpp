@@ -47,6 +47,26 @@
 namespace coug_fgo {
 
 /**
+ * @struct InitialState
+ * @brief Computed initial state priors and the sensor samples behind them.
+ */
+struct InitialState {
+  gtsam::Pose3 pose;
+  gtsam::Vector3 velocity;
+  gtsam::imuBias::ConstantBias bias;
+  gtsam::Point3 mag_bias;
+  double time{0.0};
+
+  gtsam::Matrix6 pose_cov;
+  gtsam::Matrix3 vel_cov;
+  gtsam::Matrix6 bias_cov;
+  gtsam::Matrix3 mag_bias_cov;
+
+  std::shared_ptr<utils::ImuData> imu;
+  std::shared_ptr<utils::TwistData> dvl;
+};
+
+/**
  * @struct OptimizeResult
  * @brief Output from a successful optimization step.
  */
@@ -92,11 +112,12 @@ class FactorGraphCore {
   void setLogCallback(utils::LogCallback callback);
 
   /**
-   * @brief Initializes the graph from the computed initial state.
-   * @param init_state The computed initial state and averaged initial sensor samples.
+   * @brief Computes the initial state from the newest sensor samples and seeds the graph.
+   * @param queues Bundle of drained sensor message deques (only the newest of each is used).
    * @param tfs GTSAM Pose3 sensor transforms.
+   * @return True once the graph is initialized, false while a required sensor is still missing.
    */
-  void initialize(const utils::InitialState& init_state, const utils::TfBundle& tfs);
+  bool initialize(const utils::QueueBundle& queues, const utils::TfBundle& tfs);
 
   /**
    * @brief Builds factors for one keyframe and writes the graph to the buffer.
@@ -136,14 +157,63 @@ class FactorGraphCore {
    */
   std::function<void()> covFallbackWarning(const std::string& sensor) const;
 
+  // --- Initialization ---
+  /**
+   * @brief Computes the initial pose, velocity, bias, and start time from the newest samples.
+   * @param queues Bundle of drained sensor message deques (only the newest of each is used).
+   * @return The computed initial state, or nullopt if a required sensor has not reported yet.
+   */
+  std::optional<InitialState> computeInitialState(const utils::QueueBundle& queues) const;
+
+  /**
+   * @brief Computes initial orientation from the AHRS sample, falling back to the parameter prior.
+   * @param ahrs The newest AHRS sample, or null to use the parameter prior.
+   * @return Initial rotation of the target frame in the map frame.
+   */
+  gtsam::Rot3 computeInitialOrientation(const std::shared_ptr<utils::AhrsData>& ahrs) const;
+
+  /**
+   * @brief Computes initial position using GPS and depth with lever arm compensation.
+   * @param map_R_target The computed initial rotation.
+   * @param gps The newest GPS sample, or null to leave x/y at the parameter prior.
+   * @param depth The newest depth sample, or null to leave z at the parameter prior.
+   * @return Initial position of the target frame in the map frame.
+   */
+  gtsam::Point3 computeInitialPosition(const gtsam::Rot3& map_R_target,
+                                       const std::shared_ptr<utils::OdometryData>& gps,
+                                       const std::shared_ptr<utils::OdometryData>& depth) const;
+
+  /**
+   * @brief Computes initial map-frame velocity from the DVL body-frame measurement.
+   * @param map_R_target The computed initial rotation.
+   * @param dvl The newest DVL sample, or null to fall back to the configured start velocity.
+   * @return Initial velocity of the target frame in the map frame.
+   */
+  gtsam::Vector3 computeInitialVelocity(const gtsam::Rot3& map_R_target,
+                                        const std::shared_ptr<utils::TwistData>& dvl) const;
+
+  /**
+   * @brief Rotates the map-frame pose sigmas into the target-frame Pose3 tangent.
+   * @param map_R_target The computed initial rotation.
+   * @return Initial pose covariance, ordered with the rotation block first.
+   */
+  gtsam::Matrix6 computeInitialPoseCovariance(const gtsam::Rot3& map_R_target) const;
+
+  /**
+   * @brief Rotates the base-frame velocity sigmas into the map frame.
+   * @param map_R_target The computed initial rotation.
+   * @return Initial velocity covariance in the map frame.
+   */
+  gtsam::Matrix3 computeInitialVelocityCovariance(const gtsam::Rot3& map_R_target) const;
+
   // --- Configuration ---
   /**
    * @brief Configures the GTSAM combined IMU preintegration parameters.
-   * @param init_state Provides the averaged initial IMU sample.
+   * @param init_state Provides the initial IMU sample.
    * @return Shared pointer to the configured preintegration parameters.
    */
   std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params> configureImuPreintegration(
-      const utils::InitialState& init_state) const;
+      const InitialState& init_state) const;
 
   // --- Factor Construction ---
   /**
@@ -152,7 +222,7 @@ class FactorGraphCore {
    * @param graph The factor graph to add priors to.
    * @param values The initial variable estimates.
    */
-  void addPriorFactors(const utils::InitialState& init_state, gtsam::NonlinearFactorGraph& graph,
+  void addPriorFactors(const InitialState& init_state, gtsam::NonlinearFactorGraph& graph,
                        gtsam::Values& values);
 
   /**

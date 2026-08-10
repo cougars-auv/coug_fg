@@ -34,8 +34,6 @@ using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 
 namespace coug_fgo {
 
-using utils::StateInitializer;
-
 namespace {
 
 /**
@@ -162,7 +160,6 @@ FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const
 
   core_ = std::make_unique<FactorGraphCore>(params_);
   core_->setLogCallback(&pyLogCallback);
-  state_init_ = std::make_unique<StateInitializer>(params_);
 }
 
 pybind11::dict FactorGraphPy::get_params() const {
@@ -199,10 +196,12 @@ pybind11::dict FactorGraphPy::get_params() const {
   p["base_frame"] = params_.base_frame;
 
   // --- Sensor Settings ---
-  auto sensor_dict = [](const auto& s, bool enable, bool enable_extra_only) {
+  auto sensor_dict = [](const auto& s, bool enable, bool enable_init_priors,
+                        bool enable_dropout_only = false) {
     pybind11::dict d;
     d["enable"] = enable;
-    d["enable_extra_only"] = enable_extra_only;  // init_only (sensors) or dropout_only (dynamics)
+    d["enable_init_priors"] = enable_init_priors;
+    d["enable_dropout_only"] = enable_dropout_only;
     d["use_parameter_frame"] = s.use_parameter_frame;
     d["parameter_frame"] = s.parameter_frame;
     d["use_parameter_tf"] = s.use_parameter_tf;
@@ -214,15 +213,15 @@ pybind11::dict FactorGraphPy::get_params() const {
   pybind11::dict sensors;
   sensors["imu"] = sensor_dict(params_.imu, true, false);
   sensors["gps"] =
-      sensor_dict(params_.gps, params_.gps.enable_gps, params_.gps.enable_gps_init_only);
-  sensors["depth"] =
-      sensor_dict(params_.depth, params_.depth.enable_depth, params_.depth.enable_depth_init_only);
+      sensor_dict(params_.gps, params_.gps.enable_gps, params_.gps.enable_gps_init_priors);
+  sensors["depth"] = sensor_dict(params_.depth, params_.depth.enable_depth,
+                                 params_.depth.enable_depth_init_priors);
   sensors["mag"] = sensor_dict(params_.mag, params_.mag.enable_mag, false);
   sensors["ahrs"] =
-      sensor_dict(params_.ahrs, params_.ahrs.enable_ahrs, params_.ahrs.enable_ahrs_init_only);
+      sensor_dict(params_.ahrs, params_.ahrs.enable_ahrs, params_.ahrs.enable_ahrs_init_priors);
   sensors["dvl"] =
-      sensor_dict(params_.dvl, params_.dvl.enable_dvl, params_.dvl.enable_dvl_init_only);
-  sensors["dynamics"] = sensor_dict(params_.dynamics, params_.dynamics.enable_dynamics,
+      sensor_dict(params_.dvl, params_.dvl.enable_dvl, params_.dvl.enable_dvl_init_priors);
+  sensors["dynamics"] = sensor_dict(params_.dynamics, params_.dynamics.enable_dynamics, false,
                                     params_.dynamics.enable_dynamics_dropout_only);
 
   pybind11::dict multiagent;
@@ -237,7 +236,8 @@ pybind11::dict FactorGraphPy::get_params() const {
 
   pybind11::dict base;
   base["enable"] = true;
-  base["enable_extra_only"] = false;
+  base["enable_init_priors"] = false;
+  base["enable_dropout_only"] = false;
   base["use_parameter_frame"] = false;
   base["parameter_frame"] = params_.base_frame;
   base["use_parameter_tf"] = params_.base.use_parameter_tf;
@@ -427,19 +427,15 @@ pybind11::dict FactorGraphPy::from_bundle(const utils::QueueBundle& queues) {
   return batches;
 }
 
-bool FactorGraphPy::initialize(double current_time, const ImuBatch& imu, const OdomBatch& gps,
-                               const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,
-                               const TwistBatch& dvl, const WrenchBatch& wrench) {
+bool FactorGraphPy::initialize(const ImuBatch& imu, const OdomBatch& gps, const DepthBatch& depth,
+                               const MagBatch& mag, const AhrsBatch& ahrs, const TwistBatch& dvl,
+                               const WrenchBatch& wrench, const MultiAgentBatch& multiagent) {
   if (is_initialized_) {
     return true;
   }
 
-  utils::QueueBundle queues = to_bundle(imu, gps, depth, mag, ahrs, dvl, wrench, {});
-
-  if (auto init_state = state_init_->update(current_time, queues, tfs_)) {
-    core_->initialize(*init_state, tfs_);
-    is_initialized_ = true;
-  }
+  utils::QueueBundle queues = to_bundle(imu, gps, depth, mag, ahrs, dvl, wrench, multiagent);
+  is_initialized_ = core_->initialize(queues, tfs_);
   return is_initialized_;
 }
 
@@ -482,6 +478,9 @@ pybind11::dict FactorGraphPy::optimize() {
   if (params_.publish_velocity_cov) result["vel_cov"] = opt_result->vel_cov;
   if (params_.publish_imu_bias_cov) result["bias_cov"] = opt_result->bias_cov;
 
+  result["processing_overflow"] = opt_result->processing_overflow;
+  result["num_keyframes"] = opt_result->num_keyframes;
+
   if (params_.publish_smoothed_path && !opt_result->all_estimates.empty()) {
     const gtsam::Values& estimates = opt_result->all_estimates;
     pybind11::list smoothed;
@@ -516,7 +515,6 @@ pybind11::dict FactorGraphPy::optimize() {
 void FactorGraphPy::reset() {
   core_ = std::make_unique<FactorGraphCore>(params_);
   core_->setLogCallback(&pyLogCallback);
-  state_init_ = std::make_unique<StateInitializer>(params_);
   is_initialized_ = false;
 }
 
@@ -533,14 +531,15 @@ PYBIND11_MODULE(coug_fgo_py, m) {
       .def("get_params", &FactorGraphPy::get_params)
       .def("set_tf", &FactorGraphPy::set_tf, pybind11::arg("name"), pybind11::arg("position"),
            pybind11::arg("quat_xyzw"))
-      .def("initialize", &FactorGraphPy::initialize, pybind11::arg("current_time"),
+      .def("initialize", &FactorGraphPy::initialize,
            pybind11::arg("imu") = FactorGraphPy::ImuBatch(),
            pybind11::arg("gps") = FactorGraphPy::OdomBatch(),
            pybind11::arg("depth") = FactorGraphPy::DepthBatch(),
            pybind11::arg("mag") = FactorGraphPy::MagBatch(),
            pybind11::arg("ahrs") = FactorGraphPy::AhrsBatch(),
            pybind11::arg("dvl") = FactorGraphPy::TwistBatch(),
-           pybind11::arg("wrench") = FactorGraphPy::WrenchBatch())
+           pybind11::arg("wrench") = FactorGraphPy::WrenchBatch(),
+           pybind11::arg("multiagent") = FactorGraphPy::MultiAgentBatch())
       .def("update", &FactorGraphPy::update, pybind11::arg("target_time"),
            pybind11::arg("imu") = FactorGraphPy::ImuBatch(),
            pybind11::arg("gps") = FactorGraphPy::OdomBatch(),

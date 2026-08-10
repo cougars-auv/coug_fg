@@ -33,6 +33,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -70,6 +71,8 @@ namespace coug_fgo {
 
 using utils::DvlLoosePreintegrator;
 using utils::DvlTightPreintegrator;
+using utils::KeyframeSource;
+using utils::parseKeyframeSource;
 using utils::parseRobustKernel;
 using utils::parseSolverType;
 using utils::RobustKernel;
@@ -234,9 +237,15 @@ std::function<void()> FactorGraphCore::covFallbackWarning(const std::string& sen
   };
 }
 
-void FactorGraphCore::initialize(const utils::InitialState& init_state,
-                                 const utils::TfBundle& tfs) {
+bool FactorGraphCore::initialize(const utils::QueueBundle& queues, const utils::TfBundle& tfs) {
   tfs_ = tfs;
+
+  // --- Compute Initial State ---
+  std::optional<InitialState> maybe_state = computeInitialState(queues);
+  if (!maybe_state) {
+    return false;
+  }
+  const InitialState& init_state = *maybe_state;
 
   prev_pose_ = init_state.pose;
   prev_vel_ = init_state.velocity;
@@ -311,10 +320,161 @@ void FactorGraphCore::initialize(const utils::InitialState& init_state,
       inc_smoother_->update(initial_graph, initial_values, initial_timestamps);
       break;
   }
+
+  return true;
+}
+
+std::optional<InitialState> FactorGraphCore::computeInitialState(
+    const utils::QueueBundle& queues) const {
+  const bool use_param_priors = params_.priors.use_parameter_priors;
+  const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
+  const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
+
+  const bool use_gps = params_.gps.enable_gps_init_priors && !use_param_priors;
+  const bool use_depth = params_.depth.enable_depth_init_priors && !use_param_priors;
+  const bool use_ahrs = params_.ahrs.enable_ahrs_init_priors && !use_param_priors;
+  const bool use_dvl = params_.dvl.enable_dvl_init_priors && !use_param_priors;
+
+  // Additional sensor data needed for init
+  const bool hold_depth = params_.depth.enable_depth &&
+                          (kf == KeyframeSource::kDepth || backup_kf == KeyframeSource::kDepth);
+  const bool hold_dvl =
+      params_.dvl.enable_dvl && (params_.comparison.enable_loose_dvl_preintegration ||
+                                 params_.comparison.enable_tight_dvl_preintegration ||
+                                 kf == KeyframeSource::kDvl || backup_kf == KeyframeSource::kDvl);
+  const bool hold_ahrs = params_.comparison.enable_loose_dvl_preintegration;
+
+  auto ready = [](bool needed, const auto& msgs) { return !needed || !msgs.empty(); };
+  if (queues.imu.empty() || !ready(use_gps, queues.gps) ||
+      !ready(use_depth || hold_depth, queues.depth) || !ready(use_ahrs || hold_ahrs, queues.ahrs) ||
+      !ready(use_dvl || hold_dvl, queues.dvl)) {
+    return std::nullopt;
+  }
+
+  auto newest = [](bool take, const auto& msgs) {
+    return take ? msgs.back() : std::decay_t<decltype(msgs.back())>{};
+  };
+  auto gps = newest(use_gps, queues.gps);
+  auto depth = newest(use_depth, queues.depth);
+  auto ahrs = newest(use_ahrs, queues.ahrs);
+  auto dvl = newest(use_dvl, queues.dvl);
+  auto held_depth = newest(hold_depth, queues.depth);
+  auto held_dvl = newest(hold_dvl, queues.dvl);
+  auto imu = queues.imu.back();
+
+  InitialState state;
+  gtsam::Rot3 map_R_target = computeInitialOrientation(ahrs);
+  state.pose = gtsam::Pose3(map_R_target, computeInitialPosition(map_R_target, gps, depth));
+  state.velocity = computeInitialVelocity(map_R_target, dvl);
+  state.bias = gtsam::imuBias::ConstantBias(
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_accel_bias.data()),
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_gyro_bias.data()));
+  state.mag_bias = Eigen::Map<const Eigen::Vector3d>(params_.priors.hard_iron_bias.data());
+
+  state.pose_cov = computeInitialPoseCovariance(map_R_target);
+  state.vel_cov = computeInitialVelocityCovariance(map_R_target);
+  state.bias_cov = gtsam::Matrix6::Zero();
+  state.bias_cov.topLeftCorner<3, 3>() =
+      sigmasSquaredDiag(params_.priors.initial_accel_bias_sigmas);
+  state.bias_cov.bottomRightCorner<3, 3>() =
+      sigmasSquaredDiag(params_.priors.initial_gyro_bias_sigmas);
+  state.mag_bias_cov = sigmasSquaredDiag(params_.priors.hard_iron_bias_sigmas);
+
+  if (kf == KeyframeSource::kDvl && held_dvl) {
+    state.time = held_dvl->timestamp;
+  } else if (kf == KeyframeSource::kDepth && held_depth) {
+    state.time = held_depth->timestamp;
+  } else {
+    state.time = imu->timestamp;
+  }
+
+  state.imu = imu;
+  state.dvl = held_dvl;
+  return state;
+}
+
+gtsam::Rot3 FactorGraphCore::computeInitialOrientation(
+    const std::shared_ptr<utils::AhrsData>& ahrs) const {
+  if (ahrs) {
+    // Account for AHRS rotation
+    gtsam::Rot3 target_R_ahrs = tfs_.target_T_ahrs.rotation();
+    gtsam::Rot3 map_R_target_measured = ahrs->orientation * target_R_ahrs.inverse();
+    return AhrsFactorArm::declinationCorrected(map_R_target_measured,
+                                               params_.ahrs.mag_declination_radians);
+  }
+
+  double roll = params_.priors.parameter_priors.initial_orientation[0];
+  double pitch = params_.priors.parameter_priors.initial_orientation[1];
+  double yaw = params_.priors.parameter_priors.initial_orientation[2];
+
+  gtsam::Rot3 base_R_target = tfs_.target_T_base.rotation().inverse();
+  return gtsam::Rot3::Ypr(yaw, pitch, roll) * base_R_target;
+}
+
+gtsam::Point3 FactorGraphCore::computeInitialPosition(
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::OdometryData>& gps,
+    const std::shared_ptr<utils::OdometryData>& depth) const {
+  gtsam::Point3 map_p_base(params_.priors.parameter_priors.initial_position[0],
+                           params_.priors.parameter_priors.initial_position[1],
+                           params_.priors.parameter_priors.initial_position[2]);
+
+  gtsam::Point3 target_p_base = tfs_.target_T_base.translation();
+  gtsam::Point3 map_p_target = map_p_base - map_R_target.rotate(target_p_base);
+
+  if (gps) {
+    // Account for GPS lever arm
+    gtsam::Point3 map_p_target_gps = map_R_target.rotate(tfs_.target_T_gps.translation());
+    map_p_target = gps->pose.translation() - map_p_target_gps;
+  }
+
+  if (depth) {
+    // Account for depth lever arm
+    gtsam::Point3 map_p_target_depth = map_R_target.rotate(tfs_.target_T_depth.translation());
+    map_p_target.z() = depth->pose.translation().z() - map_p_target_depth.z();
+  }
+
+  return map_p_target;
+}
+
+gtsam::Vector3 FactorGraphCore::computeInitialVelocity(
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::TwistData>& dvl) const {
+  if (dvl) {
+    // Account for DVL rotation
+    gtsam::Vector3 target_v_dvl = tfs_.target_T_dvl.rotation().rotate(dvl->linear_velocity);
+    return map_R_target.rotate(target_v_dvl);
+  }
+
+  gtsam::Vector3 base_v_base =
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.parameter_priors.initial_velocity.data());
+  gtsam::Vector3 target_v_base = tfs_.target_T_base.rotation().rotate(base_v_base);
+  return map_R_target.rotate(target_v_base);
+}
+
+gtsam::Matrix6 FactorGraphCore::computeInitialPoseCovariance(
+    const gtsam::Rot3& map_R_target) const {
+  const gtsam::Matrix3 target_R_map = map_R_target.inverse().matrix();
+
+  gtsam::Matrix6 pose_cov = gtsam::Matrix6::Zero();
+  pose_cov.topLeftCorner<3, 3>() = target_R_map *
+                                   sigmasSquaredDiag(params_.priors.initial_orientation_sigmas) *
+                                   target_R_map.transpose();
+  pose_cov.bottomRightCorner<3, 3>() = target_R_map *
+                                       sigmasSquaredDiag(params_.priors.initial_position_sigmas) *
+                                       target_R_map.transpose();
+
+  return pose_cov;
+}
+
+gtsam::Matrix3 FactorGraphCore::computeInitialVelocityCovariance(
+    const gtsam::Rot3& map_R_target) const {
+  const gtsam::Matrix3 map_R_base = (map_R_target * tfs_.target_T_base.rotation()).matrix();
+
+  return map_R_base * sigmasSquaredDiag(params_.priors.initial_velocity_sigmas) *
+         map_R_base.transpose();
 }
 
 std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params>
-FactorGraphCore::configureImuPreintegration(const utils::InitialState& init_state) const {
+FactorGraphCore::configureImuPreintegration(const InitialState& init_state) const {
   auto imu_params = gtsam::PreintegratedCombinedMeasurements::Params::MakeSharedU();
   imu_params->n_gravity =
       gtsam::Vector3(params_.imu.gravity[0], params_.imu.gravity[1], params_.imu.gravity[2]);
@@ -345,7 +505,7 @@ FactorGraphCore::configureImuPreintegration(const utils::InitialState& init_stat
   return imu_params;
 }
 
-void FactorGraphCore::addPriorFactors(const utils::InitialState& init_state,
+void FactorGraphCore::addPriorFactors(const InitialState& init_state,
                                       gtsam::NonlinearFactorGraph& graph, gtsam::Values& values) {
   graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
       X(0), prev_pose_, gtsam::noiseModel::Gaussian::Covariance(init_state.pose_cov));

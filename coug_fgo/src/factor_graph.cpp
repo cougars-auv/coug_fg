@@ -21,7 +21,6 @@
 
 #include "coug_fgo/factor_graph.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <stdexcept>
@@ -37,7 +36,6 @@ using utils::KeyframeSource;
 using utils::parseKeyframeSource;
 using utils::parseSolverType;
 using utils::SolverType;
-using utils::StateInitializer;
 using utils::toCovariance36Msg;
 using utils::toCovariance9Msg;
 using utils::toGtsam;
@@ -141,7 +139,7 @@ void FactorGraphNode::setupRosInterfaces() {
       },
       sensor_options);
 
-  if (params_.gps.enable_gps || params_.gps.enable_gps_init_only) {
+  if (params_.gps.enable_gps || params_.gps.enable_gps_init_priors) {
     gps_sub_ = create_subscription<nav_msgs::msg::Odometry>(
         params_.gps_odom_topic, rclcpp::SensorDataQoS(),
         [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
@@ -161,7 +159,7 @@ void FactorGraphNode::setupRosInterfaces() {
         sensor_options);
   }
 
-  if (params_.depth.enable_depth || params_.depth.enable_depth_init_only) {
+  if (params_.depth.enable_depth || params_.depth.enable_depth_init_priors) {
     depth_sub_ = create_subscription<nav_msgs::msg::Odometry>(
         params_.depth_odom_topic, rclcpp::SensorDataQoS(),
         [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
@@ -210,7 +208,7 @@ void FactorGraphNode::setupRosInterfaces() {
         sensor_options);
   }
 
-  if (params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only ||
+  if (params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_priors ||
       params_.comparison.enable_loose_dvl_preintegration) {
     ahrs_sub_ = create_subscription<sensor_msgs::msg::Imu>(
         params_.ahrs_topic, rclcpp::SensorDataQoS().keep_last(200),
@@ -231,7 +229,7 @@ void FactorGraphNode::setupRosInterfaces() {
         sensor_options);
   }
 
-  if (params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_only) {
+  if (params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_priors) {
     dvl_sub_ = create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
         params_.dvl_topic, rclcpp::SensorDataQoS(),
         [this](const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
@@ -360,9 +358,9 @@ FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
   auto source_enabled = [this](KeyframeSource source) {
     switch (source) {
       case KeyframeSource::kDvl:
-        return params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_only;
+        return params_.dvl.enable_dvl;
       case KeyframeSource::kDepth:
-        return params_.depth.enable_depth || params_.depth.enable_depth_init_only;
+        return params_.depth.enable_depth;
       default:
         return true;
     }
@@ -392,7 +390,6 @@ FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
         break;
     }
   });
-  state_init_ = std::make_unique<StateInitializer>(params_);
   frontend_thread_ = std::thread(&FactorGraphNode::frontendThreadLoop, this);
   backend_thread_ = std::thread(&FactorGraphNode::backendThreadLoop, this);
 
@@ -737,13 +734,11 @@ void FactorGraphNode::initializeGraph() {
       }
     };
     need(true, imu_queue_.empty(), "IMU");
-    need(params_.gps.enable_gps || params_.gps.enable_gps_init_only, gps_queue_.empty(), "GPS");
-    need(params_.depth.enable_depth || params_.depth.enable_depth_init_only, depth_queue_.empty(),
-         "depth");
-    need(params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_only ||
-             params_.comparison.enable_loose_dvl_preintegration,
+    need(params_.gps.enable_gps_init_priors, gps_queue_.empty(), "GPS");
+    need(params_.depth.enable_depth_init_priors, depth_queue_.empty(), "depth");
+    need(params_.ahrs.enable_ahrs_init_priors || params_.comparison.enable_loose_dvl_preintegration,
          ahrs_queue_.empty(), "AHRS");
-    need(params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_only, dvl_queue_.empty(), "DVL");
+    need(params_.dvl.enable_dvl_init_priors, dvl_queue_.empty(), "DVL");
 
     if (!missing.empty()) {
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Waiting for initialization data: %s.",
@@ -762,23 +757,9 @@ void FactorGraphNode::initializeGraph() {
   // --- Compute Initial State ---
   utils::QueueBundle init_queues = drainAllQueues();
 
-  auto back_time = [](const auto& q) { return q.empty() ? 0.0 : q.back()->timestamp; };
-  double newest_stamp = std::max({back_time(init_queues.imu), back_time(init_queues.gps),
-                                  back_time(init_queues.depth), back_time(init_queues.mag),
-                                  back_time(init_queues.ahrs), back_time(init_queues.dvl),
-                                  back_time(init_queues.wrench)});
-  if (newest_stamp <= 0.0) {
+  if (!core_->initialize(init_queues, buildCurrentTfBundle())) {
     return;
   }
-
-  utils::TfBundle tfs = buildCurrentTfBundle();
-
-  std::optional<utils::InitialState> init_state =
-      state_init_->update(newest_stamp, init_queues, tfs);
-  if (!init_state) {
-    return;
-  }
-  core_->initialize(*init_state, tfs);
 
   is_initialized_.store(true);
   RCLCPP_INFO(get_logger(), "Graph initialized successfully.");
@@ -1000,7 +981,6 @@ void FactorGraphNode::resetGraph(const std_srvs::srv::Trigger::Request::SharedPt
         break;
     }
   });
-  state_init_ = std::make_unique<StateInitializer>(params_);
 
   is_initialized_.store(false);
   init_data_ready_ = false;

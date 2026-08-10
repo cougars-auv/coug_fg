@@ -24,7 +24,6 @@
 #include <gtsam/base/Matrix.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Rot3.h>
-#include <gtsam/navigation/ImuBias.h>
 
 #include <Eigen/Dense>
 #include <deque>
@@ -143,26 +142,6 @@ struct QueueBundle {
   std::deque<std::shared_ptr<TwistData>> dvl;
   std::deque<std::shared_ptr<WrenchData>> wrench;
   std::vector<std::deque<std::shared_ptr<AgentStatusData>>> multiagent;
-};
-
-/**
- * @struct InitialState
- * @brief Computed initial state priors and averaged sensor samples.
- */
-struct InitialState {
-  gtsam::Pose3 pose;
-  gtsam::Vector3 velocity;
-  gtsam::imuBias::ConstantBias bias;
-  gtsam::Point3 mag_bias;
-  double time{0.0};
-
-  gtsam::Matrix6 pose_cov;
-  gtsam::Matrix3 vel_cov;
-  gtsam::Matrix6 bias_cov;
-  gtsam::Matrix3 mag_bias_cov;
-
-  std::shared_ptr<ImuData> imu;
-  std::shared_ptr<TwistData> dvl;
 };
 
 }  // namespace coug_fgo::utils

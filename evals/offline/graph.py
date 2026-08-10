@@ -53,7 +53,6 @@ class OfflineFactorGraph:
         "Depth": "depth",
         "Timer": "imu",
     }
-    INIT_SENSORS = ("imu", "gps", "depth", "ahrs", "dvl")
 
     def __init__(
         self,
@@ -87,20 +86,28 @@ class OfflineFactorGraph:
         self.backup_keyframe_source = self.params["backup_keyframe_source"]
 
         # --- Sensor Settings ---
-        subscribed = {
-            key: cfg["enable"] or cfg["enable_extra_only"]
-            for key, cfg in self.params["sensors"].items()
-        }
+        sensors = self.params["sensors"]
         loose_preint = self.params["comparison"]["enable_loose_dvl_preintegration"]
+
+        gps, depth, mag = sensors["gps"], sensors["depth"], sensors["mag"]
+        ahrs, dvl, dynamics = sensors["ahrs"], sensors["dvl"], sensors["dynamics"]
 
         self.enabled = {
             "imu": True,
-            "gps": subscribed["gps"],
-            "depth": subscribed["depth"],
-            "mag": subscribed["mag"],
-            "ahrs": subscribed["ahrs"] or loose_preint,
-            "dvl": subscribed["dvl"],
-            "wrench": subscribed["dynamics"],
+            "gps": gps["enable"] or gps["enable_init_priors"],
+            "depth": depth["enable"] or depth["enable_init_priors"],
+            "mag": mag["enable"],
+            "ahrs": ahrs["enable"] or ahrs["enable_init_priors"] or loose_preint,
+            "dvl": dvl["enable"] or dvl["enable_init_priors"],
+            "wrench": dynamics["enable"] or dynamics["enable_dropout_only"],
+        }
+
+        self.init_priors = {
+            "imu": True,
+            "gps": gps["enable_init_priors"],
+            "depth": depth["enable_init_priors"],
+            "ahrs": ahrs["enable_init_priors"] or loose_preint,
+            "dvl": dvl["enable_init_priors"],
         }
 
         multiagent = self.params["multiagent"]
@@ -117,7 +124,7 @@ class OfflineFactorGraph:
             if source not in valid_sources:
                 raise ValueError(f"Unknown keyframe source: {source}")
             sensor = self.SOURCE_SENSORS.get(source)
-            if sensor in ("dvl", "depth") and not self.enabled[sensor]:
+            if sensor in ("dvl", "depth") and not sensors[sensor]["enable"]:
                 raise ValueError(
                     f"Keyframe source '{self.keyframe_source}' or backup "
                     f"'{self.backup_keyframe_source}' references a disabled sensor."
@@ -161,14 +168,14 @@ class OfflineFactorGraph:
 
     def pending_init_sensors(self) -> list[str]:
         """
-        Return enabled sensors that have not reported yet.
+        Return prior-seeding sensors that have not reported yet.
 
         :return: Sensor keys blocking initialization, in priority order.
         """
         return [
             s
-            for s in self.INIT_SENSORS
-            if self.enabled[s] and s not in self._last_msg_time
+            for s, seeds_priors in self.init_priors.items()
+            if seeds_priors and s not in self._last_msg_time
         ]
 
     def add_message(self, sensor: str, frame_id: str, measurement: tuple) -> None:
@@ -264,7 +271,7 @@ class OfflineFactorGraph:
             self._optimize_graph()
 
     def _initialize_graph(self) -> None:
-        """Attempt initialization once every sensor the initializer needs has reported."""
+        """Attempt initialization once every sensor the core needs has reported."""
         # --- Wait for Required Sensor Data ---
         if not self.init_data_ready:
             if self.pending_init_sensors():
@@ -280,13 +287,8 @@ class OfflineFactorGraph:
 
         # --- Compute Initial State ---
         queues = self._drain_all_queues()
-        queues.pop("multiagent")  # The state initializer ignores neighbor status
 
-        newest_stamp = max((q[-1][0] for q in queues.values() if q), default=0.0)
-        if newest_stamp <= 0.0:
-            return
-
-        if self.core.initialize(newest_stamp, **queues):
+        if self.core.initialize(**queues):
             self.is_initialized = True
             logger.info("Graph initialized successfully.")
 
@@ -350,6 +352,11 @@ class OfflineFactorGraph:
         """Run one optimization and record the result."""
         # --- Optimization Request ---
         if result := self.core.optimize():
+            num_keyframes = result.pop("num_keyframes")
+            if result.pop("processing_overflow"):
+                logger.warning(
+                    f"Processing overflow. Batching {num_keyframes} keyframes."
+                )
             self.results.append(result)
 
     def _drain_all_queues(self) -> dict:

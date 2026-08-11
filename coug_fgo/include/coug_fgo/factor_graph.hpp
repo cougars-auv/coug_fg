@@ -75,7 +75,7 @@ class FactorGraphNode : public rclcpp::Node {
    */
   ~FactorGraphNode() override;
 
- protected:
+ private:
   /**
    * @brief Creates publishers, subscribers, TF interfaces, and diagnostics.
    */
@@ -176,11 +176,31 @@ class FactorGraphNode : public rclcpp::Node {
                          const rclcpp::Time& timestamp);
 
   /**
+   * @brief Publishes a neighbor's optimized pose as map-frame odometry of its base frame.
+   * @param agent_queue_idx The neighbor's status queue index (not its agent id).
+   * @param current_pose The estimated neighbor pose (already at the base frame).
+   * @param pose_covariance The estimation error covariance.
+   * @param timestamp The message timestamp.
+   */
+  void publishNeighborGlobalOdom(size_t agent_queue_idx, const gtsam::Pose3& current_pose,
+                                 const gtsam::Matrix& pose_covariance,
+                                 const rclcpp::Time& timestamp);
+
+  /**
    * @brief Broadcasts the map-to-odom transform.
    * @param current_pose The estimated target pose.
    * @param timestamp The transform timestamp.
    */
   void broadcastGlobalTf(const gtsam::Pose3& current_pose, const rclcpp::Time& timestamp);
+
+  /**
+   * @brief Broadcasts the map-to-base transform for a neighbor.
+   * @param agent_queue_idx The neighbor's status queue index (not its agent id).
+   * @param current_pose The estimated neighbor pose (already at the base frame).
+   * @param timestamp The transform timestamp.
+   */
+  void broadcastNeighborGlobalTf(size_t agent_queue_idx, const gtsam::Pose3& current_pose,
+                                 const rclcpp::Time& timestamp);
 
   /**
    * @brief Publishes the full optimized trajectory as base-frame poses in the map frame.
@@ -308,6 +328,7 @@ class FactorGraphNode : public rclcpp::Node {
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr imu_bias_pub_;
   rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_bias_pub_;
   rclcpp::Publisher<coug_interfaces::msg::GraphMetrics>::SharedPtr graph_metrics_pub_;
+  std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> multiagent_pubs_;
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gps_sub_;

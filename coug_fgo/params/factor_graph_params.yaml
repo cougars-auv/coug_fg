@@ -3,6 +3,9 @@ factor_graph_node:
   publish_global_tf:
     type: bool
     default_value: true
+  publish_neighbor_global_tf:
+    type: bool
+    default_value: false
   publish_smoothed_path:
     type: bool
     default_value: false
@@ -23,6 +26,9 @@ factor_graph_node:
     default_value: false
 
   publish_pose_cov:
+    type: bool
+    default_value: false
+  publish_neighbor_pose_cov:
     type: bool
     default_value: false
   publish_velocity_cov:
@@ -130,9 +136,6 @@ factor_graph_node:
     default_value: "cmd_wrench"
     validation:
       not_empty<>: []
-  multiagent_topics:
-    type: string_array
-    default_value: ["/coug2sim/base/agent/status", "/coug3sim/base/agent/status"]
   global_odom_topic:
     type: string
     default_value: "odometry/global"
@@ -169,6 +172,20 @@ factor_graph_node:
     validation:
       not_empty<>: []
 
+  multiagent_namespaces:
+    type: string_array
+    default_value: ["coug2sim", "coug3sim"]
+  multiagent_status_topic:
+    type: string
+    default_value: "base/agent/status"
+    validation:
+      not_empty<>: []
+  multiagent_global_odom_topic:
+    type: string
+    default_value: "base/odometry/global_nbr"
+    validation:
+      not_empty<>: []
+
   map_frame:
     type: string
     default_value: "map"
@@ -187,6 +204,11 @@ factor_graph_node:
   base_frame:
     type: string
     default_value: "base_link"
+    validation:
+      not_empty<>: []
+  multiagent_base_frame:
+    type: string
+    default_value: "base_link_nbr"
     validation:
       not_empty<>: []
 
@@ -730,12 +752,18 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
+    enable_bearing:
+      type: bool
+      default_value: true
     bearing_noise_sigmas:
       type: double_array
       default_value: [0.01745, 0.01745]
       validation:
         fixed_size<>: [2]
         lower_element_bounds<>: [0.0]
+    enable_range:
+      type: bool
+      default_value: true
     range_noise_sigma:
       type: double
       default_value: 0.1

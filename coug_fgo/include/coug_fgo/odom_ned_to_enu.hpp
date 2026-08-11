@@ -41,7 +41,7 @@ class OdomNedToEnuNode : public rclcpp::Node {
    */
   explicit OdomNedToEnuNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Publishes the ENU-converted copy of an incoming odometry message.
    * @param msg The incoming NED-referenced Odometry message.

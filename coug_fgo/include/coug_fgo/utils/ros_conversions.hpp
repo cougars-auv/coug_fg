@@ -36,6 +36,20 @@
 namespace coug_fgo::utils {
 
 /**
+ * @brief Swaps a 6x6 covariance between ROS and GTSAM block order.
+ * @param cov The input Matrix66 in either block order.
+ * @return The resulting Matrix66 in the other block order.
+ */
+inline gtsam::Matrix66 swapCovarianceBlocks(const gtsam::Matrix66& cov) {
+  gtsam::Matrix66 swapped;
+  swapped.topLeftCorner<3, 3>() = cov.bottomRightCorner<3, 3>();
+  swapped.bottomRightCorner<3, 3>() = cov.topLeftCorner<3, 3>();
+  swapped.topRightCorner<3, 3>() = cov.bottomLeftCorner<3, 3>();
+  swapped.bottomLeftCorner<3, 3>() = cov.topRightCorner<3, 3>();
+  return swapped;
+}
+
+/**
  * @brief Converts a geometry_msgs Point to a GTSAM Point3.
  * @param msg The input Point message.
  * @return The resulting gtsam::Point3.
@@ -76,6 +90,16 @@ inline gtsam::Pose3 toGtsam(const geometry_msgs::msg::Pose& msg) {
  */
 inline gtsam::Pose3 toGtsam(const geometry_msgs::msg::Transform& msg) {
   return {toGtsam(msg.rotation), toGtsam(msg.translation)};
+}
+
+/**
+ * @brief Converts a ROS 6x6 covariance array to GTSAM block order.
+ * @param msg The input 36-element row-major covariance array in ROS block order.
+ * @return The resulting gtsam::Matrix66 in GTSAM block order.
+ */
+inline gtsam::Matrix66 toGtsam(const std::array<double, 36>& msg) {
+  return swapCovarianceBlocks(
+      Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(msg.data()));
 }
 
 /**
@@ -183,16 +207,7 @@ inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix66& cov) {
  * @return The resulting std::array<double, 36> (pos, rot order).
  */
 inline std::array<double, 36> toPoseCovarianceMsg(const gtsam::Matrix66& cov) {
-  std::array<double, 36> msg;
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      msg[i * 6 + j] = cov(i + 3, j + 3);
-      msg[(i + 3) * 6 + (j + 3)] = cov(i, j);
-      msg[i * 6 + (j + 3)] = cov(i + 3, j);
-      msg[(i + 3) * 6 + j] = cov(i, j + 3);
-    }
-  }
-  return msg;
+  return toCovariance36Msg(swapCovarianceBlocks(cov));
 }
 
 }  // namespace coug_fgo::utils

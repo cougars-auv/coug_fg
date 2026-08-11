@@ -56,19 +56,6 @@ Eigen::Matrix<double, N, N> toCovMatrix(const Array& arr) {
   return Eigen::Map<const Eigen::Matrix<double, N, N, Eigen::RowMajor>>(arr.data());
 }
 
-/**
- * @brief Extracts a neighboring agent's name from its status topic (the leading segment).
- * @param topic The neighbor status topic (e.g. "/coug2/base/agent/status").
- * @return The leading namespace segment (e.g. "coug2"), or the full topic if none is found.
- */
-std::string agentNameFromTopic(const std::string& topic) {
-  size_t start = topic.find_first_not_of('/');
-  if (start == std::string::npos) {
-    return topic;
-  }
-  return topic.substr(start, topic.find('/', start) - start);
-}
-
 }  // namespace
 
 void FactorGraphNode::setupRosInterfaces() {
@@ -99,6 +86,15 @@ void FactorGraphNode::setupRosInterfaces() {
   if (params_.publish_graph_metrics) {
     graph_metrics_pub_ = create_publisher<coug_interfaces::msg::GraphMetrics>(
         params_.graph_metrics_topic, rclcpp::SystemDefaultsQoS());
+  }
+  if (params_.multiagent.enable_multiagent) {
+    multiagent_pubs_.reserve(params_.multiagent_namespaces.size());
+    for (const auto& neighbor_ns : params_.multiagent_namespaces) {
+      std::string odom_topic = "/" + neighbor_ns + "/" + params_.multiagent_global_odom_topic;
+
+      multiagent_pubs_.push_back(
+          create_publisher<nav_msgs::msg::Odometry>(odom_topic, rclcpp::SystemDefaultsQoS()));
+    }
   }
 
   // --- ROS Services ---
@@ -153,7 +149,7 @@ void FactorGraphNode::setupRosInterfaces() {
           auto data = std::make_shared<utils::OdometryData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->pose = toGtsam(msg->pose.pose);
-          data->pose_covariance = toCovMatrix<6>(msg->pose.covariance);
+          data->pose_covariance = toGtsam(msg->pose.covariance);
           gps_queue_.push(data);
         },
         sensor_options);
@@ -173,7 +169,7 @@ void FactorGraphNode::setupRosInterfaces() {
           auto data = std::make_shared<utils::OdometryData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->pose = toGtsam(msg->pose.pose);
-          data->pose_covariance = toCovMatrix<6>(msg->pose.covariance);
+          data->pose_covariance = toGtsam(msg->pose.covariance);
           depth_queue_.push(data);
 
           if (keyframe_source_ == KeyframeSource::kDepth ||
@@ -243,7 +239,7 @@ void FactorGraphNode::setupRosInterfaces() {
           auto data = std::make_shared<utils::TwistData>();
           data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
           data->linear_velocity = toGtsam(msg->twist.twist.linear);
-          data->twist_covariance = toCovMatrix<6>(msg->twist.covariance);
+          data->twist_covariance = toGtsam(msg->twist.covariance);
           dvl_queue_.push(data);
 
           if (keyframe_source_ == KeyframeSource::kDvl ||
@@ -276,13 +272,16 @@ void FactorGraphNode::setupRosInterfaces() {
   }
 
   if (params_.multiagent.enable_multiagent) {
-    multiagent_queues_.reserve(params_.multiagent_topics.size());
-    multiagent_subs_.reserve(params_.multiagent_topics.size());
-    for (size_t i = 0; i < params_.multiagent_topics.size(); ++i) {
+    multiagent_queues_.reserve(params_.multiagent_namespaces.size());
+    multiagent_subs_.reserve(params_.multiagent_namespaces.size());
+    for (size_t i = 0; i < params_.multiagent_namespaces.size(); ++i) {
+      std::string status_topic =
+          "/" + params_.multiagent_namespaces[i] + "/" + params_.multiagent_status_topic;
+
       multiagent_queues_.push_back(
           std::make_unique<utils::ThreadSafeQueue<std::shared_ptr<utils::AgentStatusData>>>());
       multiagent_subs_.push_back(create_subscription<coug_interfaces::msg::AgentStatus>(
-          params_.multiagent_topics[i], rclcpp::SystemDefaultsQoS(),
+          status_topic, rclcpp::SystemDefaultsQoS(),
           [this, i](const coug_interfaces::msg::AgentStatus::SharedPtr msg) {
             std::string child = params_.multiagent.use_parameter_frame
                                     ? params_.multiagent.parameter_frame
@@ -295,7 +294,7 @@ void FactorGraphNode::setupRosInterfaces() {
             auto data = std::make_shared<utils::AgentStatusData>();
             data->timestamp = rclcpp::Time(msg->header.stamp).seconds();
             data->pose = toGtsam(msg->local_odometry);
-            data->pose_covariance = toCovMatrix<6>(msg->odometry_covariance);
+            data->pose_covariance = toGtsam(msg->odometry_covariance);
             data->pressure_depth = msg->pressure_depth;
             data->imu_orientation = toGtsam(msg->imu_orientation);
             data->includes_range = msg->includes_range;
@@ -555,6 +554,33 @@ void FactorGraphNode::publishGlobalOdom(const gtsam::Pose3& current_pose,
   global_odom_pub_->publish(odom_msg);
 }
 
+void FactorGraphNode::publishNeighborGlobalOdom(size_t agent_queue_idx,
+                                                const gtsam::Pose3& current_pose,
+                                                const gtsam::Matrix& pose_covariance,
+                                                const rclcpp::Time& timestamp) {
+  nav_msgs::msg::Odometry odom_msg;
+  odom_msg.header.stamp = timestamp;
+  odom_msg.header.frame_id = params_.map_frame;
+  odom_msg.child_frame_id =
+      params_.multiagent_namespaces[agent_queue_idx] + "/" + params_.multiagent_base_frame;
+  odom_msg.pose.pose = toPoseMsg(current_pose);
+
+  gtsam::Matrix cov_to_pub = pose_covariance;
+
+  if (params_.publish_neighbor_pose_cov) {
+    gtsam::Rot3 map_R_base = current_pose.rotation();
+    gtsam::Matrix66 Rot = gtsam::Matrix66::Zero();
+    Rot.block<3, 3>(0, 0) = map_R_base.matrix();
+    Rot.block<3, 3>(3, 3) = map_R_base.matrix();
+
+    cov_to_pub = Rot * pose_covariance * Rot.transpose();
+  }
+
+  odom_msg.pose.covariance = toPoseCovarianceMsg(gtsam::Matrix66(cov_to_pub));
+  odom_msg.twist.covariance[0] = -1.0;
+  multiagent_pubs_[agent_queue_idx]->publish(odom_msg);
+}
+
 void FactorGraphNode::broadcastGlobalTf(const gtsam::Pose3& current_pose,
                                         const rclcpp::Time& timestamp) {
   try {
@@ -581,6 +607,19 @@ void FactorGraphNode::broadcastGlobalTf(const gtsam::Pose3& current_pose,
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
                          params_.odom_frame.c_str(), params_.base_frame.c_str(), ex.what());
   }
+}
+
+void FactorGraphNode::broadcastNeighborGlobalTf(size_t agent_queue_idx,
+                                                const gtsam::Pose3& current_pose,
+                                                const rclcpp::Time& timestamp) {
+  geometry_msgs::msg::TransformStamped tf_msg;
+  tf_msg.header.stamp = timestamp;
+  tf_msg.header.frame_id = params_.map_frame;
+  tf_msg.child_frame_id =
+      params_.multiagent_namespaces[agent_queue_idx] + "/" + params_.multiagent_base_frame;
+  tf_msg.transform.translation = toVectorMsg(current_pose.translation());
+  tf_msg.transform.rotation = toQuatMsg(current_pose.rotation());
+  tf_broadcaster_->sendTransform(tf_msg);
 }
 
 void FactorGraphNode::publishSmoothedPath(const gtsam::Values& values,
@@ -845,8 +884,17 @@ void FactorGraphNode::optimizeGraph() {
     }
 
     // --- Publish Results ---
-    const rclcpp::Time stamp(static_cast<int64_t>(result->target_time * 1e9));
+    const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * 1e9));
     publishGlobalOdom(result->pose, result->pose_cov, stamp);
+    for (const auto& neighbor : result->neighbors_est) {
+      const rclcpp::Time neighbor_stamp(static_cast<int64_t>(neighbor.timestamp * 1e9));
+      publishNeighborGlobalOdom(neighbor.agent_queue_idx, neighbor.pose, neighbor.pose_cov,
+                                neighbor_stamp);
+
+      if (params_.publish_neighbor_global_tf) {
+        broadcastNeighborGlobalTf(neighbor.agent_queue_idx, neighbor.pose, stamp);
+      }
+    }
 
     if (params_.publish_global_tf) {
       broadcastGlobalTf(result->pose, stamp);
@@ -916,8 +964,8 @@ void FactorGraphNode::checkSensorStatus(diagnostic_updater::DiagnosticStatusWrap
   check_queue("Wrench", wrench_queue_.size(), wrench_queue_.secondsSinceLastArrival(),
               params_.dynamics.enable_dynamics, false, params_.dynamics.diagnostic_timeout_sec);
   for (size_t i = 0; i < multiagent_queues_.size(); ++i) {
-    check_queue("Multi (" + agentNameFromTopic(params_.multiagent_topics[i]) + ")",
-                multiagent_queues_[i]->size(), multiagent_queues_[i]->secondsSinceLastArrival(),
+    check_queue("Multi (" + params_.multiagent_namespaces[i] + ")", multiagent_queues_[i]->size(),
+                multiagent_queues_[i]->secondsSinceLastArrival(),
                 params_.multiagent.enable_multiagent, false,
                 params_.multiagent.diagnostic_timeout_sec);
   }

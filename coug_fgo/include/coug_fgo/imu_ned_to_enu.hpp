@@ -41,7 +41,7 @@ class ImuNedToEnuNode : public rclcpp::Node {
    */
   explicit ImuNedToEnuNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Publishes the ENU-converted copy of an incoming IMU message.
    * @param msg The incoming NED-referenced IMU message.

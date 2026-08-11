@@ -44,7 +44,7 @@ class FluidPressureOdomNode : public rclcpp::Node {
    */
   explicit FluidPressureOdomNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Converts gauge pressure to Z-depth odometry with spike rejection and publishes it.
    * @param msg The incoming FluidPressure message (Pascals after pressure_scale).

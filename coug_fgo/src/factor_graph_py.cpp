@@ -28,6 +28,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include "coug_fgo/utils/ros_conversions.hpp"
+
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
 using gtsam::symbol_shorthand::M;  // Magnetometer hard-iron bias (x,y,z)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
@@ -226,7 +228,9 @@ pybind11::dict FactorGraphPy::get_params() const {
 
   pybind11::dict multiagent;
   multiagent["enable_multiagent"] = params_.multiagent.enable_multiagent;
-  multiagent["topics"] = params_.multiagent_topics;
+  multiagent["namespaces"] = params_.multiagent_namespaces;
+  multiagent["status_topic"] = params_.multiagent_status_topic;
+  multiagent["global_odom_topic"] = params_.multiagent_global_odom_topic;
   multiagent["use_parameter_frame"] = params_.multiagent.use_parameter_frame;
   multiagent["parameter_frame"] = params_.multiagent.parameter_frame;
   multiagent["use_parameter_tf"] = params_.multiagent.use_parameter_tf;
@@ -294,7 +298,7 @@ utils::QueueBundle FactorGraphPy::to_bundle(const ImuBatch& imu, const OdomBatch
     auto msg = std::make_shared<utils::OdometryData>();
     msg->timestamp = t;
     msg->pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(position));
-    msg->pose_covariance = pose_cov;
+    msg->pose_covariance = utils::swapCovarianceBlocks(pose_cov);
     queues.gps.push_back(msg);
   }
 
@@ -302,7 +306,7 @@ utils::QueueBundle FactorGraphPy::to_bundle(const ImuBatch& imu, const OdomBatch
     auto msg = std::make_shared<utils::OdometryData>();
     msg->timestamp = t;
     msg->pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, depth_z));
-    msg->pose_covariance = pose_cov;
+    msg->pose_covariance = utils::swapCovarianceBlocks(pose_cov);
     queues.depth.push_back(msg);
   }
 
@@ -326,7 +330,7 @@ utils::QueueBundle FactorGraphPy::to_bundle(const ImuBatch& imu, const OdomBatch
     auto msg = std::make_shared<utils::TwistData>();
     msg->timestamp = t;
     msg->linear_velocity = velocity;
-    msg->twist_covariance = twist_cov;
+    msg->twist_covariance = utils::swapCovarianceBlocks(twist_cov);
     queues.dvl.push_back(msg);
   }
 
@@ -346,7 +350,7 @@ utils::QueueBundle FactorGraphPy::to_bundle(const ImuBatch& imu, const OdomBatch
       auto msg = std::make_shared<utils::AgentStatusData>();
       msg->timestamp = t;
       msg->pose = toPose3(position, quat_xyzw);
-      msg->pose_covariance = pose_cov;
+      msg->pose_covariance = utils::swapCovarianceBlocks(pose_cov);
       msg->pressure_depth = depth_z;
       msg->imu_orientation = toRot3(imu_quat_xyzw);
       msg->includes_range = includes_range;
@@ -372,12 +376,14 @@ pybind11::dict FactorGraphPy::from_bundle(const utils::QueueBundle& queues) {
 
   OdomBatch gps;
   for (const auto& m : queues.gps) {
-    gps.emplace_back(m->timestamp, m->pose.translation(), m->pose_covariance);
+    gps.emplace_back(m->timestamp, m->pose.translation(),
+                     utils::swapCovarianceBlocks(m->pose_covariance));
   }
 
   DepthBatch depth;
   for (const auto& m : queues.depth) {
-    depth.emplace_back(m->timestamp, m->pose.translation().z(), m->pose_covariance);
+    depth.emplace_back(m->timestamp, m->pose.translation().z(),
+                       utils::swapCovarianceBlocks(m->pose_covariance));
   }
 
   MagBatch mag;
@@ -392,7 +398,8 @@ pybind11::dict FactorGraphPy::from_bundle(const utils::QueueBundle& queues) {
 
   TwistBatch dvl;
   for (const auto& m : queues.dvl) {
-    dvl.emplace_back(m->timestamp, m->linear_velocity, m->twist_covariance);
+    dvl.emplace_back(m->timestamp, m->linear_velocity,
+                     utils::swapCovarianceBlocks(m->twist_covariance));
   }
 
   WrenchBatch wrench;
@@ -408,9 +415,10 @@ pybind11::dict FactorGraphPy::from_bundle(const utils::QueueBundle& queues) {
     std::vector<AgentStatus> neighbor;
     for (const auto& m : agent) {
       neighbor.emplace_back(m->timestamp, m->pose.translation(), toQuatXyzw(m->pose.rotation()),
-                            m->pose_covariance, m->pressure_depth, toQuatXyzw(m->imu_orientation),
-                            m->includes_range, m->range_dist, m->includes_usbl, m->usbl_azimuth,
-                            m->usbl_elevation, m->includes_position, m->position_depth);
+                            utils::swapCovarianceBlocks(m->pose_covariance), m->pressure_depth,
+                            toQuatXyzw(m->imu_orientation), m->includes_range, m->range_dist,
+                            m->includes_usbl, m->usbl_azimuth, m->usbl_elevation,
+                            m->includes_position, m->position_depth);
     }
     multiagent.push_back(std::move(neighbor));
   }
@@ -471,8 +479,8 @@ pybind11::dict FactorGraphPy::optimize() {
     mag_bias = opt_result->mag_bias;
   }
 
-  pybind11::dict result = toStateDict(opt_result->target_time, opt_result->pose,
-                                      opt_result->velocity, opt_result->imu_bias, mag_bias);
+  pybind11::dict result = toStateDict(opt_result->timestamp, opt_result->pose, opt_result->velocity,
+                                      opt_result->imu_bias, mag_bias);
 
   if (params_.publish_pose_cov) result["pose_cov"] = opt_result->pose_cov;
   if (params_.publish_velocity_cov) result["vel_cov"] = opt_result->vel_cov;

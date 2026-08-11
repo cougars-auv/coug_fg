@@ -97,6 +97,7 @@ struct AhrsData {
 struct TwistData {
   double timestamp{0.0};
   gtsam::Vector3 linear_velocity;
+  // Angular-first, to match the GTSAM pose covariance convention
   gtsam::Matrix66 twist_covariance;
 };
 

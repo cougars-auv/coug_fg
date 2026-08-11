@@ -43,7 +43,7 @@ class OdomToTfNode : public rclcpp::Node {
    */
   explicit OdomToTfNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Re-broadcasts the odometry pose as a parent-to-child TF transform.
    * @param msg The incoming Odometry message (header and child_frame_id name the frames).

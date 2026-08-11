@@ -45,7 +45,7 @@ class NavsatOdomNode : public rclcpp::Node {
    */
   explicit NavsatOdomNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Projects a GPS fix into ENU odometry relative to the origin and publishes it.
    * @param msg The incoming NavSatFix message (dropped if no fix or unknown covariance).

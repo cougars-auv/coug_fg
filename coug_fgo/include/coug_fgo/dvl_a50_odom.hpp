@@ -46,7 +46,7 @@ class DvlA50OdomNode : public rclcpp::Node {
    */
   explicit DvlA50OdomNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Re-expresses the DVL dead-reckoning pose as base-frame odometry and publishes it.
    * @param msg The incoming DVLDR message (position in meters, attitude in degrees).

@@ -43,7 +43,7 @@ class DvlA50TwistNode : public rclcpp::Node {
    */
   explicit DvlA50TwistNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Gates DVL samples on validity/FOM (and simulated dropout), then publishes the twist.
    * @param msg The incoming DVL message.

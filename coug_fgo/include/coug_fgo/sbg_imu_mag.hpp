@@ -41,7 +41,7 @@ class SbgImuMagNode : public rclcpp::Node {
    */
   explicit SbgImuMagNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Publishes the Tesla-scaled copy of an incoming magnetometer message.
    * @param msg The incoming magnetometer message, in arbitrary units.

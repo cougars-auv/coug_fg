@@ -112,7 +112,9 @@ class OfflineFactorGraph:
 
         multiagent = self.params["multiagent"]
         self.multiagent_topics = (
-            multiagent["topics"] if multiagent["enable_multiagent"] else []
+            [f"/{ns}/{multiagent['status_topic']}" for ns in multiagent["namespaces"]]
+            if multiagent["enable_multiagent"]
+            else []
         )
         self.multiagent_keys = [
             f"multiagent_{i}" for i in range(len(self.multiagent_topics))

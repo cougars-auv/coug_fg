@@ -36,6 +36,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "coug_fgo/factor_graph_parameters.hpp"
@@ -47,23 +48,16 @@
 namespace coug_fgo {
 
 /**
- * @struct InitialState
- * @brief Computed initial state priors and the sensor samples behind them.
+ * @struct NeighborEstimate
+ * @brief Output of neighbor pose estimate from a successful optimization step.
  */
-struct InitialState {
+struct NeighborEstimate {
+  size_t agent_queue_idx;
+  double timestamp{0.0};
+  gtsam::Key key{0};
+
   gtsam::Pose3 pose;
-  gtsam::Vector3 velocity;
-  gtsam::imuBias::ConstantBias bias;
-  gtsam::Point3 mag_bias;
-  double time{0.0};
-
-  gtsam::Matrix6 pose_cov;
-  gtsam::Matrix3 vel_cov;
-  gtsam::Matrix6 bias_cov;
-  gtsam::Matrix3 mag_bias_cov;
-
-  std::shared_ptr<utils::ImuData> imu;
-  std::shared_ptr<utils::TwistData> dvl;
+  gtsam::Matrix pose_cov;
 };
 
 /**
@@ -71,7 +65,7 @@ struct InitialState {
  * @brief Output from a successful optimization step.
  */
 struct OptimizeResult {
-  double target_time{0.0};
+  double timestamp{0.0};
   gtsam::Pose3 pose;
   gtsam::Vector3 velocity;
   gtsam::imuBias::ConstantBias imu_bias;
@@ -91,6 +85,8 @@ struct OptimizeResult {
   size_t new_factors = 0;
   size_t total_factors = 0;
   size_t total_variables = 0;
+
+  std::vector<NeighborEstimate> neighbors_est;
 };
 
 /**
@@ -142,6 +138,81 @@ class FactorGraphCore {
   std::map<int64_t, gtsam::Key> snapshotTimeKeys() const;
 
  private:
+  /**
+   * @struct InitialState
+   * @brief Computed initial state priors and the sensor samples behind them.
+   */
+  struct InitialState {
+    gtsam::Pose3 pose;
+    gtsam::Vector3 velocity;
+    gtsam::imuBias::ConstantBias bias;
+    gtsam::Point3 mag_bias;
+    double time{0.0};
+
+    gtsam::Matrix6 pose_cov;
+    gtsam::Matrix3 vel_cov;
+    gtsam::Matrix6 bias_cov;
+    gtsam::Matrix3 mag_bias_cov;
+
+    std::shared_ptr<utils::ImuData> imu;
+    std::shared_ptr<utils::TwistData> dvl;
+  };
+
+  /**
+   * @struct NeighborState
+   * @brief Rolling two-pose window over one neighboring agent's broadcast chain.
+   */
+  struct NeighborState {
+    static constexpr size_t kStepShift = 32;
+
+    /**
+     * @brief Constructs the state at the start of this neighbor's block of graph keys.
+     * @param agent_queue_idx Index of the neighbor's status queue, not its agent id.
+     */
+    explicit NeighborState(size_t agent_queue_idx) : current_step(agent_queue_idx << kStepShift) {}
+
+    /**
+     * @brief Seeds both window slots from the neighbor's first status message, leaving the key.
+     * @param pose The reported map-frame base pose.
+     * @param covariance The base-frame tangent-space pose covariance.
+     * @param time The status message timestamp.
+     */
+    void initialize(const gtsam::Pose3& pose, const gtsam::Matrix66& covariance, double time) {
+      prev_pose = pose;
+      prev_covariance = covariance;
+
+      curr_pose = pose;
+      curr_covariance = covariance;
+      curr_time = time;
+    }
+
+    /**
+     * @brief Advances to the next graph key and slides the window forward one pose.
+     * @param new_pose The newly reported map-frame base pose.
+     * @param new_covariance The new base-frame tangent-space pose covariance.
+     * @param new_time The new status message timestamp.
+     */
+    void advance(const gtsam::Pose3& new_pose, const gtsam::Matrix66& new_covariance,
+                 double new_time) {
+      ++current_step;
+
+      prev_pose = curr_pose;
+      prev_covariance = curr_covariance;
+
+      curr_pose = new_pose;
+      curr_covariance = new_covariance;
+      curr_time = new_time;
+    }
+
+    size_t current_step{0};
+    double curr_time{0.0};
+
+    gtsam::Pose3 prev_pose;
+    gtsam::Pose3 curr_pose;
+    gtsam::Matrix66 prev_covariance = gtsam::Matrix66::Identity();
+    gtsam::Matrix66 curr_covariance = gtsam::Matrix66::Identity();
+  };
+
   // --- Logging ---
   /**
    * @brief Sends a message to the configured log sink, if any.
@@ -227,7 +298,7 @@ class FactorGraphCore {
   /**
    * @brief Adds pose, velocity, and IMU bias prior factors to the initial graph.
    * @param init_state Provides the computed initial state values.
-   * @param graph The factor graph to add priors to.
+   * @param graph The target factor graph.
    * @param values The initial variable estimates.
    */
   void addPriorFactors(const InitialState& init_state, gtsam::NonlinearFactorGraph& graph,
@@ -330,16 +401,67 @@ class FactorGraphCore {
                                const gtsam::Vector3& held_imu_gyr);
 
   /**
-   * @brief Adds neighboring-agent odometry, depth, orientation, and range/bearing factors.
+   * @brief Adds a pose prior anchoring the first keyframe of a neighbor's chain.
+   * @param graph The target factor graph.
+   * @param neighbor The rolling window state for this neighbor.
+   * @param agent_queue_idx Index of the neighbor's status queue, for logging.
+   */
+  void addNeighborPriorFactor(gtsam::NonlinearFactorGraph& graph, const NeighborState& neighbor,
+                              size_t agent_queue_idx);
+
+  /**
+   * @brief Adds a relative pose factor linking the last two keyframes of a neighbor's chain.
+   * @param graph The target factor graph.
+   * @param neighbor The rolling window state for this neighbor, already advanced to the new pose.
+   */
+  void addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& graph, const NeighborState& neighbor);
+
+  /**
+   * @brief Adds a 1D depth factor to a neighbor's keyframe, already referred to its base frame.
+   * @param graph The target factor graph.
+   * @param msg The neighbor's broadcast status struct.
+   * @param neighbor The rolling window state for this neighbor.
+   */
+  void addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph, const utils::AgentStatusData& msg,
+                              const NeighborState& neighbor);
+
+  /**
+   * @brief Adds an AHRS attitude factor to a neighbor's keyframe with declination compensation.
+   * @param graph The target factor graph.
+   * @param msg The neighbor's broadcast status struct.
+   * @param neighbor The rolling window state for this neighbor.
+   */
+  void addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph, const utils::AgentStatusData& msg,
+                             const NeighborState& neighbor);
+
+  /**
+   * @brief Adds an acoustic range factor between the local and neighbor modems.
+   * @param graph The target factor graph.
+   * @param msg The neighbor's broadcast status struct (skipped unless it carries a range).
+   * @param neighbor The rolling window state for this neighbor.
+   */
+  void addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& graph,
+                                const utils::AgentStatusData& msg, const NeighborState& neighbor);
+
+  /**
+   * @brief Adds a USBL bearing factor between the local and neighbor modems.
+   * @param graph The target factor graph.
+   * @param msg The neighbor's broadcast status struct (skipped unless it carries a bearing).
+   * @param neighbor The rolling window state for this neighbor.
+   */
+  void addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& graph,
+                                  const utils::AgentStatusData& msg, const NeighborState& neighbor);
+
+  /**
+   * @brief Adds neighboring-agent odometry, depth, AHRS, range, and bearing factors.
    * @param graph The target factor graph.
    * @param values The new variable estimates.
    * @param timestamps The new key timestamps.
-   * @param queues Drained per-neighbor status structs, one deque per neighbor.
-   * @param target_time The current keyframe timestamp.
+   * @param queues Drained, time-sorted per-neighbor status structs.
    */
   void addMultiAgentFactors(gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
                             gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
-                            utils::QueueBundle& queues, double target_time);
+                            const utils::QueueBundle& queues);
 
   // --- Parameters ---
   const factor_graph_node::Params params_;
@@ -369,13 +491,16 @@ class FactorGraphCore {
   gtsam::imuBias::ConstantBias prev_imu_bias_;
   gtsam::Point3 prev_mag_bias_;
 
+  // --- Multi-agent ---
+  gtsam::Pose3 neighbor_base_T_modem_;
+  std::unordered_map<size_t, NeighborState> neighbors_;
+
   // --- Sensor Data ---
   gtsam::Vector3 last_dvl_velocity_ = gtsam::Vector3::Zero();
   gtsam::Matrix3 last_dvl_covariance_ = gtsam::Matrix3::Zero();
   gtsam::Vector3 last_imu_acc_ = gtsam::Vector3::Zero();
   gtsam::Vector3 last_imu_gyr_ = gtsam::Vector3::Zero();
   std::shared_ptr<utils::WrenchData> last_wrench_msg_;
-  std::vector<std::shared_ptr<utils::AgentStatusData>> last_multiagent_status_;
 
   // --- Buffer ---
   mutable std::mutex state_mutex_;

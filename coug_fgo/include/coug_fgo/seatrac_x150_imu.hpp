@@ -43,7 +43,7 @@ class SeatracX150ImuNode : public rclcpp::Node {
    */
   explicit SeatracX150ImuNode(const rclcpp::NodeOptions& options);
 
- protected:
+ private:
   /**
    * @brief Publishes IMU and/or magnetometer messages when the modem report includes them.
    * @param msg The incoming ModemStatus message.

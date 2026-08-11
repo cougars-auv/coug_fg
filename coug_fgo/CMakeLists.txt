@@ -196,6 +196,13 @@ if(BUILD_TESTING)
   )
   target_link_libraries(test_auv_dynamics_factor gtsam)
 
+  ament_add_gtest(test_bearing_factor test/test_bearing_factor.cpp)
+  target_include_directories(test_bearing_factor PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    ${GTSAM_EIGEN_INCLUDE_DIR}
+  )
+  target_link_libraries(test_bearing_factor gtsam)
+
   ament_add_gtest(test_const_vel_factor test/test_const_vel_factor.cpp)
   target_include_directories(test_const_vel_factor PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -251,6 +258,13 @@ if(BUILD_TESTING)
     ${GTSAM_EIGEN_INCLUDE_DIR}
   )
   target_link_libraries(test_mag_factor gtsam)
+
+  ament_add_gtest(test_range_factor test/test_range_factor.cpp)
+  target_include_directories(test_range_factor PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    ${GTSAM_EIGEN_INCLUDE_DIR}
+  )
+  target_link_libraries(test_range_factor gtsam)
 endif()
 
 ament_auto_package(

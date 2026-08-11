@@ -15,7 +15,7 @@
 /**
  * @file test_bearing_factor.cpp
  * @brief Unit tests for bearing_factor.hpp.
- * @author Nelson Durrant (w Claude Opus 5)
+ * @author Nelson Durrant (w Opus 5)
  * @date August 2026
  */
 

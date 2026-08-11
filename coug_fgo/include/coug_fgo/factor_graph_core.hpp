@@ -401,7 +401,7 @@ class FactorGraphCore {
                                const gtsam::Vector3& held_imu_gyr);
 
   /**
-   * @brief Adds a pose prior anchoring the first keyframe of a neighbor's chain.
+   * @brief Adds a pose prior anchoring a neighbor's chain to its own reported estimate.
    * @param graph The target factor graph.
    * @param neighbor The rolling window state for this neighbor.
    * @param agent_queue_idx Index of the neighbor's status queue, for logging.
@@ -458,10 +458,11 @@ class FactorGraphCore {
    * @param values The new variable estimates.
    * @param timestamps The new key timestamps.
    * @param queues Drained, time-sorted per-neighbor status structs.
+   * @param target_time The keyframe time, used to detect chains broken by the smoother lag.
    */
   void addMultiAgentFactors(gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
                             gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
-                            const utils::QueueBundle& queues);
+                            const utils::QueueBundle& queues, double target_time);
 
   // --- Parameters ---
   const factor_graph_node::Params params_;

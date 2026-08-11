@@ -1122,7 +1122,7 @@ void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& gr
 void FactorGraphCore::addMultiAgentFactors(
     gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
     gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
-    const utils::QueueBundle& queues) {
+    const utils::QueueBundle& queues, double target_time) {
   // IMPORTANT! Handle quantization errors from the upstream acomms
   auto floorVariances = [this](const utils::AgentStatusData& msg, size_t agent_queue_idx) {
     constexpr double kMinVariance = 1.0e-9;
@@ -1171,8 +1171,17 @@ void FactorGraphCore::addMultiAgentFactors(
       neighbor.initialize(msg->pose, base_cov, msg->timestamp);
       addNeighborPriorFactor(graph, neighbor, i);
     } else {
+      // IMPORTANT! Handle acomms dropouts that are longer than the smoother lag
+      const bool expired =
+          inc_smoother_ && (target_time - neighbor.curr_time) > params_.smoother_lag;
+
       neighbor.advance(msg->pose, base_cov, msg->timestamp);
-      addNeighborBetweenFactor(graph, neighbor);
+
+      if (expired) {
+        addNeighborPriorFactor(graph, neighbor, i);
+      } else {
+        addNeighborBetweenFactor(graph, neighbor);
+      }
     }
 
     values.insert(N(neighbor.current_step), neighbor.curr_pose);
@@ -1310,7 +1319,7 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   }
 
   if (params_.multiagent.enable_multiagent) {
-    addMultiAgentFactors(new_graph, new_values, new_timestamps, queues);
+    addMultiAgentFactors(new_graph, new_values, new_timestamps, queues, target_time);
   }
 
   // --- Add State Predictions ---

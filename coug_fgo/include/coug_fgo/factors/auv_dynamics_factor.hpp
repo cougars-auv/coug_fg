@@ -36,7 +36,7 @@ namespace coug_fgo::factors {
 class AuvDynamicsFactorArm
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3> {
   double dt_;
-  gtsam::Vector3 target_f_;
+  gtsam::Vector3 f_target_;
   gtsam::Matrix33 mass_;
   gtsam::Matrix33 linear_drag_;
   gtsam::Matrix33 quad_drag_;
@@ -65,7 +65,7 @@ class AuvDynamicsFactorArm
       : NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3>(
             noise_model, pose_key_i, vel_key_i, pose_key_j, vel_key_j),
         dt_(dt),
-        target_f_(target_T_sensor.rotation().rotate(control_force)),
+        f_target_(target_T_sensor.rotation().rotate(control_force)),
         mass_(mass),
         linear_drag_(linear_drag),
         quad_drag_(quad_drag),
@@ -109,7 +109,7 @@ class AuvDynamicsFactorArm
       J_scale = gtsam::Matrix33::Identity() + dt_ * mass_inv_ * J_drag_v;
     }
 
-    gtsam::Vector3 accel_target = mass_inv_ * (target_f_ + drag_force);
+    gtsam::Vector3 accel_target = mass_inv_ * (f_target_ + drag_force);
     gtsam::Vector3 v_target_pred = v_target_i + accel_target * dt_;
 
     // 3D velocity difference residual

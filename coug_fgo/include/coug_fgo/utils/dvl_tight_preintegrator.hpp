@@ -68,13 +68,13 @@ class DvlTightPreintegrator {
     cross_cov_rot_trans_ = k_R_prev * cross_cov_rot_trans_;
 
     // Transform the velocity into the anchor frame (i) and integrate
-    gtsam::Vector3 vel_in_target = target_R_dvl.rotate(measured_vel);
-    gtsam::Vector3 vel_in_i = delta_R_ik.rotate(vel_in_target);
-    measured_translation_ += vel_in_i * dt;
+    gtsam::Vector3 v_target = target_R_dvl.rotate(measured_vel);
+    gtsam::Vector3 v_i = delta_R_ik.rotate(v_target);
+    measured_translation_ += v_i * dt;
 
     // Joint propagation: delta_p_new = delta_p + J_rot * delta_phi + J_vel * delta_v
     gtsam::Matrix3 J_vel = delta_R_ik.matrix() * target_R_dvl.matrix() * dt;
-    gtsam::Matrix3 J_rot = -delta_R_ik.matrix() * gtsam::skewSymmetric(vel_in_target) * dt;
+    gtsam::Matrix3 J_rot = -delta_R_ik.matrix() * gtsam::skewSymmetric(v_target) * dt;
     covariance_ += (J_vel * measured_cov * J_vel.transpose()) +
                    (J_rot * rot_cov_k * J_rot.transpose()) + (J_rot * cross_cov_rot_trans_) +
                    (J_rot * cross_cov_rot_trans_).transpose();

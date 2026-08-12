@@ -91,11 +91,11 @@ class AhrsFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
 
     // 3D orientation residual (Lie algebra)
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
-    gtsam::Rot3 R_err =
+    gtsam::Rot3 orientation_error =
         measured_orientation_.between(predicted_orientation, nullptr, H ? &H_between : nullptr);
 
     gtsam::Matrix33 H_logmap = gtsam::Matrix33::Zero();
-    gtsam::Vector3 error = gtsam::Rot3::Logmap(R_err, H ? &H_logmap : nullptr);
+    gtsam::Vector3 error = gtsam::Rot3::Logmap(orientation_error, H ? &H_logmap : nullptr);
 
     if (H) {
       // Jacobian with respect to pose (3x6)

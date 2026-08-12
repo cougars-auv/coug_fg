@@ -76,9 +76,9 @@ sensor_msgs::msg::Imu SeatracX150ImuNode::convertToImu(
     double pitch_rad = msg->attitude_pitch * kSeatracToRad;
     double yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
 
-    tf2::Quaternion q_ned_b;
-    q_ned_b.setRPY(roll_rad, pitch_rad, yaw_rad);
-    imu_msg.orientation = tf2::toMsg(q_ned_b);
+    tf2::Quaternion q;
+    q.setRPY(roll_rad, pitch_rad, yaw_rad);
+    imu_msg.orientation = tf2::toMsg(q);
 
     const auto& s = params_.orientation_noise_sigmas;
     imu_msg.orientation_covariance[0] = s[0] * s[0];

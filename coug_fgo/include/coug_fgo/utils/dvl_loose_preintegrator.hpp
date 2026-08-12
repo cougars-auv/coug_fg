@@ -71,15 +71,15 @@ class DvlLoosePreintegrator {
     gtsam::Rot3 i_R_k = map_R_i_.between(measured_orientation);
 
     // Integrate the position change in the start frame
-    gtsam::Vector3 vel_in_i = i_R_k.rotate(measured_vel);
-    measured_translation_ += vel_in_i * dt;
+    gtsam::Vector3 v_i = i_R_k.rotate(measured_vel);
+    measured_translation_ += v_i * dt;
 
     // Propagate measurement uncertainty into the covariance
     gtsam::Matrix3 J = i_R_k.matrix() * dt;
     covariance_ += J * measured_cov * J.transpose();
 
     // Accumulate growing AHRS uncertainty (added later to the covariance)
-    J_ahrs_ += dt * (gtsam::skewSymmetric(vel_in_i) * target_R_ahrs_ -
+    J_ahrs_ += dt * (gtsam::skewSymmetric(v_i) * target_R_ahrs_ -
                      i_R_k.matrix() * gtsam::skewSymmetric(measured_vel) * dvl_R_ahrs_);
   }
 

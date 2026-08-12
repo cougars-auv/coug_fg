@@ -83,13 +83,13 @@ class DvlFactorArm
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_v = gtsam::Matrix33::Zero();
 
-    gtsam::Vector3 vel_target = pose.rotation().unrotate(vel_map, H_pose ? &H_unrotate_R : nullptr,
-                                                         H_vel ? &H_unrotate_v : nullptr);
+    gtsam::Vector3 v_target = pose.rotation().unrotate(vel_map, H_pose ? &H_unrotate_R : nullptr,
+                                                       H_vel ? &H_unrotate_v : nullptr);
 
     gtsam::Vector3 omega_target = target_R_imu_.rotate(measured_gyro_ - bias.gyroscope());
     gtsam::Vector3 lever_arm_vel = omega_target.cross(target_p_sensor_);
 
-    gtsam::Vector3 predicted_velocity = target_R_sensor_.unrotate(vel_target + lever_arm_vel);
+    gtsam::Vector3 predicted_velocity = target_R_sensor_.unrotate(v_target + lever_arm_vel);
 
     // 3D velocity residual
     gtsam::Vector3 error = predicted_velocity - measured_velocity_;

@@ -67,11 +67,11 @@ nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
     const dvl_msgs::msg::DVLDR::SharedPtr msg, const std::string& dvl_frame,
     const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) {
   // Transform from DVL-frame to base-frame pose in the map frame
-  geometry_msgs::msg::Pose p_base_in_dvl;
-  p_base_in_dvl.position.x = dvl_T_base_tf.transform.translation.x;
-  p_base_in_dvl.position.y = dvl_T_base_tf.transform.translation.y;
-  p_base_in_dvl.position.z = dvl_T_base_tf.transform.translation.z;
-  p_base_in_dvl.orientation = dvl_T_base_tf.transform.rotation;
+  geometry_msgs::msg::Pose dvl_T_base;
+  dvl_T_base.position.x = dvl_T_base_tf.transform.translation.x;
+  dvl_T_base.position.y = dvl_T_base_tf.transform.translation.y;
+  dvl_T_base.position.z = dvl_T_base_tf.transform.translation.z;
+  dvl_T_base.orientation = dvl_T_base_tf.transform.rotation;
 
   geometry_msgs::msg::TransformStamped odom_T_dvl_tf;
   odom_T_dvl_tf.header.frame_id = params_.odom_frame;
@@ -85,8 +85,8 @@ nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
   q.setRPY(msg->roll * kDegToRad, msg->pitch * kDegToRad, msg->yaw * kDegToRad);
   odom_T_dvl_tf.transform.rotation = tf2::toMsg(q);
 
-  geometry_msgs::msg::Pose p_base_in_odom;
-  tf2::doTransform(p_base_in_dvl, p_base_in_odom, odom_T_dvl_tf);
+  geometry_msgs::msg::Pose odom_T_base;
+  tf2::doTransform(dvl_T_base, odom_T_base, odom_T_dvl_tf);
 
   nav_msgs::msg::Odometry odom;
   odom.header.frame_id = params_.odom_frame;
@@ -102,7 +102,7 @@ nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
     odom.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 
-  odom.pose.pose = p_base_in_odom;
+  odom.pose.pose = odom_T_base;
 
   double var = msg->pos_std * msg->pos_std;
   odom.pose.covariance[0] = var;

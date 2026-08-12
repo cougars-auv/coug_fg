@@ -32,6 +32,7 @@
 #include <cmath>
 #include <functional>
 #include <iomanip>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -1128,28 +1129,13 @@ void FactorGraphCore::addMultiAgentFactors(
     gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
     gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
     const utils::QueueBundle& queues, double target_time) {
-  // IMPORTANT! Handle quantization errors from the upstream acomms
-  auto floorVariances = [this](const utils::AgentStatusData& msg, size_t agent_queue_idx) {
-    constexpr double kMinVariance = 1.0e-9;
-
-    gtsam::Matrix66 cov = msg.pose_covariance;
-    if ((cov.diagonal().array() < kMinVariance).any()) {
-      cov.diagonal() = cov.diagonal().cwiseMax(kMinVariance);
-      logMessage(utils::LogLevel::kWarn,
-                 "Neighbor status covariance (queue " + std::to_string(agent_queue_idx) +
-                     ") has a non-positive diagonal; flooring the variances.");
-    }
-
-    return cov;
-  };
-
   // Rotate a neighbor's broadcast pose covariance into its base-frame tangent space
-  auto baseTangentCovariance = [](const utils::AgentStatusData& msg, const gtsam::Matrix66& cov) {
+  auto baseTangentCovariance = [](const utils::AgentStatusData& msg) {
     gtsam::Matrix66 base_R_map = gtsam::Matrix66::Zero();
     base_R_map.block<3, 3>(0, 0) = msg.pose.rotation().matrix();
     base_R_map.block<3, 3>(3, 3) = msg.pose.rotation().matrix();
 
-    return gtsam::Matrix66(base_R_map.transpose() * cov * base_R_map);
+    return gtsam::Matrix66(base_R_map.transpose() * msg.pose_covariance * base_R_map);
   };
 
   // TODO: Fix the timing issues here w Kalliyan
@@ -1161,16 +1147,18 @@ void FactorGraphCore::addMultiAgentFactors(
 
     const auto& msg = queue.back();
 
-    if (!msg->pose_covariance.allFinite()) {
-      logMessage(utils::LogLevel::kWarn, "Neighbor keyframe rejected (queue " + std::to_string(i) +
-                                             "): non-finite status covariance.");
+    if (!msg->pose_covariance.allFinite() ||
+        (msg->pose_covariance.diagonal().array() <= 0.0).any()) {
+      logMessage(utils::LogLevel::kWarn,
+                 "Neighbor status covariance (queue " + std::to_string(i) +
+                     ") is unusable (non-finite or non-positive diagonal); dropping the keyframe.");
       continue;
     }
 
     auto [it, inserted] = neighbors_.try_emplace(i, NeighborState(i));
     auto& neighbor = it->second;
 
-    const gtsam::Matrix66 base_cov = baseTangentCovariance(*msg, floorVariances(*msg, i));
+    const gtsam::Matrix66 base_cov = baseTangentCovariance(*msg);
 
     if (inserted) {
       neighbor.initialize(msg->pose, base_cov, msg->timestamp);

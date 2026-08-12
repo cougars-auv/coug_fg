@@ -63,8 +63,8 @@ nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
   out.pose.pose.orientation.z = kInvSqrt2 * (q.y - q.x);
 
   if (out.pose.covariance[0] >= 0.0) {
+    // Pose orientation covariance is expressed about the world-frame axes
     static const Eigen::Matrix<double, 6, 6> kNedToEnu6D = []() {
-      // Pose orientation covariance is expressed about the world-frame axes
       static const Eigen::Matrix3d kNedToEnu3D =
           (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
       Eigen::Matrix<double, 6, 6> t = Eigen::Matrix<double, 6, 6>::Zero();

@@ -25,6 +25,7 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <dvl_msgs/msg/dvldr.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -48,10 +49,21 @@ class DvlA50OdomNode : public rclcpp::Node {
 
  private:
   /**
-   * @brief Re-expresses the DVL dead-reckoning pose as base-frame odometry and publishes it.
+   * @brief Looks up the DVL-to-base transform, then publishes the base-frame odometry.
    * @param msg The incoming DVLDR message (position in meters, attitude in degrees).
    */
   void dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg);
+
+  /**
+   * @brief Re-expresses the DVL dead-reckoning pose as base-frame odometry.
+   * @param msg The incoming DVLDR message (position in meters, attitude in degrees).
+   * @param dvl_frame The frame the dead-reckoning pose is expressed in.
+   * @param dvl_T_base_tf The DVL-to-base transform.
+   * @return The converted Odometry message (DVL time-of-validity stamp).
+   */
+  nav_msgs::msg::Odometry convertToOdom(const dvl_msgs::msg::DVLDR::SharedPtr msg,
+                                        const std::string& dvl_frame,
+                                        const geometry_msgs::msg::TransformStamped& dvl_T_base_tf);
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<dvl_msgs::msg::DVLDR>::SharedPtr dvl_sub_;

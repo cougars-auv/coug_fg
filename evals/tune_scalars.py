@@ -17,6 +17,7 @@ import logging
 import math
 import os
 import tempfile
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -54,7 +55,7 @@ QUIET_LOGGERS = (
 
 
 @contextmanager
-def _quiet_loggers(level: int = logging.ERROR):
+def _quiet_loggers(level: int = logging.ERROR) -> Generator[None]:
     """
     Temporarily raise the level of the noisy per-run loggers.
 
@@ -72,7 +73,7 @@ def _quiet_loggers(level: int = logging.ERROR):
 
 
 @contextmanager
-def covariance_override_file(scalars: dict[str, float]):
+def covariance_override_file(scalars: dict[str, float]) -> Generator[str]:
     """
     Yield a temporary params file overriding sensor covariance scalars.
 

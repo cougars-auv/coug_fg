@@ -48,19 +48,24 @@ DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
 }
 
 void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
-  std::string current_dvl_frame =
+  std::string dvl_frame =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
 
   geometry_msgs::msg::TransformStamped dvl_T_base_tf;
   try {
-    dvl_T_base_tf =
-        tf_buffer_->lookupTransform(current_dvl_frame, params_.base_frame, tf2::TimePointZero);
+    dvl_T_base_tf = tf_buffer_->lookupTransform(dvl_frame, params_.base_frame, tf2::TimePointZero);
   } catch (const tf2::TransformException& ex) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
-                         current_dvl_frame.c_str(), params_.base_frame.c_str(), ex.what());
+                         dvl_frame.c_str(), params_.base_frame.c_str(), ex.what());
     return;
   }
 
+  odom_pub_->publish(convertToOdom(msg, dvl_frame, dvl_T_base_tf));
+}
+
+nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
+    const dvl_msgs::msg::DVLDR::SharedPtr msg, const std::string& dvl_frame,
+    const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) {
   // Transform from DVL-frame to base-frame pose in the map frame
   geometry_msgs::msg::Pose p_base_in_dvl;
   p_base_in_dvl.position.x = dvl_T_base_tf.transform.translation.x;
@@ -70,7 +75,7 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
 
   geometry_msgs::msg::TransformStamped odom_T_dvl_tf;
   odom_T_dvl_tf.header.frame_id = params_.odom_frame;
-  odom_T_dvl_tf.child_frame_id = current_dvl_frame;
+  odom_T_dvl_tf.child_frame_id = dvl_frame;
   odom_T_dvl_tf.transform.translation.x = msg->position.x;
   odom_T_dvl_tf.transform.translation.y = msg->position.y;
   odom_T_dvl_tf.transform.translation.z = msg->position.z;
@@ -91,8 +96,9 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
   if (params_.override_timestamp) {
     odom.header.stamp = msg->header.stamp;
   } else {
+    static constexpr double kSecondsToNanoseconds = 1e9;
     uint64_t sec = static_cast<uint64_t>(msg->time);
-    uint64_t nanosec = static_cast<uint64_t>((msg->time - sec) * 1e9);
+    uint64_t nanosec = static_cast<uint64_t>((msg->time - sec) * kSecondsToNanoseconds);
     odom.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 
@@ -108,7 +114,7 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
   odom.pose.covariance[28] = s[1] * s[1];
   odom.pose.covariance[35] = s[2] * s[2];
 
-  odom_pub_->publish(odom);
+  return odom;
 }
 
 }  // namespace coug_fgo

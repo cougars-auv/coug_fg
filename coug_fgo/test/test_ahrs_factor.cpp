@@ -15,41 +15,68 @@
 /**
  * @file test_ahrs_factor.cpp
  * @brief Unit tests for ahrs_factor.hpp.
- * @author Nelson Durrant (w Gemini 3 Pro)
+ * @author Nelson Durrant (w Claude Opus 5)
  * @date May 2026
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
-
-#include <functional>
-#include <optional>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
 
 #include "coug_fgo/factors/ahrs_factor.hpp"
+
+namespace {
+
+constexpr double kStep = 1e-5;  // finite difference step
+constexpr double kJacobianTol = 1e-5;
+constexpr double kResidualTol = 1e-9;
+
+}  // namespace
 
 /**
  * @brief Verify Jacobians against numerical differentiation.
  */
 TEST(AhrsFactorArmTest, Jacobians) {
-  gtsam::Key poseKey = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Rot3 measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
   double magnetic_declination = 0.05;
 
-  coug_fgo::factors::AhrsFactorArm factor(poseKey, measured_attitude, target_T_sensor,
+  coug_fgo::factors::AhrsFactorArm factor(pose_key, measured_attitude, target_T_sensor,
                                           magnetic_declination, model);
 
+  gtsam::Values values;
+  values.insert(pose_key,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+
+  EXPECT_TRUE(
+      gtsam::internal::testFactorJacobians("AhrsFactorArm", factor, values, kStep, kJacobianTol));
+}
+
+/**
+ * @brief Verify the residual against an independently predicted measurement.
+ */
+TEST(AhrsFactorArmTest, Residual) {
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  double magnetic_declination = 0.05;
 
-  gtsam::Matrix expectedH = gtsam::numericalDerivative11<gtsam::Vector, gtsam::Pose3>(
-      [&](const gtsam::Pose3& p) { return factor.evaluateError(p, nullptr); }, pose, 1e-5);
+  // Orientation the sensor holds in the map frame
+  const gtsam::Rot3 map_R_sensor = pose.rotation() * target_T_sensor.rotation();
 
-  gtsam::Matrix actualH;
-  factor.evaluateError(pose, &actualH);
+  // Turn the measurement off the state, then back to magnetic north
+  const gtsam::Vector3 offset(0.02, -0.03, 0.05);
+  const gtsam::Rot3 measured_attitude =
+      gtsam::Rot3::Yaw(magnetic_declination) * map_R_sensor * gtsam::Rot3::Expmap(offset);
 
-  EXPECT_TRUE(gtsam::assert_equal(expectedH, actualH, 1e-5));
-  EXPECT_EQ(actualH.rows(), 3);
-  EXPECT_EQ(actualH.cols(), 6);
+  coug_fgo::factors::AhrsFactorArm factor(pose_key, measured_attitude, target_T_sensor,
+                                          magnetic_declination, model);
+
+  // Logmap(Expmap(-offset)) undoes the injected turn
+  const gtsam::Vector expected = -offset;
+  EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose), kResidualTol));
 }

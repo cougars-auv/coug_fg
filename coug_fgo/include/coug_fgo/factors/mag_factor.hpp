@@ -41,9 +41,9 @@ class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
 
  public:
   /**
-   * @brief Constructs the factor, caching the sensor rotation.
+   * @brief Constructs the factor.
    * @param pose_key GTSAM key for the AUV pose.
-   * @param measured_field The measured magnetic field vector (sensor frame) [T].
+   * @param measured_field The measured magnetic field vector in the sensor frame [T].
    * @param reference_field The reference magnetic field vector (map frame) [T].
    * @param target_T_sensor The static transformation from target to sensor.
    * @param noise_model The noise model for the measurement.
@@ -60,13 +60,13 @@ class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
    * @brief Evaluates the error and Jacobians for the factor.
    * @param pose The AUV pose estimate.
    * @param H Optional Jacobian matrix.
-   * @return The 3D error vector (predicted - measured).
+   * @return The 3D magnetic field residual [T].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
-    gtsam::Matrix33 H_unrotate_target = gtsam::Matrix33::Zero();
+    gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
     gtsam::Point3 predicted_field_target =
-        pose.rotation().unrotate(map_field_ref_, H ? &H_unrotate_target : nullptr);
+        pose.rotation().unrotate(map_field_ref_, H ? &H_unrotate_R : nullptr);
     gtsam::Point3 predicted_field = target_R_sensor_.unrotate(predicted_field_target);
 
     // 3D magnetic field residual
@@ -75,7 +75,7 @@ class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
     if (H) {
       // Jacobian with respect to pose (3x6)
       H->setZero(3, 6);
-      H->block<3, 3>(0, 0) = target_R_sensor_.transpose() * H_unrotate_target;
+      H->block<3, 3>(0, 0) = target_R_sensor_.transpose() * H_unrotate_R;
     }
 
     return error;

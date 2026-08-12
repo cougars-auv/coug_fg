@@ -43,26 +43,26 @@ class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
 
  public:
   /**
-   * @brief Constructs the factor, pre-computing the declination-corrected map-frame yaw.
+   * @brief Constructs the factor.
    * @param pose_key GTSAM key for the AUV pose.
-   * @param measured_orientation The measured orientation of the sensor in the map frame.
+   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
    * @param target_T_sensor The static transformation from target to sensor.
    * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @param noise_model The noise model for the measurement (1D, map-frame yaw).
+   * @param noise_model The noise model for the measurement.
    */
   AhrsYawFactorArm(gtsam::Key pose_key, const gtsam::Rot3& measured_orientation,
                    const gtsam::Pose3& target_T_sensor, double mag_declination,
                    const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
         measured_yaw_(
-            AhrsFactorArm::declinationCorrected(measured_orientation, mag_declination).yaw()),
+            AhrsFactorArm::trueNorthOrientation(measured_orientation, mag_declination).yaw()),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
   /**
-   * @brief Evaluates the error and Jacobian for the factor.
+   * @brief Evaluates the error and Jacobians for the factor.
    * @param pose The AUV pose estimate.
    * @param H Optional Jacobian matrix.
-   * @return The 1D heading error, wrapped to [-pi, pi].
+   * @return The 1D heading residual [rad].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
@@ -78,7 +78,7 @@ class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
     const double error = std::remainder(predicted_yaw - measured_yaw_, 2.0 * M_PI);
 
     if (H) {
-      // Jacobian with respect to pose (1x6); heading (yaw) residual only
+      // Jacobian with respect to pose (1x6)
       H->setZero(1, 6);
       H->block<1, 3>(0, 0) = H_yaw * H_compose;
     }

@@ -43,14 +43,14 @@ class DvlFactorArm
 
  public:
   /**
-   * @brief Constructs the factor, caching the DVL and IMU extrinsics.
+   * @brief Constructs the factor.
    * @param pose_key GTSAM key for the AUV pose.
    * @param vel_key GTSAM key for the AUV map-frame velocity.
    * @param bias_key GTSAM key for the IMU bias.
    * @param target_T_sensor The static transformation from target to sensor.
    * @param target_T_imu The static transformation from target to IMU.
-   * @param measured_velocity The velocity measurement in the sensor frame.
-   * @param measured_gyro The raw gyro measurement (IMU frame) at the keyframe time.
+   * @param measured_velocity The measured velocity in the sensor frame [m/s].
+   * @param measured_gyro The raw gyro measurement (IMU frame) at the keyframe time [rad/s].
    * @param noise_model The noise model for the measurement.
    */
   DvlFactorArm(gtsam::Key pose_key, gtsam::Key vel_key, gtsam::Key bias_key,
@@ -73,7 +73,7 @@ class DvlFactorArm
    * @param H_pose Optional Jacobian matrix with respect to pose.
    * @param H_vel Optional Jacobian matrix with respect to velocity.
    * @param H_bias Optional Jacobian matrix with respect to bias.
-   * @return The 3D error vector (predicted - measured).
+   * @return The 3D velocity residual [m/s].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose, const gtsam::Vector3& vel_map,
                               const gtsam::imuBias::ConstantBias& bias,

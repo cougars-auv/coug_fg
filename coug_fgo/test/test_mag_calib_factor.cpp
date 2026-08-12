@@ -15,52 +15,69 @@
 /**
  * @file test_mag_calib_factor.cpp
  * @brief Unit tests for mag_calib_factor.hpp.
- * @author Nelson Durrant (w Opus 5)
+ * @author Nelson Durrant (w Claude Opus 5)
  * @date August 2026
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
-
-#include <functional>
-#include <optional>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
 
 #include "coug_fgo/factors/mag_calib_factor.hpp"
+
+namespace {
+
+constexpr double kStep = 1e-5;          // finite difference step
+constexpr double kJacobianTol = 1e-10;  // fields run ~1e-5 T, a loose tol accepts zero
+constexpr double kResidualTol = 1e-15;
+
+}  // namespace
 
 /**
  * @brief Verify Jacobians against numerical differentiation.
  */
 TEST(MagCalibFactorArmTest, Jacobians) {
-  gtsam::Key poseKey = gtsam::symbol_shorthand::X(1);
-  gtsam::Key biasKey = gtsam::symbol_shorthand::M(0);
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key bias_key = gtsam::symbol_shorthand::M(0);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Vector3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
-  gtsam::Vector3 measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
+  gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  gtsam::Point3 measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
 
-  coug_fgo::factors::MagCalibFactorArm factor(poseKey, biasKey, measured_field, reference_field,
+  coug_fgo::factors::MagCalibFactorArm factor(pose_key, bias_key, measured_field, reference_field,
                                               target_T_sensor, model);
 
+  gtsam::Values values;
+  values.insert(pose_key,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+  values.insert(bias_key, gtsam::Point3(-3.3e-06, 6.5e-07, 1.16e-05));
+
+  EXPECT_TRUE(gtsam::internal::testFactorJacobians("MagCalibFactorArm", factor, values, kStep,
+                                                   kJacobianTol));
+}
+
+/**
+ * @brief Verify the residual against an independently predicted measurement.
+ */
+TEST(MagCalibFactorArmTest, Residual) {
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key bias_key = gtsam::symbol_shorthand::M(0);
+  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
   gtsam::Point3 bias(-3.3e-06, 6.5e-07, 1.16e-05);
 
-  auto evalFunc = [&](const gtsam::Pose3& p, const gtsam::Point3& b) {
-    return factor.evaluateError(p, b, nullptr, nullptr);
-  };
+  // Field the sensor would report if the state were exact
+  const gtsam::Rot3 map_R_sensor = pose.rotation() * target_T_sensor.rotation();
+  const gtsam::Point3 sensor_field = map_R_sensor.matrix().transpose() * reference_field;
 
-  gtsam::Matrix expectedH1 =
-      gtsam::numericalDerivative21<gtsam::Vector, gtsam::Pose3, gtsam::Point3>(evalFunc, pose, bias,
-                                                                               1e-5);
-  gtsam::Matrix expectedH2 =
-      gtsam::numericalDerivative22<gtsam::Vector, gtsam::Pose3, gtsam::Point3>(evalFunc, pose, bias,
-                                                                               1e-5);
+  // A true reading carries the hard-iron bias too
+  const gtsam::Vector3 offset(1.0e-7, -2.0e-7, 3.0e-7);
+  coug_fgo::factors::MagCalibFactorArm factor(pose_key, bias_key, sensor_field + bias - offset,
+                                              reference_field, target_T_sensor, model);
 
-  gtsam::Matrix actualH1, actualH2;
-  factor.evaluateError(pose, bias, &actualH1, &actualH2);
-
-  EXPECT_TRUE(gtsam::assert_equal(expectedH1, actualH1, 1e-11));
-  EXPECT_TRUE(gtsam::assert_equal(expectedH2, actualH2, 1e-11));
-  EXPECT_EQ(actualH1.rows(), 3);
-  EXPECT_EQ(actualH1.cols(), 6);
+  const gtsam::Vector expected = offset;
+  EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose, bias), kResidualTol));
 }

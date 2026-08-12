@@ -43,7 +43,7 @@ class DvlLoosePreintegrator {
    * @param initial_orientation The orientation at the start of the integration period.
    * @param target_R_ahrs Static extrinsic rotation from the AHRS to the target frame.
    * @param target_R_dvl Static extrinsic rotation from the DVL to the target frame.
-   * @param ahrs_cov Constant (bias-like) AHRS attitude error covariance in the AHRS frame.
+   * @param ahrs_cov Constant AHRS attitude error covariance in the AHRS-frame tangent space.
    */
   void reset(const gtsam::Rot3& initial_orientation,
              const gtsam::Rot3& target_R_ahrs = gtsam::Rot3(),
@@ -85,7 +85,7 @@ class DvlLoosePreintegrator {
 
   /**
    * @brief Gets the preintegrated translation delta.
-   * @return The translation delta in the starting frame.
+   * @return The translation delta in the target frame at the start of the interval (i).
    */
   gtsam::Vector3 delta() const { return measured_translation_; }
 

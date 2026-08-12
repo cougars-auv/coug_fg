@@ -23,6 +23,7 @@
 
 #include <tf2_ros/transform_broadcaster.h>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -49,6 +50,13 @@ class OdomToTfNode : public rclcpp::Node {
    * @param msg The incoming Odometry message (header and child_frame_id name the frames).
    */
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+  /**
+   * @brief Converts an odometry pose to a parent-to-child TF transform.
+   * @param msg The incoming Odometry message (header and child_frame_id name the frames).
+   * @return The converted TransformStamped message; twist fields are dropped.
+   */
+  geometry_msgs::msg::TransformStamped convertToTf(const nav_msgs::msg::Odometry::SharedPtr msg);
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;

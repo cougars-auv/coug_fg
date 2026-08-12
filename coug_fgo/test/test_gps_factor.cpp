@@ -15,39 +15,62 @@
 /**
  * @file test_gps_factor.cpp
  * @brief Unit tests for gps_factor.hpp.
- * @author Nelson Durrant (w Gemini 3 Pro)
+ * @author Nelson Durrant (w Claude Opus 5)
  * @date May 2026
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
-
-#include <functional>
-#include <optional>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
 
 #include "coug_fgo/factors/gps_factor.hpp"
+
+namespace {
+
+constexpr double kStep = 1e-5;  // finite difference step
+constexpr double kJacobianTol = 1e-5;
+constexpr double kResidualTol = 1e-9;
+
+}  // namespace
 
 /**
  * @brief Verify Jacobians against numerical differentiation.
  */
 TEST(Gps2dFactorArmTest, Jacobians) {
-  gtsam::Key poseKey = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Point3 measured_point(5.0, 5.0, 5.0);
+  gtsam::Point3 measured_position(5.0, 5.0, 5.0);
 
-  coug_fgo::factors::Gps2dFactorArm factor(poseKey, measured_point, target_T_sensor, model);
+  coug_fgo::factors::Gps2dFactorArm factor(pose_key, measured_position, target_T_sensor, model);
 
+  gtsam::Values values;
+  values.insert(pose_key,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+
+  EXPECT_TRUE(
+      gtsam::internal::testFactorJacobians("Gps2dFactorArm", factor, values, kStep, kJacobianTol));
+}
+
+/**
+ * @brief Verify the residual against an independently predicted measurement.
+ */
+TEST(Gps2dFactorArmTest, Residual) {
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
+  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
 
-  gtsam::Matrix expectedH = gtsam::numericalDerivative11<gtsam::Vector, gtsam::Pose3>(
-      [&](const gtsam::Pose3& p) { return factor.evaluateError(p, nullptr); }, pose, 1e-5);
+  // Position of the sensor itself, not of the target
+  const gtsam::Point3 sensor_position =
+      pose.rotation().matrix() * target_T_sensor.translation() + pose.translation();
 
-  gtsam::Matrix actualH;
-  factor.evaluateError(pose, &actualH);
+  // Large Z offset: the factor constrains X and Y only
+  const gtsam::Point3 offset(0.3, -0.2, 7.0);
+  coug_fgo::factors::Gps2dFactorArm factor(pose_key, sensor_position - offset, target_T_sensor,
+                                           model);
 
-  EXPECT_TRUE(gtsam::assert_equal(expectedH, actualH, 1e-5));
-  EXPECT_EQ(actualH.rows(), 2);
-  EXPECT_EQ(actualH.cols(), 6);
+  const gtsam::Vector expected = offset.head<2>();
+  EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose), kResidualTol));
 }

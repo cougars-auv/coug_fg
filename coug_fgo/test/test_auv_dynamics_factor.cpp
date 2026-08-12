@@ -15,18 +15,24 @@
 /**
  * @file test_auv_dynamics_factor.cpp
  * @brief Unit tests for auv_dynamics_factor.hpp.
- * @author Nelson Durrant (w Gemini 3 Pro)
+ * @author Nelson Durrant (w Claude Opus 5)
  * @date May 2026
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
-
-#include <functional>
-#include <optional>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
 
 #include "coug_fgo/factors/auv_dynamics_factor.hpp"
+
+namespace {
+
+constexpr double kStep = 1e-5;  // finite difference step
+constexpr double kJacobianTol = 1e-5;
+constexpr double kResidualTol = 1e-9;
+
+}  // namespace
 
 /**
  * @brief Verify Jacobians against numerical differentiation.
@@ -49,38 +55,56 @@ TEST(AuvDynamicsFactorArmTest, Jacobians) {
                                                  control_force, target_T_sensor, mass, linear_drag,
                                                  quad_drag, model);
 
+  gtsam::Values values;
+  values.insert(pose_key_i,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+  values.insert(vel_key_i, gtsam::Vector3(1.0, -0.5, 0.2));
+  values.insert(pose_key_j,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0)));
+  values.insert(vel_key_j, gtsam::Vector3(1.1, -0.4, 0.25));
+
+  EXPECT_TRUE(gtsam::internal::testFactorJacobians("AuvDynamicsFactorArm", factor, values, kStep,
+                                                   kJacobianTol));
+}
+
+/**
+ * @brief Verify the residual against an independently integrated velocity prediction.
+ */
+TEST(AuvDynamicsFactorArmTest, Residual) {
+  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
+  gtsam::Key vel_key_i = gtsam::symbol_shorthand::V(1);
+  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
+  gtsam::Key vel_key_j = gtsam::symbol_shorthand::V(2);
+  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+
+  double dt = 0.5;
+  gtsam::Matrix33 mass = gtsam::Matrix33::Identity() * 5.0;
+  gtsam::Matrix33 linear_drag = gtsam::Matrix33::Identity() * 1.0;
+  gtsam::Matrix33 quad_drag = gtsam::Matrix33::Identity() * 0.5;
+  gtsam::Vector3 control_force(2.0, -1.0, 0.5);
+  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
+
+  coug_fgo::factors::AuvDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
+                                                 control_force, target_T_sensor, mass, linear_drag,
+                                                 quad_drag, model);
+
   gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Vector3 vel_i(1.0, -0.5, 0.2);
   gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));
-  gtsam::Vector3 vel_j(1.1, -0.4, 0.25);
+  gtsam::Vector3 vel_i(1.0, -0.5, 0.2);
 
-  auto evalFunc = [&](const gtsam::Pose3& pi, const gtsam::Vector3& vi, const gtsam::Pose3& pj,
-                      const gtsam::Vector3& vj) {
-    return factor.evaluateError(pi, vi, pj, vj, nullptr, nullptr, nullptr, nullptr);
-  };
+  // Step the Fossen model forward once
+  const gtsam::Vector3 target_force = target_T_sensor.rotation().matrix() * control_force;
+  const gtsam::Vector3 vel_target_i = pose_i.rotation().matrix().transpose() * vel_i;
+  const gtsam::Vector3 drag_force = -(
+      linear_drag * vel_target_i + quad_drag * vel_target_i.cwiseProduct(vel_target_i.cwiseAbs()));
+  const gtsam::Vector3 vel_target_pred =
+      vel_target_i + mass.inverse() * (target_force + drag_force) * dt;
 
-  gtsam::Matrix expectedH_pose_i =
-      gtsam::numericalDerivative41<gtsam::Vector, gtsam::Pose3, gtsam::Vector3, gtsam::Pose3,
-                                   gtsam::Vector3>(evalFunc, pose_i, vel_i, pose_j, vel_j, 1e-5);
+  // Pick vel_j so the residual is the offset
+  const gtsam::Vector3 offset(0.02, -0.01, 0.03);
+  const gtsam::Vector3 vel_j = pose_j.rotation().matrix() * (vel_target_pred + offset);
 
-  gtsam::Matrix expectedH_vel_i =
-      gtsam::numericalDerivative42<gtsam::Vector, gtsam::Pose3, gtsam::Vector3, gtsam::Pose3,
-                                   gtsam::Vector3>(evalFunc, pose_i, vel_i, pose_j, vel_j, 1e-5);
-
-  gtsam::Matrix expectedH_pose_j =
-      gtsam::numericalDerivative43<gtsam::Vector, gtsam::Pose3, gtsam::Vector3, gtsam::Pose3,
-                                   gtsam::Vector3>(evalFunc, pose_i, vel_i, pose_j, vel_j, 1e-5);
-
-  gtsam::Matrix expectedH_vel_j =
-      gtsam::numericalDerivative44<gtsam::Vector, gtsam::Pose3, gtsam::Vector3, gtsam::Pose3,
-                                   gtsam::Vector3>(evalFunc, pose_i, vel_i, pose_j, vel_j, 1e-5);
-
-  gtsam::Matrix actualH_pose_i, actualH_vel_i, actualH_pose_j, actualH_vel_j;
-  factor.evaluateError(pose_i, vel_i, pose_j, vel_j, &actualH_pose_i, &actualH_vel_i,
-                       &actualH_pose_j, &actualH_vel_j);
-
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_pose_i, actualH_pose_i, 1e-5));
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_vel_i, actualH_vel_i, 1e-5));
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_pose_j, actualH_pose_j, 1e-5));
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_vel_j, actualH_vel_j, 1e-5));
+  const gtsam::Vector expected = offset;
+  EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose_i, vel_i, pose_j, vel_j),
+                                  kResidualTol));
 }

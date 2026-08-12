@@ -15,19 +15,25 @@
 /**
  * @file test_dvl_tight_preint_factor.cpp
  * @brief Unit tests for dvl_tight_preint_factor.hpp.
- * @author Nelson Durrant (w Gemini 3.5 Flash)
+ * @author Nelson Durrant (w Claude Opus 5)
  * @date May 2026
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/navigation/ImuBias.h>
-
-#include <functional>
-#include <optional>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
 
 #include "coug_fgo/factors/dvl_tight_preint_factor.hpp"
+
+namespace {
+
+constexpr double kStep = 1e-5;  // finite difference step
+constexpr double kJacobianTol = 1e-5;
+constexpr double kResidualTol = 1e-9;
+
+}  // namespace
 
 /**
  * @brief Verify Jacobians against numerical differentiation.
@@ -39,40 +45,59 @@ TEST(DvlTightPreintFactorArmTest, Jacobians) {
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_dvl(gtsam::Rot3::Ypr(-0.1, 0.1, -0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Vector3 measured_translation(1.0, 0.5, -0.2);
-  gtsam::Matrix3 d_translation_d_bias = gtsam::Matrix3::Identity() * 0.01;
+  gtsam::Matrix3 J_p_bg = gtsam::Matrix3::Identity() * 0.01;
   gtsam::Vector3 gyro_bias_hat(0.01, -0.02, 0.005);
 
   coug_fgo::factors::DvlTightPreintFactorArm factor(pose_key_i, pose_key_j, bias_key_i,
-                                                    target_T_dvl, measured_translation,
-                                                    d_translation_d_bias, gyro_bias_hat, model);
+                                                    target_T_dvl, measured_translation, J_p_bg,
+                                                    gyro_bias_hat, model);
+
+  gtsam::Values values;
+  values.insert(pose_key_i,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+  values.insert(pose_key_j,
+                gtsam::Pose3(gtsam::Rot3::Ypr(-0.2, 0.4, 0.1), gtsam::Point3(2.0, 3.0, 2.5)));
+  values.insert(bias_key_i, gtsam::imuBias::ConstantBias(gtsam::Vector3(0.0, 0.0, 0.0),
+                                                         gtsam::Vector3(0.02, -0.01, 0.01)));
+
+  EXPECT_TRUE(gtsam::internal::testFactorJacobians("DvlTightPreintFactorArm", factor, values, kStep,
+                                                   kJacobianTol));
+}
+
+/**
+ * @brief Verify the residual against an independently predicted measurement.
+ */
+TEST(DvlTightPreintFactorArmTest, Residual) {
+  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
+  gtsam::Key bias_key_i = gtsam::symbol_shorthand::B(1);
+  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  gtsam::Pose3 target_T_dvl(gtsam::Rot3::Ypr(-0.1, 0.1, -0.1), gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Matrix3 J_p_bg = gtsam::Matrix3::Identity() * 0.01;
+  gtsam::Vector3 gyro_bias_hat(0.01, -0.02, 0.005);
 
   gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
   gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(-0.2, 0.4, 0.1), gtsam::Point3(2.0, 3.0, 2.5));
   gtsam::imuBias::ConstantBias bias_i(gtsam::Vector3(0.0, 0.0, 0.0),
                                       gtsam::Vector3(0.02, -0.01, 0.01));
 
-  auto evalFunc = [&](const gtsam::Pose3& pi, const gtsam::Pose3& pj,
-                      const gtsam::imuBias::ConstantBias& bi) {
-    return factor.evaluateError(pi, pj, bi, nullptr, nullptr, nullptr);
-  };
+  // DVL travel between the poses, in the target frame at i
+  const gtsam::Point3 dvl_map_j =
+      pose_j.rotation().matrix() * target_T_dvl.translation() + pose_j.translation();
+  const gtsam::Vector3 relative_position =
+      pose_i.rotation().matrix().transpose() * (dvl_map_j - pose_i.translation());
+  const gtsam::Vector3 predicted_translation = relative_position - target_T_dvl.translation();
 
-  gtsam::Matrix expectedH_pose_i =
-      gtsam::numericalDerivative31<gtsam::Vector, gtsam::Pose3, gtsam::Pose3,
-                                   gtsam::imuBias::ConstantBias>(evalFunc, pose_i, pose_j, bias_i,
-                                                                 1e-5);
-  gtsam::Matrix expectedH_pose_j =
-      gtsam::numericalDerivative32<gtsam::Vector, gtsam::Pose3, gtsam::Pose3,
-                                   gtsam::imuBias::ConstantBias>(evalFunc, pose_i, pose_j, bias_i,
-                                                                 1e-5);
-  gtsam::Matrix expectedH_bias_i =
-      gtsam::numericalDerivative33<gtsam::Vector, gtsam::Pose3, gtsam::Pose3,
-                                   gtsam::imuBias::ConstantBias>(evalFunc, pose_i, pose_j, bias_i,
-                                                                 1e-5);
+  // The factor re-corrects for bias drift since preintegration
+  const gtsam::Vector3 bias_correction = J_p_bg * (bias_i.gyroscope() - gyro_bias_hat);
 
-  gtsam::Matrix actualH_pose_i, actualH_pose_j, actualH_bias_i;
-  factor.evaluateError(pose_i, pose_j, bias_i, &actualH_pose_i, &actualH_pose_j, &actualH_bias_i);
+  // Measured short of the corrected prediction
+  const gtsam::Vector3 offset(0.01, -0.02, 0.03);
+  coug_fgo::factors::DvlTightPreintFactorArm factor(
+      pose_key_i, pose_key_j, bias_key_i, target_T_dvl,
+      predicted_translation - bias_correction - offset, J_p_bg, gyro_bias_hat, model);
 
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_pose_i, actualH_pose_i, 1e-5));
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_pose_j, actualH_pose_j, 1e-5));
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_bias_i, actualH_bias_i, 1e-5));
+  const gtsam::Vector expected = offset;
+  EXPECT_TRUE(
+      gtsam::assert_equal(expected, factor.evaluateError(pose_i, pose_j, bias_i), kResidualTol));
 }

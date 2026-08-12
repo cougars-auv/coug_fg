@@ -14,9 +14,8 @@
 
 /**
  * @file range_factor.hpp
- * @brief GTSAM factor for a scalar acoustic range measurement between two sensors, each with a
- * lever arm.
- * @author Kalliyan Velasco
+ * @brief GTSAM factor for acoustic range measurements between two AUVs with lever arms.
+ * @author Kalliyan Velasco & Nelson Durrant
  * @date July 2026
  */
 
@@ -32,8 +31,7 @@ namespace coug_fgo::factors {
 
 /**
  * @class RangeFactorArm
- * @brief GTSAM factor for a scalar acoustic range measurement between two sensors, each with a
- * lever arm.
+ * @brief GTSAM factor for acoustic range measurements between two AUVs with lever arms.
  */
 class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
   double measured_range_;
@@ -42,13 +40,13 @@ class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose
 
  public:
   /**
-   * @brief Constructs the factor, caching the sensor lever arms.
+   * @brief Constructs the factor.
    * @param pose_key_l GTSAM key for the local AUV pose.
    * @param pose_key_n GTSAM key for the neighbor AUV pose.
-   * @param measured_range The measured range between both modem sensors (m).
+   * @param measured_range The measured range between both modem sensors [m].
    * @param target_T_sensor_l The static transformation from local target to local sensor.
    * @param target_T_sensor_n The static transformation from neighbor target to neighbor sensor.
-   * @param noise_model The noise model for the measurement (1D, on the range residual).
+   * @param noise_model The noise model for the measurement.
    */
   RangeFactorArm(gtsam::Key pose_key_l, gtsam::Key pose_key_n, const double measured_range,
                  const gtsam::Pose3& target_T_sensor_l, const gtsam::Pose3& target_T_sensor_n,
@@ -60,38 +58,43 @@ class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose
 
   /**
    * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_l The local AUV target pose estimate.
-   * @param pose_n The neighbor AUV target pose estimate.
-   * @param H_pose_l_target Optional 1x6 Jacobian wrt the local pose's tangent.
-   * @param H_pose_n_target Optional 1x6 Jacobian wrt the neighbor pose's tangent.
-   * @return The 1D range error (predicted - measured).
+   * @param pose_l The local AUV pose estimate.
+   * @param pose_n The neighbor AUV pose estimate.
+   * @param H_pose_l Optional Jacobian matrix with respect to pose_l.
+   * @param H_pose_n Optional Jacobian matrix with respect to pose_n.
+   * @return The 1D range residual [m].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& pose_n,
-                              gtsam::OptionalMatrixType H_pose_l_target = nullptr,
-                              gtsam::OptionalMatrixType H_pose_n_target = nullptr) const override {
-    // Factor graph poses are target poses in world, want sensor pose in world
-    gtsam::Matrix H_sensor_l_wrt_pose_l, H_sensor_n_wrt_pose_n;
-    gtsam::Point3 sensor_l_world = pose_l.transformFrom(
-        target_p_sensor_l_, H_pose_l_target ? &H_sensor_l_wrt_pose_l : nullptr);
-    gtsam::Point3 sensor_n_world = pose_n.transformFrom(
-        target_p_sensor_n_, H_pose_n_target ? &H_sensor_n_wrt_pose_n : nullptr);
+                              gtsam::OptionalMatrixType H_pose_l = nullptr,
+                              gtsam::OptionalMatrixType H_pose_n = nullptr) const override {
+    gtsam::Matrix36 H_transform_l = gtsam::Matrix36::Zero();
+    gtsam::Point3 map_p_sensor_l =
+        pose_l.transformFrom(target_p_sensor_l_, H_pose_l ? &H_transform_l : nullptr);
 
-    // Range between the two sensor points in world frame, with Jacobians wrt each point (1x3).
-    gtsam::Matrix H_range_wrt_sensor_l, H_range_wrt_sensor_n;
-    double predicted_range = gtsam::distance3(sensor_l_world, sensor_n_world,
-                                              H_pose_l_target ? &H_range_wrt_sensor_l : nullptr,
-                                              H_pose_n_target ? &H_range_wrt_sensor_n : nullptr);
+    gtsam::Matrix36 H_transform_n = gtsam::Matrix36::Zero();
+    gtsam::Point3 map_p_sensor_n =
+        pose_n.transformFrom(target_p_sensor_n_, H_pose_n ? &H_transform_n : nullptr);
 
-    // Chain rule: d(range)/d(pose tangent) = d(range)/d(sensor_point) * d(sensor_point)/d(pose
-    // tangent)
-    if (H_pose_l_target) {
-      *H_pose_l_target = H_range_wrt_sensor_l * H_sensor_l_wrt_pose_l;
+    gtsam::Matrix13 H_distance_l = gtsam::Matrix13::Zero();
+    gtsam::Matrix13 H_distance_n = gtsam::Matrix13::Zero();
+    double predicted_range =
+        gtsam::distance3(map_p_sensor_l, map_p_sensor_n, H_pose_l ? &H_distance_l : nullptr,
+                         H_pose_n ? &H_distance_n : nullptr);
+
+    // 1D range residual
+    double error = predicted_range - measured_range_;
+
+    if (H_pose_l) {
+      // Jacobian with respect to pose_l (1x6)
+      *H_pose_l = H_distance_l * H_transform_l;
     }
-    if (H_pose_n_target) {
-      *H_pose_n_target = H_range_wrt_sensor_n * H_sensor_n_wrt_pose_n;
+
+    if (H_pose_n) {
+      // Jacobian with respect to pose_n (1x6)
+      *H_pose_n = H_distance_n * H_transform_n;
     }
 
-    return gtsam::Vector1(predicted_range - measured_range_);
+    return gtsam::Vector1(error);
   }
 };
 

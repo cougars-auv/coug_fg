@@ -41,10 +41,10 @@ class MagCalibFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::P
 
  public:
   /**
-   * @brief Constructs the factor, caching the sensor rotation.
+   * @brief Constructs the factor.
    * @param pose_key GTSAM key for the AUV pose.
    * @param bias_key GTSAM key for the magnetometer hard-iron bias (shared across the mission).
-   * @param measured_field The measured magnetic field vector (sensor frame) [T].
+   * @param measured_field The measured magnetic field vector in the sensor frame [T].
    * @param reference_field The reference magnetic field vector (map frame) [T].
    * @param target_T_sensor The static transformation from target to sensor.
    * @param noise_model The noise model for the measurement.
@@ -60,17 +60,17 @@ class MagCalibFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::P
   /**
    * @brief Evaluates the error and Jacobians for the factor.
    * @param pose The AUV pose estimate.
-   * @param bias The hard-iron bias estimate (sensor frame).
+   * @param bias The sensor-frame hard-iron bias estimate [T].
    * @param H_pose Optional Jacobian matrix with respect to pose.
    * @param H_bias Optional Jacobian matrix with respect to bias.
-   * @return The 3D error vector (predicted - measured).
+   * @return The 3D magnetic field residual [T].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose, const gtsam::Point3& bias,
                               gtsam::OptionalMatrixType H_pose = nullptr,
                               gtsam::OptionalMatrixType H_bias = nullptr) const override {
-    gtsam::Matrix33 H_unrotate_target = gtsam::Matrix33::Zero();
+    gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
     gtsam::Point3 predicted_field_target =
-        pose.rotation().unrotate(map_field_ref_, H_pose ? &H_unrotate_target : nullptr);
+        pose.rotation().unrotate(map_field_ref_, H_pose ? &H_unrotate_R : nullptr);
     gtsam::Point3 predicted_field = target_R_sensor_.unrotate(predicted_field_target);
 
     // 3D magnetic field residual, with the hard-iron offset added to the prediction
@@ -79,7 +79,7 @@ class MagCalibFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::P
     if (H_pose) {
       // Jacobian with respect to pose (3x6)
       H_pose->setZero(3, 6);
-      H_pose->block<3, 3>(0, 0) = target_R_sensor_.transpose() * H_unrotate_target;
+      H_pose->block<3, 3>(0, 0) = target_R_sensor_.transpose() * H_unrotate_R;
     }
 
     if (H_bias) {

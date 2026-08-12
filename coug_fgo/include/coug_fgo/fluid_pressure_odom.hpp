@@ -46,10 +46,20 @@ class FluidPressureOdomNode : public rclcpp::Node {
 
  private:
   /**
-   * @brief Converts gauge pressure to Z-depth odometry with spike rejection and publishes it.
+   * @brief Gates pressure samples on spike rejection, then publishes the depth odometry.
    * @param msg The incoming FluidPressure message (Pascals after pressure_scale).
    */
   void pressureCallback(const sensor_msgs::msg::FluidPressure::SharedPtr msg);
+
+  /**
+   * @brief Converts gauge pressure to Z-depth odometry with a propagated depth variance.
+   * @param msg The incoming FluidPressure message.
+   * @param pressure The scaled pressure reading [Pa].
+   * @param reference_pressure The zero-depth reference pressure [Pa].
+   * @return The converted Odometry message; only the Z position and its variance are populated.
+   */
+  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::FluidPressure::SharedPtr msg,
+                                        double pressure, double reference_pressure);
 
   /**
    * @brief Captures the most recent pressure reading as the zero-depth reference.

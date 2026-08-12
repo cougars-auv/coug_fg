@@ -44,17 +44,17 @@ class AuvDynamicsFactorArm
 
  public:
   /**
-   * @brief Constructs the factor, rotating the control force into the target frame.
+   * @brief Constructs the factor.
    * @param pose_key_i GTSAM key for the starting AUV pose.
    * @param vel_key_i GTSAM key for the starting AUV velocity.
    * @param pose_key_j GTSAM key for the ending AUV pose.
    * @param vel_key_j GTSAM key for the ending AUV velocity.
-   * @param dt The time interval between the two states.
-   * @param control_force The sensor-frame force vector from thrusters.
+   * @param dt The time interval between the two states [s].
+   * @param control_force The sensor-frame force vector from thrusters [N].
    * @param target_T_sensor The static transformation from target to sensor (rotation only).
-   * @param mass Combined mass (Rigid body + Added mass).
-   * @param linear_drag Linear damping coefficient.
-   * @param quad_drag Quadratic damping coefficient.
+   * @param mass Combined mass (Rigid body + Added mass) [kg].
+   * @param linear_drag Linear damping coefficient [N*s/m].
+   * @param quad_drag Quadratic damping coefficient [N*s^2/m^2].
    * @param noise_model The noise model for the constraint.
    */
   AuvDynamicsFactorArm(gtsam::Key pose_key_i, gtsam::Key vel_key_i, gtsam::Key pose_key_j,
@@ -81,7 +81,7 @@ class AuvDynamicsFactorArm
    * @param H_vel_i Optional Jacobian matrix with respect to vel_i.
    * @param H_pose_j Optional Jacobian matrix with respect to pose_j.
    * @param H_vel_j Optional Jacobian matrix with respect to vel_j.
-   * @return The 3D target-frame velocity residual (estimated - predicted).
+   * @return The 3D velocity difference residual [m/s].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Vector3& vel_i,
                               const gtsam::Pose3& pose_j, const gtsam::Vector3& vel_j,
@@ -112,7 +112,7 @@ class AuvDynamicsFactorArm
     gtsam::Vector3 accel_target = mass_inv_ * (target_f_ + drag_force);
     gtsam::Vector3 v_target_pred = v_target_i + accel_target * dt_;
 
-    // 3D velocity residual
+    // 3D velocity difference residual
     gtsam::Vector3 error = v_target_j - v_target_pred;
 
     if (H_pose_i) {

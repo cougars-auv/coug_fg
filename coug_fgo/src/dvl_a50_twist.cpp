@@ -78,8 +78,11 @@ geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistNode::convertToTwist(
   if (params_.override_timestamp) {
     twist_msg.header.stamp = msg->header.stamp;
   } else {
-    uint64_t sec = msg->time_of_validity / 1000000;
-    uint64_t nanosec = (msg->time_of_validity % 1000000) * 1000;
+    static constexpr uint64_t kMicrosecondsPerSecond = 1000000;
+    static constexpr uint64_t kNanosecondsPerMicrosecond = 1000;
+    uint64_t sec = msg->time_of_validity / kMicrosecondsPerSecond;
+    uint64_t nanosec =
+        (msg->time_of_validity % kMicrosecondsPerSecond) * kNanosecondsPerMicrosecond;
     twist_msg.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 

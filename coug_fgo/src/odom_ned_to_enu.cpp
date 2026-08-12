@@ -56,23 +56,24 @@ nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
   out.pose.pose.position.z = -msg->pose.pose.position.z;
 
   const auto& q = msg->pose.pose.orientation;
-  static constexpr double s = M_SQRT1_2;
-  out.pose.pose.orientation.w = -s * (q.x + q.y);
-  out.pose.pose.orientation.x = s * (q.w + q.z);
-  out.pose.pose.orientation.y = s * (q.w - q.z);
-  out.pose.pose.orientation.z = s * (q.y - q.x);
+  static constexpr double kInvSqrt2 = M_SQRT1_2;
+  out.pose.pose.orientation.w = -kInvSqrt2 * (q.x + q.y);
+  out.pose.pose.orientation.x = kInvSqrt2 * (q.w + q.z);
+  out.pose.pose.orientation.y = kInvSqrt2 * (q.w - q.z);
+  out.pose.pose.orientation.z = kInvSqrt2 * (q.y - q.x);
 
   if (out.pose.covariance[0] >= 0.0) {
-    static const Eigen::Matrix<double, 6, 6> T = []() {
+    static const Eigen::Matrix<double, 6, 6> kNedToEnu6D = []() {
       // Pose orientation covariance is expressed about the world-frame axes
-      static const Eigen::Matrix3d M = (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
+      static const Eigen::Matrix3d kNedToEnu3D =
+          (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
       Eigen::Matrix<double, 6, 6> t = Eigen::Matrix<double, 6, 6>::Zero();
-      t.block<3, 3>(0, 0) = M;
-      t.block<3, 3>(3, 3) = M;
+      t.block<3, 3>(0, 0) = kNedToEnu3D;
+      t.block<3, 3>(3, 3) = kNedToEnu3D;
       return t;
     }();
     Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov(out.pose.covariance.data());
-    cov = (T * cov * T.transpose()).eval();
+    cov = (kNedToEnu6D * cov * kNedToEnu6D.transpose()).eval();
   }
 
   return out;

@@ -131,6 +131,11 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr
     return;
   }
 
+  odom_pub_->publish(convertToOdom(msg));
+}
+
+nav_msgs::msg::Odometry NavsatOdomNode::convertToOdom(
+    const sensor_msgs::msg::NavSatFix::SharedPtr msg) {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;
@@ -153,12 +158,15 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr
     }
   }
 
-  odom_msg.pose.covariance[21] = 1e9;
-  odom_msg.pose.covariance[28] = 1e9;
-  odom_msg.pose.covariance[35] = 1e9;
-  odom_msg.twist.covariance[0] = -1.0;
+  static constexpr double kUnmeasuredVariance = 1e9;
+  odom_msg.pose.covariance[21] = kUnmeasuredVariance;
+  odom_msg.pose.covariance[28] = kUnmeasuredVariance;
+  odom_msg.pose.covariance[35] = kUnmeasuredVariance;
 
-  odom_pub_->publish(odom_msg);
+  static constexpr double kUnknownCovariance = -1.0;
+  odom_msg.twist.covariance[0] = kUnknownCovariance;
+
+  return odom_msg;
 }
 
 void NavsatOdomNode::checkOriginStatus(diagnostic_updater::DiagnosticStatusWrapper& stat) {

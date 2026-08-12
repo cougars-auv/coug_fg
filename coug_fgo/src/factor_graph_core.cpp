@@ -86,6 +86,8 @@ using utils::SolverType;
 
 namespace {
 
+constexpr double kMinIntegrationDt = 1.0e-6;
+
 /**
  * @brief Builds a diagonal covariance matrix from a vector of standard deviations.
  * @param sigmas Per-axis standard deviations (at least N entries).
@@ -406,7 +408,7 @@ gtsam::Rot3 FactorGraphCore::computeInitialOrientation(
     // Account for AHRS rotation
     gtsam::Rot3 target_R_ahrs = tfs_.target_T_ahrs.rotation();
     gtsam::Rot3 map_R_target_measured = ahrs->orientation * target_R_ahrs.inverse();
-    return AhrsFactorArm::declinationCorrected(map_R_target_measured,
+    return AhrsFactorArm::trueNorthOrientation(map_R_target_measured,
                                                params_.ahrs.mag_declination_radians);
   }
 
@@ -703,7 +705,7 @@ void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 
   // Conjugate map-frame orientation covariance into the sensor-frame tangent space
   gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Gaussian::Covariance(
-      AhrsFactorArm::sensorFrameCovariance(ahrs_cov, ahrs_msg->orientation));
+      AhrsFactorArm::sensorTangentCovariance(ahrs_cov, ahrs_msg->orientation));
 
   ahrs_noise = applyRobustKernel(ahrs_noise, params_.ahrs.robust_kernel, params_.ahrs.robust_k);
 
@@ -803,7 +805,7 @@ void FactorGraphCore::addImuPreintFactor(
     }
 
     double dt = current_imu_time - last_imu_time;
-    if (dt > 1e-9) {
+    if (dt > kMinIntegrationDt) {
       imu_preintegrator_->integrateMeasurement(last_imu_acc_, last_imu_gyr_, dt);
     }
 
@@ -815,7 +817,7 @@ void FactorGraphCore::addImuPreintFactor(
   // Extra measurement to reach exact target time
   if (last_imu_time < target_time) {
     double dt = target_time - last_imu_time;
-    if (dt > 1e-6) {
+    if (dt > kMinIntegrationDt) {
       imu_preintegrator_->integrateMeasurement(last_imu_acc_, last_imu_gyr_, dt);
     }
     last_imu_time = target_time;
@@ -848,8 +850,8 @@ void FactorGraphCore::addDvlLoosePreintFactor(
 
   gtsam::Rot3 map_R_ahrs_prev = getInterpolatedOrientation(ahrs_msgs, prev_time_);
 
-  // Conjugate map-frame orientation covariance into the window-start attitude
-  ahrs_cov = AhrsFactorArm::sensorFrameCovariance(ahrs_cov, map_R_ahrs_prev);
+  // Conjugate map-frame orientation covariance into the window-start AHRS-frame tangent space
+  ahrs_cov = AhrsFactorArm::sensorTangentCovariance(ahrs_cov, map_R_ahrs_prev);
   gtsam::Rot3 map_R_target_prev = map_R_ahrs_prev * ahrs_R_target;
   dvl_loose_preintegrator_->reset(map_R_target_prev, target_R_ahrs, target_R_dvl, ahrs_cov);
 
@@ -860,7 +862,7 @@ void FactorGraphCore::addDvlLoosePreintFactor(
     }
 
     double dt = current_dvl_time - last_dvl_time;
-    if (dt > 1e-9) {
+    if (dt > kMinIntegrationDt) {
       // Integrate DVL measurement alongside the midpoint-interpolated AHRS attitude
       double mid_time = 0.5 * (last_dvl_time + current_dvl_time);
       gtsam::Rot3 map_R_ahrs_mid = getInterpolatedOrientation(ahrs_msgs, mid_time);
@@ -883,7 +885,7 @@ void FactorGraphCore::addDvlLoosePreintFactor(
   // Extra measurement to reach exact target time
   if (last_dvl_time < target_time) {
     double dt = target_time - last_dvl_time;
-    if (dt > 1e-6) {
+    if (dt > kMinIntegrationDt) {
       double mid_time = 0.5 * (last_dvl_time + target_time);
       gtsam::Rot3 map_R_ahrs_mid = getInterpolatedOrientation(ahrs_msgs, mid_time);
       gtsam::Rot3 map_R_target_mid = map_R_ahrs_mid * ahrs_R_target;
@@ -945,7 +947,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
     // Extra measurement to reach exact target time
     if (last_imu_time < t_end) {
       double dt_rem = t_end - last_imu_time;
-      if (dt_rem > 1e-6) {
+      if (dt_rem > kMinIntegrationDt) {
         temp_imu_preint.integrateMeasurement(current_imu_acc, current_imu_gyr, dt_rem);
       }
       last_imu_time = t_end;
@@ -973,7 +975,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
     }
 
     double dt = current_dvl_time - last_dvl_time;
-    if (dt > 1e-9) {
+    if (dt > kMinIntegrationDt) {
       integrateDvlMeasurement(0.5 * (last_dvl_time + current_dvl_time), dt);
     }
 
@@ -988,7 +990,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
   // Extra measurement to reach exact target time
   if (last_dvl_time < target_time) {
     double dt = target_time - last_dvl_time;
-    if (dt > 1e-6) {
+    if (dt > kMinIntegrationDt) {
       integrateDvlMeasurement(0.5 * (last_dvl_time + target_time), dt);
     }
     last_dvl_time = target_time;
@@ -1070,7 +1072,7 @@ void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 
   // Conjugate map-frame orientation covariance into the sensor-frame tangent space
   gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Gaussian::Covariance(
-      AhrsFactorArm::sensorFrameCovariance(ahrs_cov, msg.imu_orientation));
+      AhrsFactorArm::sensorTangentCovariance(ahrs_cov, msg.imu_orientation));
 
   ahrs_noise = applyRobustKernel(ahrs_noise, params_.multiagent.neighbor.ahrs.robust_kernel,
                                  params_.multiagent.neighbor.ahrs.robust_k);
@@ -1105,18 +1107,21 @@ void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& gr
     return;
   }
 
-  const gtsam::Vector2 bearing_sigmas =
-      Eigen::Map<const gtsam::Vector2>(params_.multiagent.bearing_noise_sigmas.data()) *
-      std::sqrt(params_.multiagent.covariance_scalar);
-  gtsam::SharedNoiseModel bearing_noise = gtsam::noiseModel::Diagonal::Sigmas(bearing_sigmas);
+  const gtsam::Point2 measured_azi_el(msg.usbl_azimuth, msg.usbl_elevation);
+
+  const gtsam::Matrix22 azi_el_cov = sigmasSquaredDiag<2>(params_.multiagent.bearing_noise_sigmas) *
+                                     params_.multiagent.covariance_scalar;
+
+  // Conjugate azimuth/elevation covariance into the residual's Unit3 tangent space
+  gtsam::SharedNoiseModel bearing_noise = gtsam::noiseModel::Gaussian::Covariance(
+      BearingFactorArm::unit3TangentCovariance(azi_el_cov, measured_azi_el));
 
   bearing_noise = applyRobustKernel(bearing_noise, params_.multiagent.robust_kernel,
                                     params_.multiagent.robust_k);
 
   graph.emplace_shared<BearingFactorArm>(X(current_step_), N(neighbor.current_step),
-                                         gtsam::Point2(msg.usbl_azimuth, msg.usbl_elevation),
-                                         tfs_.target_T_modem, neighbor_base_T_modem_,
-                                         bearing_noise);
+                                         measured_azi_el, tfs_.target_T_modem,
+                                         neighbor_base_T_modem_, bearing_noise);
 }
 
 void FactorGraphCore::addMultiAgentFactors(
@@ -1139,7 +1144,7 @@ void FactorGraphCore::addMultiAgentFactors(
   };
 
   // Rotate a neighbor's broadcast pose covariance into its base-frame tangent space
-  auto toBaseFrameCov = [](const utils::AgentStatusData& msg, const gtsam::Matrix66& cov) {
+  auto baseTangentCovariance = [](const utils::AgentStatusData& msg, const gtsam::Matrix66& cov) {
     gtsam::Matrix66 base_R_map = gtsam::Matrix66::Zero();
     base_R_map.block<3, 3>(0, 0) = msg.pose.rotation().matrix();
     base_R_map.block<3, 3>(3, 3) = msg.pose.rotation().matrix();
@@ -1165,7 +1170,7 @@ void FactorGraphCore::addMultiAgentFactors(
     auto [it, inserted] = neighbors_.try_emplace(i, NeighborState(i));
     auto& neighbor = it->second;
 
-    const gtsam::Matrix66 base_cov = toBaseFrameCov(*msg, floorVariances(*msg, i));
+    const gtsam::Matrix66 base_cov = baseTangentCovariance(*msg, floorVariances(*msg, i));
 
     if (inserted) {
       neighbor.initialize(msg->pose, base_cov, msg->timestamp);
@@ -1517,7 +1522,8 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
         return isam_->marginalCovariance(key);
       }
     }
-    return gtsam::Matrix::Identity(dim, dim) * -1.0;
+    static constexpr double kUnknownCovariance = -1.0;
+    return gtsam::Matrix::Identity(dim, dim) * kUnknownCovariance;
   };
 
   result.pose_cov = marginal_cov(params_.publish_pose_cov, X(batch_last_step), 6);

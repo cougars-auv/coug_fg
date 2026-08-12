@@ -27,11 +27,11 @@ class UrdfTree:
     """
     Offline TF resolver parsed from a URDF or xacro description.
 
-    :author: Nelson Durrant (w Opus 4.8)
+    :author: Nelson Durrant (w Claude Opus 4.8)
     :date: July 2026
     """
 
-    def __init__(self, urdf_path: str):
+    def __init__(self, urdf_path: str) -> None:
         """
         Parse the joint tree from a robot description file.
 
@@ -100,6 +100,69 @@ class UrdfTree:
         return pos, rot
 
 
+def _read_urdf_param(yaml_path: Path, top_keys: list[str]) -> str | None:
+    """
+    Read the urdf_file parameter from one YAML file, if present.
+
+    :param yaml_path: Path to the parameter YAML file.
+    :param top_keys: Top-level namespace keys to try, in order.
+    :return: The urdf_file value, or None if it was not found.
+    """
+    try:
+        data = yaml.safe_load(yaml_path.read_text())
+    except OSError:
+        return None
+    except yaml.YAMLError as e:
+        logger.error(f"Could not parse params file {yaml_path}: {e}")
+        return None
+
+    for top_key in top_keys:
+        try:
+            return data[top_key]["coug_description_launch"]["ros__parameters"][
+                "urdf_file"
+            ]
+        except (KeyError, TypeError):
+            continue
+    return None
+
+
+def _read_fleet_urdf_param(config_paths: list[str]) -> str | None:
+    """
+    Read urdf_file from the fleet-wide description params beside any given config.
+
+    :param config_paths: Parameter YAML files whose directories are searched.
+    :return: The urdf_file value from the first match, or None if there was none.
+    """
+    for path in map(Path, config_paths):
+        for config_dir in (path.parent / "fleet", path.parent):
+            urdf_file = _read_urdf_param(
+                config_dir / "coug_description_params.yaml", ["/**"]
+            )
+            if urdf_file:
+                return urdf_file
+    return None
+
+
+def _urdf_search_dirs() -> list[Path]:
+    """
+    List the directories a URDF file could have been installed or sourced from.
+
+    :return: Directories to search, in priority order.
+    """
+    dirs = []
+    try:
+        from ament_index_python.packages import get_package_share_directory
+
+        dirs.append(Path(get_package_share_directory("coug_description")) / "urdf")
+    except Exception:  # noqa: S110, BLE001
+        pass
+
+    workspace = Path.home() / "cougars-dev/ros2_ws"
+    dirs.append(workspace / "src/coug_description/coug_description/urdf")
+    dirs.append(workspace / "install/coug_description/share/coug_description/urdf")
+    return dirs
+
+
 def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
     """
     Find the URDF file referenced by the coug_description_launch parameters.
@@ -108,59 +171,19 @@ def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
     :param config_paths: Parameter YAML files to search for a urdf_file entry.
     :return: Absolute path to the URDF file, or None if it was not found.
     """
-
-    def read_urdf_file(yaml_path: Path, top_keys: list[str]) -> str | None:
-        """
-        Read the urdf_file parameter from one YAML file, if present.
-
-        :param yaml_path: Path to the parameter YAML file.
-        :param top_keys: Top-level namespace keys to try, in order.
-        :return: The urdf_file value, or None if it was not found.
-        """
-        try:
-            data = yaml.safe_load(yaml_path.read_text())
-        except OSError:
-            return None
-        except yaml.YAMLError as e:
-            logger.error(f"Could not parse params file {yaml_path}: {e}")
-            return None
-        for top_key in top_keys:
-            try:
-                return data[top_key]["coug_description_launch"]["ros__parameters"][
-                    "urdf_file"
-                ]
-            except (KeyError, TypeError):
-                continue
-        return None
-
     urdf_file = None
     for path in map(Path, config_paths):
-        urdf_file = read_urdf_file(path, [f"/{namespace}", "/**"]) or urdf_file
-    if urdf_file is None:
-        for path in map(Path, config_paths):
-            for config_dir in (path.parent / "fleet", path.parent):
-                fleet_path = config_dir / "coug_description_params.yaml"
-                urdf_file = urdf_file or read_urdf_file(fleet_path, ["/**"])
+        urdf_file = _read_urdf_param(path, [f"/{namespace}", "/**"]) or urdf_file
+
+    urdf_file = urdf_file or _read_fleet_urdf_param(config_paths)
     if urdf_file is None:
         logger.error("No urdf_file parameter found in any config.")
         return None
 
-    urdf_dirs = [
-        Path.home() / "cougars-dev/ros2_ws/src/coug_description/coug_description/urdf",
-        Path.home()
-        / "cougars-dev/ros2_ws/install/coug_description/share/coug_description/urdf",
-    ]
-    try:
-        from ament_index_python.packages import get_package_share_directory
+    for urdf_dir in _urdf_search_dirs():
+        candidate = urdf_dir / urdf_file
+        if candidate.is_file():
+            return str(candidate)
 
-        urdf_dirs.insert(
-            0, Path(get_package_share_directory("coug_description")) / "urdf"
-        )
-    except Exception:  # noqa: S110, BLE001
-        pass
-
-    for urdf_dir in urdf_dirs:
-        if (urdf_dir / urdf_file).is_file():
-            return str(urdf_dir / urdf_file)
     logger.error(f"Could not locate urdf_file '{urdf_file}' in any URDF directory.")
     return None

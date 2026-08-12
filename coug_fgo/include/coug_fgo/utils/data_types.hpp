@@ -34,7 +34,7 @@ namespace coug_fgo::utils {
 
 /**
  * @struct TfBundle
- * @brief Container for static TF sensor transformations.
+ * @brief C++ container for static sensor transformations.
  */
 struct TfBundle {
   gtsam::Pose3 target_T_imu;

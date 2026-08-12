@@ -39,9 +39,9 @@ class Gps2dFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
 
  public:
   /**
-   * @brief Constructs the factor, caching the sensor lever arm.
+   * @brief Constructs the factor.
    * @param pose_key GTSAM key for the AUV pose.
-   * @param measured_position The measured 3D position (Z is ignored).
+   * @param measured_position The measured 3D position of the sensor in the map frame [m].
    * @param target_T_sensor The static transformation from target to sensor.
    * @param noise_model The noise model for the measurement.
    */
@@ -55,19 +55,20 @@ class Gps2dFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
    * @brief Evaluates the error and Jacobians for the factor.
    * @param pose The AUV pose estimate.
    * @param H Optional Jacobian matrix.
-   * @return The 2D error vector (predicted - measured) in [x, y].
+   * @return The 2D position residual [m].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
-    gtsam::Matrix36 H_full = gtsam::Matrix36::Zero();
-    gtsam::Point3 predicted_position = pose.transformFrom(target_p_sensor_, H ? &H_full : nullptr);
+    gtsam::Matrix36 H_transform = gtsam::Matrix36::Zero();
+    gtsam::Point3 predicted_position =
+        pose.transformFrom(target_p_sensor_, H ? &H_transform : nullptr);
 
     // 2D position residual (ignore Z)
     gtsam::Vector2 error = (predicted_position - measured_position_).head<2>();
 
     if (H) {
       // Jacobian with respect to pose (2x6)
-      *H = H_full.topRows<2>();
+      *H = H_transform.topRows<2>();
     }
 
     return error;

@@ -47,10 +47,10 @@ class NavsatOdomNode : public rclcpp::Node {
 
  private:
   /**
-   * @brief Projects a GPS fix into ENU odometry relative to the origin and publishes it.
-   * @param msg The incoming NavSatFix message (dropped if no fix or unknown covariance).
+   * @brief Sets the ENU origin and seeds the LocalCartesian projection.
+   * @param msg The NavSatFix to use as the origin.
    */
-  void navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+  void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
 
   /**
    * @brief Latches the first valid externally-published origin fix.
@@ -59,10 +59,17 @@ class NavsatOdomNode : public rclcpp::Node {
   void originCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
   /**
-   * @brief Sets the ENU origin and seeds the LocalCartesian projection.
-   * @param msg The NavSatFix to use as the origin.
+   * @brief Sets or awaits the origin, gates degraded fixes, then publishes the ENU odometry.
+   * @param msg The incoming NavSatFix message (dropped if no fix or unknown covariance).
    */
-  void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
+  void navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+
+  /**
+   * @brief Converts a geodetic fix to local ENU odometry relative to the stored origin.
+   * @param msg The incoming NavSatFix message.
+   * @return The converted Odometry message; orientation is identity and flagged unmeasured.
+   */
+  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
   /**
    * @brief Diagnostic task reporting whether the ENU origin is set and its coordinates.

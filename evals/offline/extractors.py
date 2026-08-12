@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
 
 
-def _stamp(m) -> float:
+def _stamp(m: Any) -> float:
     """
     Return a message header stamp as seconds since the epoch.
 
@@ -25,7 +28,7 @@ def _stamp(m) -> float:
     return m.header.stamp.sec + m.header.stamp.nanosec * 1e-9
 
 
-def _vec3(v) -> np.ndarray:
+def _vec3(v: Any) -> np.ndarray:
     """
     Return a Vector3-like message as a numpy array.
 
@@ -35,7 +38,7 @@ def _vec3(v) -> np.ndarray:
     return np.array([v.x, v.y, v.z])
 
 
-def _quat(q) -> np.ndarray:
+def _quat(q: Any) -> np.ndarray:
     """
     Return a Quaternion message as an xyzw numpy array.
 
@@ -45,7 +48,7 @@ def _quat(q) -> np.ndarray:
     return np.array([q.x, q.y, q.z, q.w])
 
 
-def _cov(arr, n: int) -> np.ndarray:
+def _cov(arr: Any, n: int) -> np.ndarray:
     """
     Return a flat covariance field as an n-by-n numpy array.
 
@@ -56,7 +59,7 @@ def _cov(arr, n: int) -> np.ndarray:
     return np.array(arr).reshape(n, n)
 
 
-EXTRACTORS = {
+EXTRACTORS: dict[str, Callable[[Any], tuple[str, tuple]]] = {
     "imu": lambda m: (
         m.header.frame_id,
         (

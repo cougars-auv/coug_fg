@@ -29,6 +29,8 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "coug_fgo/factor_graph_core.hpp"
@@ -56,6 +58,7 @@ class FactorGraphPy {
   using AgentStatus = std::tuple<double, Eigen::Vector3d, Eigen::Vector4d, Matrix6d, double,
                                  Eigen::Vector4d, bool, double, bool, double, double, bool, double>;
   using MultiAgentBatch = std::vector<std::vector<AgentStatus>>;
+  using TfMap = std::unordered_map<std::string, std::pair<Eigen::Vector3d, Eigen::Vector4d>>;
 
   /**
    * @brief Constructs the wrapper, loading parameters from ROS 2 YAML config files.
@@ -71,32 +74,40 @@ class FactorGraphPy {
   pybind11::dict get_params() const;
 
   /**
-   * @brief Sets one sensor transform (sensor pose in the target frame).
-   * @param name One of "imu", "gps", "depth", "mag", "ahrs", "dvl", "base", "com", "modem".
-   * @param position Translation [x, y, z] in meters.
-   * @param quat_xyzw Orientation quaternion (x, y, z, w).
-   * @throws std::invalid_argument If the name is not a known transform.
-   */
-  void set_tf(const std::string& name, const Eigen::Vector3d& position,
-              const Eigen::Vector4d& quat_xyzw);
-
-  /**
    * @brief Seeds the graph from the newest sample in each measurement batch.
+   * @param imu The IMU measurement batch.
+   * @param gps The GPS measurement batch.
+   * @param depth The depth measurement batch.
+   * @param mag The magnetometer measurement batch.
+   * @param ahrs The AHRS measurement batch.
+   * @param dvl The DVL measurement batch.
+   * @param wrench The wrench measurement batch.
+   * @param multiagent The per-neighbor agent status batches.
+   * @param tfs The resolved sensor transforms, keyed by sensor name.
    * @return True if the graph is initialized (or was already initialized).
    */
   bool initialize(const ImuBatch& imu, const OdomBatch& gps, const DepthBatch& depth,
                   const MagBatch& mag, const AhrsBatch& ahrs, const TwistBatch& dvl,
-                  const WrenchBatch& wrench, const MultiAgentBatch& multiagent);
+                  const WrenchBatch& wrench, const MultiAgentBatch& multiagent, const TfMap& tfs);
 
   /**
    * @brief Builds factors for one keyframe from the given measurement batches.
    * @param target_time Keyframe timestamp in seconds.
+   * @param imu The IMU measurement batch.
+   * @param gps The GPS measurement batch.
+   * @param depth The depth measurement batch.
+   * @param mag The magnetometer measurement batch.
+   * @param ahrs The AHRS measurement batch.
+   * @param dvl The DVL measurement batch.
+   * @param wrench The wrench measurement batch.
+   * @param multiagent The per-neighbor agent status batches.
+   * @param tfs The resolved sensor transforms, keyed by sensor name.
    * @return Dict of batches to re-queue, or None if the keyframe was rejected (keep all queued).
    */
   pybind11::object update(double target_time, const ImuBatch& imu, const OdomBatch& gps,
                           const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,
                           const TwistBatch& dvl, const WrenchBatch& wrench,
-                          const MultiAgentBatch& multiagent);
+                          const MultiAgentBatch& multiagent, const TfMap& tfs);
 
   /**
    * @brief Runs the GTSAM smoother on the buffered keyframes.
@@ -104,36 +115,12 @@ class FactorGraphPy {
    */
   pybind11::dict optimize();
 
-  /**
-   * @brief Resets the estimator to re-initialize from scratch (mirrors the node's reset service).
-   */
-  void reset();
-
-  /**
-   * @brief Returns whether the graph has been initialized.
-   */
-  bool is_initialized() const { return is_initialized_; }
-
  private:
-  /**
-   * @brief Converts Python measurement batches into a core QueueBundle.
-   */
-  static utils::QueueBundle to_bundle(const ImuBatch& imu, const OdomBatch& gps,
-                                      const DepthBatch& depth, const MagBatch& mag,
-                                      const AhrsBatch& ahrs, const TwistBatch& dvl,
-                                      const WrenchBatch& wrench, const MultiAgentBatch& multiagent);
-
-  /**
-   * @brief Converts a core QueueBundle back into a dict of Python measurement batches.
-   */
-  static pybind11::dict from_bundle(const utils::QueueBundle& queues);
-
   // --- Core ---
   factor_graph_node::Params params_;
   std::unique_ptr<FactorGraphCore> core_;
 
   // --- State ---
-  utils::TfBundle tfs_;
   bool is_initialized_{false};
 };
 

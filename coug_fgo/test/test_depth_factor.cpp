@@ -15,37 +15,61 @@
 /**
  * @file test_depth_factor.cpp
  * @brief Unit tests for depth_factor.hpp.
- * @author Nelson Durrant (w Gemini 3 Pro)
+ * @author Nelson Durrant (w Claude Opus 5)
  * @date May 2026
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
-
-#include <functional>
-#include <optional>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
 
 #include "coug_fgo/factors/depth_factor.hpp"
+
+namespace {
+
+constexpr double kStep = 1e-5;  // finite difference step
+constexpr double kJacobianTol = 1e-5;
+constexpr double kResidualTol = 1e-9;
+
+}  // namespace
 
 /**
  * @brief Verify Jacobians against numerical differentiation.
  */
 TEST(DepthFactorArmTest, Jacobians) {
-  gtsam::Key poseKey = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   double measured_depth = 5.0;
 
-  coug_fgo::factors::DepthFactorArm factor(poseKey, measured_depth, target_T_sensor, model);
+  coug_fgo::factors::DepthFactorArm factor(pose_key, measured_depth, target_T_sensor, model);
 
+  gtsam::Values values;
+  values.insert(pose_key,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+
+  EXPECT_TRUE(
+      gtsam::internal::testFactorJacobians("DepthFactorArm", factor, values, kStep, kJacobianTol));
+}
+
+/**
+ * @brief Verify the residual against an independently predicted measurement.
+ */
+TEST(DepthFactorArmTest, Residual) {
+  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
 
-  gtsam::Matrix expectedH = gtsam::numericalDerivative11<gtsam::Vector, gtsam::Pose3>(
-      [&](const gtsam::Pose3& p) { return factor.evaluateError(p, nullptr); }, pose, 1e-5);
+  // Depth of the sensor itself, not of the target
+  const double sensor_depth =
+      (pose.rotation().matrix() * target_T_sensor.translation() + pose.translation()).z();
 
-  gtsam::Matrix actualH;
-  factor.evaluateError(pose, &actualH);
+  // Measured shallower than the state predicts
+  constexpr double kOffset = 0.25;
+  coug_fgo::factors::DepthFactorArm factor(pose_key, sensor_depth - kOffset, target_T_sensor,
+                                           model);
 
-  EXPECT_TRUE(gtsam::assert_equal(expectedH, actualH, 1e-5));
+  EXPECT_NEAR(factor.evaluateError(pose)(0), kOffset, kResidualTol);
 }

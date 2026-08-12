@@ -37,7 +37,7 @@ class ConstVelFactor
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3> {
  public:
   /**
-   * @brief Constructs the factor linking consecutive pose/velocity pairs.
+   * @brief Constructs the factor.
    * @param pose_key_i GTSAM key for the starting AUV pose.
    * @param vel_key_i GTSAM key for the starting AUV velocity.
    * @param pose_key_j GTSAM key for the ending AUV pose.
@@ -59,7 +59,7 @@ class ConstVelFactor
    * @param H_vel_i Optional Jacobian matrix with respect to vel_i.
    * @param H_pose_j Optional Jacobian matrix with respect to pose_j.
    * @param H_vel_j Optional Jacobian matrix with respect to vel_j.
-   * @return The 3D target-frame velocity difference (v_i - v_j).
+   * @return The 3D velocity difference residual [m/s].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Vector3& vel_i,
                               const gtsam::Pose3& pose_j, const gtsam::Vector3& vel_j,

@@ -15,7 +15,7 @@
 /**
  * @file thread_safe_queue.hpp
  * @brief Thread-safe queue for concurrent producer/consumer access.
- * @author Nelson Durrant
+ * @author Nelson Durrant (w Claude Opus 4.7)
  * @date May 2026
  */
 
@@ -32,14 +32,14 @@ namespace coug_fgo::utils {
 /**
  * @class ThreadSafeQueue
  * @brief Thread-safe queue for concurrent producer/consumer access.
- * @tparam T Pointer-like message type exposing a `timestamp` member (e.g. a shared_ptr).
+ * @tparam T Pointer-like type exposing a numeric `timestamp` [s] member.
  */
 template <typename T>
 class ThreadSafeQueue {
  public:
   /**
-   * @brief Pushes a new item onto the queue.
-   * @param value The item to push.
+   * @brief Pushes a new item to the back of the queue and updates arrival metrics.
+   * @param value The item to push (must provide `->timestamp`).
    */
   void push(const T& value) {
     std::scoped_lock lock(mutex_);
@@ -49,7 +49,7 @@ class ThreadSafeQueue {
   }
 
   /**
-   * @brief Drains all items from the queue, leaving it empty.
+   * @brief Drains all items from the queue, leaving it empty (arrival metrics persist).
    * @return A deque containing all items that were in the queue.
    */
   std::deque<T> drain() {
@@ -85,8 +85,8 @@ class ThreadSafeQueue {
   }
 
   /**
-   * @brief Gets the wall-clock time since the last item arrived.
-   * @return Seconds since the last arrival, or nullopt if no item has ever been pushed.
+   * @brief Gets the elapsed monotonic steady-clock time since the last item arrived.
+   * @return Elapsed seconds since the last arrival, or nullopt if no item has ever been pushed.
    */
   std::optional<double> secondsSinceLastArrival() const {
     std::scoped_lock lock(mutex_);
@@ -97,8 +97,8 @@ class ThreadSafeQueue {
   }
 
   /**
-   * @brief Restores items to the front of the queue.
-   * @param items The items to restore.
+   * @brief Restores items in order to the front of the queue without altering arrival metrics.
+   * @param items The items to prepend.
    */
   void restore(const std::deque<T>& items) {
     std::scoped_lock lock(mutex_);

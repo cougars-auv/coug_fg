@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
 
 import numpy as np
@@ -35,7 +35,7 @@ def evo_agent_dir(bag_path: str | Path, namespace: str) -> Path:
     return Path(bag_path) / "evo" / namespace
 
 
-def iter_evaluated_agents(target_dir: Path) -> Iterator[tuple[Path, Path]]:
+def iter_evaluated_agents(target_dir: Path) -> Generator[tuple[Path, Path]]:
     """
     Yield each evaluated agent directory under a target directory.
 

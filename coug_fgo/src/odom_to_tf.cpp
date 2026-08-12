@@ -42,6 +42,11 @@ OdomToTfNode::OdomToTfNode(const rclcpp::NodeOptions& options) : Node("odom_to_t
 }
 
 void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+  tf_broadcaster_->sendTransform(convertToTf(msg));
+}
+
+geometry_msgs::msg::TransformStamped OdomToTfNode::convertToTf(
+    const nav_msgs::msg::Odometry::SharedPtr msg) {
   geometry_msgs::msg::TransformStamped ts;
   ts.header = msg->header;
   ts.child_frame_id = msg->child_frame_id;
@@ -49,7 +54,7 @@ void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
   ts.transform.translation.y = msg->pose.pose.position.y;
   ts.transform.translation.z = msg->pose.pose.position.z;
   ts.transform.rotation = msg->pose.pose.orientation;
-  tf_broadcaster_->sendTransform(ts);
+  return ts;
 }
 
 }  // namespace coug_fgo

@@ -68,6 +68,8 @@ sensor_msgs::msg::Imu SeatracX150ImuNode::convertToImu(
     imu_msg.header.frame_id = params_.parameter_frame;
   }
 
+  static constexpr double kUnknownCovariance = -1.0;
+
   if (msg->includes_local_attitude) {
     static constexpr double kSeatracToRad = M_PI / 1800.0;
     double roll_rad = msg->attitude_roll * kSeatracToRad;
@@ -83,11 +85,11 @@ sensor_msgs::msg::Imu SeatracX150ImuNode::convertToImu(
     imu_msg.orientation_covariance[4] = s[1] * s[1];
     imu_msg.orientation_covariance[8] = s[2] * s[2];
   } else {
-    imu_msg.orientation_covariance[0] = -1.0;
+    imu_msg.orientation_covariance[0] = kUnknownCovariance;
   }
 
-  imu_msg.linear_acceleration_covariance[0] = -1.0;
-  imu_msg.angular_velocity_covariance[0] = -1.0;
+  imu_msg.linear_acceleration_covariance[0] = kUnknownCovariance;
+  imu_msg.angular_velocity_covariance[0] = kUnknownCovariance;
 
   return imu_msg;
 }

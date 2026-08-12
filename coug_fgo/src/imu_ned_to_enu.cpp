@@ -52,17 +52,18 @@ sensor_msgs::msg::Imu ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu:
   sensor_msgs::msg::Imu out = *msg;
 
   const auto& q = msg->orientation;
-  static constexpr double s = M_SQRT1_2;
-  out.orientation.w = -s * (q.x + q.y);
-  out.orientation.x = s * (q.w + q.z);
-  out.orientation.y = s * (q.w - q.z);
-  out.orientation.z = s * (q.y - q.x);
+  static constexpr double kInvSqrt2 = M_SQRT1_2;
+  out.orientation.w = -kInvSqrt2 * (q.x + q.y);
+  out.orientation.x = kInvSqrt2 * (q.w + q.z);
+  out.orientation.y = kInvSqrt2 * (q.w - q.z);
+  out.orientation.z = kInvSqrt2 * (q.y - q.x);
 
   if (out.orientation_covariance[0] >= 0.0) {
     // IMU orientation covariance is expressed about the world-frame axes
-    static const Eigen::Matrix3d M = (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
+    static const Eigen::Matrix3d kNedToEnu3D =
+        (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
     Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov(out.orientation_covariance.data());
-    cov = (M * cov * M.transpose()).eval();
+    cov = (kNedToEnu3D * cov * kNedToEnu3D.transpose()).eval();
   }
 
   return out;

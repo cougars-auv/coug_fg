@@ -46,6 +46,8 @@ using utils::toVectorMsg;
 
 namespace {
 
+constexpr double kUnknownCovariance = -1.0;
+
 /**
  * @brief Maps a row-major ROS covariance array onto an N x N Eigen matrix.
  * @param arr The flat covariance array from a ROS message.
@@ -550,7 +552,7 @@ void FactorGraphNode::publishGlobalOdom(const gtsam::Pose3& current_pose,
   }
 
   odom_msg.pose.covariance = toPoseCovarianceMsg(gtsam::Matrix66(cov_to_pub));
-  odom_msg.twist.covariance[0] = -1.0;
+  odom_msg.twist.covariance[0] = kUnknownCovariance;
   global_odom_pub_->publish(odom_msg);
 }
 
@@ -577,7 +579,7 @@ void FactorGraphNode::publishNeighborGlobalOdom(size_t agent_queue_idx,
   }
 
   odom_msg.pose.covariance = toPoseCovarianceMsg(gtsam::Matrix66(cov_to_pub));
-  odom_msg.twist.covariance[0] = -1.0;
+  odom_msg.twist.covariance[0] = kUnknownCovariance;
   multiagent_pubs_[agent_queue_idx]->publish(odom_msg);
 }
 
@@ -660,7 +662,7 @@ void FactorGraphNode::publishVelocity(const gtsam::Vector3& current_vel,
   vel_msg.twist.covariance = toCovariance36Msg(gtsam::Matrix33(vel_covariance));
 
   for (int i = 3; i < 6; ++i) {
-    vel_msg.twist.covariance[i * 6 + i] = -1.0;
+    vel_msg.twist.covariance[i * 6 + i] = kUnknownCovariance;
   }
   velocity_pub_->publish(vel_msg);
 }
@@ -884,10 +886,12 @@ void FactorGraphNode::optimizeGraph() {
     }
 
     // --- Publish Results ---
-    const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * 1e9));
+    static constexpr double kSecondsToNanoseconds = 1e9;
+    const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * kSecondsToNanoseconds));
     publishGlobalOdom(result->pose, result->pose_cov, stamp);
     for (const auto& neighbor : result->neighbors_est) {
-      const rclcpp::Time neighbor_stamp(static_cast<int64_t>(neighbor.timestamp * 1e9));
+      const rclcpp::Time neighbor_stamp(
+          static_cast<int64_t>(neighbor.timestamp * kSecondsToNanoseconds));
       publishNeighborGlobalOdom(neighbor.agent_queue_idx, neighbor.pose, neighbor.pose_cov,
                                 neighbor_stamp);
 

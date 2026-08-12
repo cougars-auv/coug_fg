@@ -42,8 +42,8 @@ class DvlLoosePreintFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gt
    * @param pose_key_i GTSAM key for the starting AUV pose.
    * @param pose_key_j GTSAM key for the ending AUV pose.
    * @param target_T_sensor The static transformation from target to sensor.
-   * @param measured_translation The preintegrated translation measurement (target frame at i).
-   * @param noise_model The noise model for the measurement.
+   * @param measured_translation The preintegrated translation measurement (target frame at i) [m].
+   * @param noise_model The noise model for the constraint.
    */
   DvlLoosePreintFactorArm(gtsam::Key pose_key_i, gtsam::Key pose_key_j,
                           const gtsam::Pose3& target_T_sensor,
@@ -59,19 +59,19 @@ class DvlLoosePreintFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gt
    * @param pose_j Ending AUV pose estimate.
    * @param H_pose_i Optional Jacobian matrix with respect to pose_i.
    * @param H_pose_j Optional Jacobian matrix with respect to pose_j.
-   * @return The 3D error vector (predicted - measured).
+   * @return The 3D translation residual [m].
    */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Pose3& pose_j,
                               gtsam::OptionalMatrixType H_pose_i = nullptr,
                               gtsam::OptionalMatrixType H_pose_j = nullptr) const override {
-    gtsam::Matrix36 H_position_j = gtsam::Matrix36::Zero();
+    gtsam::Matrix36 H_transform_from_j = gtsam::Matrix36::Zero();
     gtsam::Point3 position_j =
-        pose_j.transformFrom(target_p_sensor_, H_pose_j ? &H_position_j : nullptr);
+        pose_j.transformFrom(target_p_sensor_, H_pose_j ? &H_transform_from_j : nullptr);
 
-    gtsam::Matrix36 H_pred_pose_i = gtsam::Matrix36::Zero();
-    gtsam::Matrix33 H_pred_pos_j = gtsam::Matrix33::Zero();
+    gtsam::Matrix36 H_transform_to_i = gtsam::Matrix36::Zero();
+    gtsam::Matrix33 H_transform_to_j = gtsam::Matrix33::Zero();
     gtsam::Point3 relative_position = pose_i.transformTo(
-        position_j, H_pose_i ? &H_pred_pose_i : nullptr, H_pose_j ? &H_pred_pos_j : nullptr);
+        position_j, H_pose_i ? &H_transform_to_i : nullptr, H_pose_j ? &H_transform_to_j : nullptr);
 
     gtsam::Vector3 predicted_translation = relative_position - target_p_sensor_;
 
@@ -80,12 +80,12 @@ class DvlLoosePreintFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gt
 
     if (H_pose_i) {
       // Jacobian with respect to pose_i (3x6)
-      *H_pose_i = H_pred_pose_i;
+      *H_pose_i = H_transform_to_i;
     }
 
     if (H_pose_j) {
       // Jacobian with respect to pose_j (3x6)
-      *H_pose_j = H_pred_pos_j * H_position_j;
+      *H_pose_j = H_transform_to_j * H_transform_from_j;
     }
 
     return error;

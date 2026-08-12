@@ -15,18 +15,26 @@
 /**
  * @file test_bearing_factor.cpp
  * @brief Unit tests for bearing_factor.hpp.
- * @author Nelson Durrant (w Opus 5)
+ * @author Nelson Durrant (w Claude Opus 5)
  * @date August 2026
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
 
-#include <functional>
-#include <optional>
+#include <cmath>
 
 #include "coug_fgo/factors/bearing_factor.hpp"
+
+namespace {
+
+constexpr double kStep = 1e-5;  // finite difference step
+constexpr double kJacobianTol = 1e-5;
+constexpr double kResidualTol = 1e-9;
+
+}  // namespace
 
 /**
  * @brief Verify Jacobians against numerical differentiation.
@@ -42,28 +50,49 @@ TEST(BearingFactorArmTest, Jacobians) {
   coug_fgo::factors::BearingFactorArm factor(pose_key_l, pose_key_n, measured_azi_el,
                                              target_T_sensor_l, target_T_sensor_n, model);
 
+  gtsam::Values values;
+  values.insert(pose_key_l,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+  values.insert(pose_key_n,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0)));
+
+  EXPECT_TRUE(gtsam::internal::testFactorJacobians("BearingFactorArm", factor, values, kStep,
+                                                   kJacobianTol));
+}
+
+/**
+ * @brief Verify the residual against an independently predicted measurement.
+ */
+TEST(BearingFactorArmTest, Residual) {
+  gtsam::Key pose_key_l = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key_n = gtsam::symbol_shorthand::X(2);
+  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
+  gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.2, -0.4, 0.1));
   gtsam::Pose3 pose_l(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
   gtsam::Pose3 pose_n(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0));
 
-  auto evalFunc = [&](const gtsam::Pose3& pl, const gtsam::Pose3& pn) {
-    return factor.evaluateError(pl, pn, nullptr, nullptr);
-  };
+  // Angles the local sensor sees the neighbor's sensor at, inverting the line of sight
+  const gtsam::Pose3 map_T_sensor_l = pose_l * target_T_sensor_l;
+  const gtsam::Pose3 map_T_sensor_n = pose_n * target_T_sensor_n;
+  const gtsam::Vector3 los = map_T_sensor_l.rotation().matrix().transpose() *
+                             (map_T_sensor_n.translation() - map_T_sensor_l.translation());
+  const double azimuth = std::atan2(los.y(), los.x());
+  const double elevation = std::asin(los.z() / los.norm());
 
-  gtsam::Matrix expectedH_pose_l =
-      gtsam::numericalDerivative21<gtsam::Vector, gtsam::Pose3, gtsam::Pose3>(evalFunc, pose_l,
-                                                                              pose_n, 1e-5);
+  // Matching the state exactly leaves no residual
+  coug_fgo::factors::BearingFactorArm factor(pose_key_l, pose_key_n,
+                                             gtsam::Point2(azimuth, elevation), target_T_sensor_l,
+                                             target_T_sensor_n, model);
 
-  gtsam::Matrix expectedH_pose_n =
-      gtsam::numericalDerivative22<gtsam::Vector, gtsam::Pose3, gtsam::Pose3>(evalFunc, pose_l,
-                                                                              pose_n, 1e-5);
+  const gtsam::Vector expected = gtsam::Vector2::Zero();
+  EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose_l, pose_n), kResidualTol));
 
-  gtsam::Matrix actualH_pose_l, actualH_pose_n;
-  factor.evaluateError(pose_l, pose_n, &actualH_pose_l, &actualH_pose_n);
+  // Elevation is an arc length, so tilting by a known angle moves the residual by that angle
+  constexpr double kOffset = 0.01;  // [rad]
+  coug_fgo::factors::BearingFactorArm tilted(pose_key_l, pose_key_n,
+                                             gtsam::Point2(azimuth, elevation - kOffset),
+                                             target_T_sensor_l, target_T_sensor_n, model);
 
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_pose_l, actualH_pose_l, 1e-5));
-  EXPECT_TRUE(gtsam::assert_equal(expectedH_pose_n, actualH_pose_n, 1e-5));
-  EXPECT_EQ(actualH_pose_l.rows(), 2);
-  EXPECT_EQ(actualH_pose_l.cols(), 6);
-  EXPECT_EQ(actualH_pose_n.rows(), 2);
-  EXPECT_EQ(actualH_pose_n.cols(), 6);
+  EXPECT_NEAR(gtsam::Vector(tilted.evaluateError(pose_l, pose_n)).norm(), kOffset, 1e-6);
 }

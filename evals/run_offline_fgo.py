@@ -18,6 +18,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 from config import BAG_PATHS, EVO_FLAGS, NAMESPACE, config_paths
@@ -47,17 +48,17 @@ def save_config(dest_dir: Path) -> None:
 
 def process_and_evaluate(
     bag_path: str,
-    config_paths: list[str],
+    cfg_paths: list[str],
     namespace: str,
     tag: str,
     evo_flags: list[str],
-    **kwargs,
+    **kwargs: Any,
 ) -> tuple[dict, dict, str] | None:
     """
     Run the full offline pipeline for one bag: load truth, process, save, evaluate.
 
     :param bag_path: Path to the ROS 2 bag directory.
-    :param config_paths: Parameter YAML files, in increasing priority.
+    :param cfg_paths: Parameter YAML files, in increasing priority.
     :param namespace: AUV namespace used for topics and parameters.
     :param tag: Subdirectory and file suffix for this run (e.g. ``offline``).
     :param evo_flags: Extra evo flags forwarded to the APE and RPE runs.
@@ -66,9 +67,7 @@ def process_and_evaluate(
     """
     logger.info(f"Processing bag: {bag_path}")
     pose_gt, gt_path = evo_cli.load_ground_truth(bag_path, namespace)
-    results, _ = pipeline.process_bag_offline(
-        bag_path, config_paths, namespace, **kwargs
-    )
+    results, _ = pipeline.process_bag_offline(bag_path, cfg_paths, namespace, **kwargs)
     if not results:
         return None
 
@@ -115,11 +114,12 @@ def main() -> None:
     setup_logging()
 
     plot_args = []
+    cfg_paths = config_paths(args.namespace)
     with logging_redirect_tqdm():
         for bag in args.bags:
             result = process_and_evaluate(
                 bag,
-                config_paths(args.namespace),
+                cfg_paths,
                 args.namespace,
                 args.tag,
                 args.evo_flags.split(),

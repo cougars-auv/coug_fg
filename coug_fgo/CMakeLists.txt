@@ -3,16 +3,27 @@ project(coug_fgo)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -flto=auto)
-  add_link_options(-flto=auto)
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+include(CheckIPOSupported)
+check_ipo_supported(RESULT _ipo_supported OUTPUT _ipo_error)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+if(_ipo_supported)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO ON)
+else()
+  message(STATUS "LTO not available, skipping: ${_ipo_error}")
 endif()
 
 # --- Dependencies ---
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
+
 find_package(GTSAM REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 find_package(pybind11 REQUIRED)
@@ -26,144 +37,82 @@ find_path(GTSAM_EIGEN_INCLUDE_DIR Eigen/Core
   PATH_SUFFIXES gtsam/3rdparty/Eigen
   NO_DEFAULT_PATH
 )
+if(NOT GTSAM_EIGEN_INCLUDE_DIR)
+  message(FATAL_ERROR
+    "Could not find GTSAM's vendored Eigen (Eigen/Core) under any of: "
+    "${GTSAM_TARGET_INC}")
+endif()
 
-# --- Parameters ---
-generate_parameter_library(
-  factor_graph_parameters
-  "params/factor_graph_params.yaml"
+add_library(gtsam_with_eigen INTERFACE)
+target_include_directories(gtsam_with_eigen SYSTEM INTERFACE
+  "${GTSAM_EIGEN_INCLUDE_DIR}"
 )
-
-generate_parameter_library(
-  dvl_a50_twist_parameters
-  "params/dvl_a50_twist_params.yaml"
-)
-
-generate_parameter_library(
-  dvl_a50_odom_parameters
-  "params/dvl_a50_odom_params.yaml"
-)
-
-generate_parameter_library(
-  fluid_pressure_odom_parameters
-  "params/fluid_pressure_odom_params.yaml"
-)
-
-generate_parameter_library(
-  imu_ned_to_enu_parameters
-  "params/imu_ned_to_enu_params.yaml"
-)
-
-generate_parameter_library(
-  odom_ned_to_enu_parameters
-  "params/odom_ned_to_enu_params.yaml"
-)
-
-generate_parameter_library(
-  navsat_odom_parameters
-  "params/navsat_odom_params.yaml"
-)
-
-generate_parameter_library(
-  sbg_imu_mag_parameters
-  "params/sbg_imu_mag_params.yaml"
-)
-
-generate_parameter_library(
-  seatrac_x150_imu_parameters
-  "params/seatrac_x150_imu_params.yaml"
-)
-
-generate_parameter_library(
-  odom_to_tf_parameters
-  "params/odom_to_tf_params.yaml"
-)
-
-# --- Component Library ---
-ament_auto_add_library(factor_graph_component SHARED
-  src/factor_graph_core.cpp
-  src/factor_graph.cpp
-  src/dvl_a50_twist.cpp
-  src/dvl_a50_odom.cpp
-  src/fluid_pressure_odom.cpp
-  src/imu_ned_to_enu.cpp
-  src/odom_ned_to_enu.cpp
-  src/odom_to_tf.cpp
-  src/navsat_odom.cpp
-  src/sbg_imu_mag.cpp
-  src/seatrac_x150_imu.cpp
-)
-
-target_include_directories(factor_graph_component PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  ${GTSAM_EIGEN_INCLUDE_DIR}
-)
-
-target_link_libraries(factor_graph_component
+target_link_libraries(gtsam_with_eigen INTERFACE
   gtsam
   gtsam_unstable
-  factor_graph_parameters
-  dvl_a50_twist_parameters
-  dvl_a50_odom_parameters
-  fluid_pressure_odom_parameters
-  imu_ned_to_enu_parameters
-  odom_ned_to_enu_parameters
-  odom_to_tf_parameters
-  navsat_odom_parameters
-  sbg_imu_mag_parameters
-  seatrac_x150_imu_parameters
+)
+
+# --- Nodes ---
+set(COUG_FGO_NODES
+  factor_graph
+  dvl_a50_odom
+  dvl_a50_twist
+  fluid_pressure_odom
+  imu_ned_to_enu
+  navsat_odom
+  odom_ned_to_enu
+  odom_to_tf
+  sbg_imu_mag
+  seatrac_x150_imu
+)
+
+# --- Parameters ---
+set(COUG_FGO_NODE_SOURCES "")
+set(COUG_FGO_PARAM_LIBRARIES "")
+foreach(node IN LISTS COUG_FGO_NODES)
+  generate_parameter_library(
+    ${node}_parameters
+    "params/${node}_params.yaml"
+  )
+  list(APPEND COUG_FGO_NODE_SOURCES "src/${node}.cpp")
+  list(APPEND COUG_FGO_PARAM_LIBRARIES "${node}_parameters")
+endforeach()
+
+# --- Component Library ---
+ament_auto_add_library(factor_graph_component SHARED NO_TARGET_LINK_LIBRARIES
+  src/factor_graph_core.cpp
+  ${COUG_FGO_NODE_SOURCES}
+)
+
+target_compile_features(factor_graph_component PUBLIC cxx_std_17)
+
+target_link_libraries(factor_graph_component
+  gtsam_with_eigen
+  ${COUG_FGO_PARAM_LIBRARIES}
   PkgConfig::GeographicLib
 )
 
 rclcpp_components_register_nodes(factor_graph_component
   "coug_fgo::FactorGraphNode"
-  "coug_fgo::DvlA50TwistNode"
   "coug_fgo::DvlA50OdomNode"
+  "coug_fgo::DvlA50TwistNode"
   "coug_fgo::FluidPressureOdomNode"
   "coug_fgo::ImuNedToEnuNode"
+  "coug_fgo::NavsatOdomNode"
   "coug_fgo::OdomNedToEnuNode"
   "coug_fgo::OdomToTfNode"
-  "coug_fgo::NavsatOdomNode"
   "coug_fgo::SbgImuMagNode"
   "coug_fgo::SeatracX150ImuNode"
 )
 
 # --- Executables ---
-ament_auto_add_executable(factor_graph src/factor_graph_node.cpp)
-target_link_libraries(factor_graph factor_graph_component)
-
-ament_auto_add_executable(dvl_a50_twist src/dvl_a50_twist_node.cpp)
-target_link_libraries(dvl_a50_twist factor_graph_component)
-
-ament_auto_add_executable(dvl_a50_odom src/dvl_a50_odom_node.cpp)
-target_link_libraries(dvl_a50_odom factor_graph_component)
-
-ament_auto_add_executable(fluid_pressure_odom src/fluid_pressure_odom_node.cpp)
-target_link_libraries(fluid_pressure_odom factor_graph_component)
-
-ament_auto_add_executable(imu_ned_to_enu src/imu_ned_to_enu_node.cpp)
-target_link_libraries(imu_ned_to_enu factor_graph_component)
-
-ament_auto_add_executable(odom_ned_to_enu src/odom_ned_to_enu_node.cpp)
-target_link_libraries(odom_ned_to_enu factor_graph_component)
-
-ament_auto_add_executable(odom_to_tf src/odom_to_tf_node.cpp)
-target_link_libraries(odom_to_tf factor_graph_component)
-
-ament_auto_add_executable(navsat_odom src/navsat_odom_node.cpp)
-target_link_libraries(navsat_odom factor_graph_component)
-
-ament_auto_add_executable(sbg_imu_mag src/sbg_imu_mag_node.cpp)
-target_link_libraries(sbg_imu_mag factor_graph_component)
-
-ament_auto_add_executable(seatrac_x150_imu src/seatrac_x150_imu_node.cpp)
-target_link_libraries(seatrac_x150_imu factor_graph_component)
+foreach(node IN LISTS COUG_FGO_NODES)
+  ament_auto_add_executable(${node} NO_TARGET_LINK_LIBRARIES "src/${node}_node.cpp")
+  target_link_libraries(${node} factor_graph_component)
+endforeach()
 
 # --- Python Bindings ---
 pybind11_add_module(coug_fgo_py src/factor_graph_py.cpp)
-target_include_directories(coug_fgo_py PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  ${GTSAM_EIGEN_INCLUDE_DIR}
-)
 target_link_libraries(coug_fgo_py PRIVATE
   factor_graph_component
 )
@@ -175,96 +124,29 @@ install(FILES $<TARGET_FILE:coug_fgo_py>
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
-  ament_add_gtest(test_ahrs_factor test/test_ahrs_factor.cpp)
-  target_include_directories(test_ahrs_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
+  set(COUG_FGO_FACTOR_TESTS
+    test_ahrs_factor
+    test_ahrs_yaw_factor
+    test_auv_dynamics_factor
+    test_bearing_factor
+    test_const_vel_factor
+    test_depth_factor
+    test_dvl_factor
+    test_dvl_loose_preint_factor
+    test_dvl_tight_preint_factor
+    test_gps_factor
+    test_mag_calib_factor
+    test_mag_factor
+    test_range_factor
   )
-  target_link_libraries(test_ahrs_factor gtsam)
 
-  ament_add_gtest(test_ahrs_yaw_factor test/test_ahrs_yaw_factor.cpp)
-  target_include_directories(test_ahrs_yaw_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_ahrs_yaw_factor gtsam)
-
-  ament_add_gtest(test_auv_dynamics_factor test/test_auv_dynamics_factor.cpp)
-  target_include_directories(test_auv_dynamics_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_auv_dynamics_factor gtsam)
-
-  ament_add_gtest(test_bearing_factor test/test_bearing_factor.cpp)
-  target_include_directories(test_bearing_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_bearing_factor gtsam)
-
-  ament_add_gtest(test_const_vel_factor test/test_const_vel_factor.cpp)
-  target_include_directories(test_const_vel_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_const_vel_factor gtsam)
-
-  ament_add_gtest(test_depth_factor test/test_depth_factor.cpp)
-  target_include_directories(test_depth_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_depth_factor gtsam)
-
-  ament_add_gtest(test_dvl_factor test/test_dvl_factor.cpp)
-  target_include_directories(test_dvl_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_dvl_factor gtsam)
-
-  ament_add_gtest(test_dvl_loose_preint_factor test/test_dvl_loose_preint_factor.cpp)
-  target_include_directories(test_dvl_loose_preint_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_dvl_loose_preint_factor gtsam)
-
-  ament_add_gtest(test_dvl_tight_preint_factor test/test_dvl_tight_preint_factor.cpp)
-  target_include_directories(test_dvl_tight_preint_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_dvl_tight_preint_factor gtsam)
-
-  ament_add_gtest(test_gps_factor test/test_gps_factor.cpp)
-  target_include_directories(test_gps_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_gps_factor gtsam)
-
-  ament_add_gtest(test_mag_calib_factor test/test_mag_calib_factor.cpp)
-  target_include_directories(test_mag_calib_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_mag_calib_factor gtsam)
-
-  ament_add_gtest(test_mag_factor test/test_mag_factor.cpp)
-  target_include_directories(test_mag_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_mag_factor gtsam)
-
-  ament_add_gtest(test_range_factor test/test_range_factor.cpp)
-  target_include_directories(test_range_factor PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    ${GTSAM_EIGEN_INCLUDE_DIR}
-  )
-  target_link_libraries(test_range_factor gtsam)
+  foreach(test_name IN LISTS COUG_FGO_FACTOR_TESTS)
+    ament_add_gtest(${test_name} "test/${test_name}.cpp")
+    target_include_directories(${test_name} PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    )
+    target_link_libraries(${test_name} gtsam_with_eigen)
+  endforeach()
 endif()
 
 ament_auto_package(

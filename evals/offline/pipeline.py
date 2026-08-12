@@ -26,6 +26,64 @@ from offline.urdf import UrdfTree, resolve_urdf_path
 logger = logging.getLogger(__name__)
 
 
+def _replay_messages(
+    reader: AnyReader, graph: OfflineFactorGraph, topic_to_sensors: dict[str, list[str]]
+) -> bool:
+    """
+    Feed every matching message in the bag into the graph, in recorded order.
+
+    :param reader: Open reader for the bag being replayed.
+    :param graph: Offline graph to feed the measurements to.
+    :param topic_to_sensors: Resolved topic names to lists of sensor keys.
+    :return: True if the replay stopped early because the graph raised.
+    """
+    matched_conns = [c for c in reader.connections if c.topic in topic_to_sensors]
+    if not matched_conns:
+        logger.error("No matching sensor topics found in the bag.")
+        return False
+
+    conn_str = "\n".join(
+        f"  - {c.topic} ({topic_to_sensors[c.topic]})" for c in matched_conns
+    )
+    logger.info(f"Matched sensor topics:\n{conn_str}")
+
+    pbar = tqdm(
+        reader.messages(connections=matched_conns),
+        total=sum(c.msgcount for c in matched_conns),
+        disable=not logger.isEnabledFor(logging.INFO),
+    )
+    for conn, _, rawdata in pbar:
+        msg = reader.deserialize(rawdata, conn.msgtype)
+        try:
+            for sensor in topic_to_sensors[conn.topic]:
+                key = "multiagent" if sensor.startswith("multiagent_") else sensor
+                frame_id, measurement = EXTRACTORS[key](msg)
+                graph.add_message(sensor, frame_id, measurement)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Factor graph optimization failed: {e}")
+            return True
+    return False
+
+
+def _log_missing_results(graph: OfflineFactorGraph) -> None:
+    """
+    Report why a finished replay produced no results.
+
+    :param graph: Graph that finished without producing results.
+    """
+    if graph.is_initialized:
+        logger.error("Graph initialized but produced no results.")
+        return
+
+    missing = graph.pending_init_sensors()
+    if missing:
+        logger.error(
+            f"Graph never initialized. No data received for: {', '.join(missing)}."
+        )
+    else:
+        logger.error("Graph never initialized. Not enough sensor data in the bag.")
+
+
 def process_bag_offline(
     bag_path: str,
     config_paths: list[str],
@@ -54,41 +112,10 @@ def process_bag_offline(
     urdf = UrdfTree(urdf_path) if urdf_path else None
     graph = OfflineFactorGraph(config_paths, namespace, urdf)
 
-    topic_to_sensors = graph.topic_map
-
-    crashed = False
     with AnyReader(
         [Path(bag_path)], default_typestore=get_typestore(Stores.ROS2_JAZZY)
     ) as reader:
-        matched_conns = [c for c in reader.connections if c.topic in topic_to_sensors]
-
-        if matched_conns:
-            conn_str = "\n".join(
-                f"  - {c.topic} ({topic_to_sensors[c.topic]})" for c in matched_conns
-            )
-            logger.info(f"Matched sensor topics:\n{conn_str}")
-
-            pbar = tqdm(
-                reader.messages(connections=matched_conns),
-                total=sum(c.msgcount for c in matched_conns),
-                disable=not logger.isEnabledFor(logging.INFO),
-            )
-
-            for conn, _, rawdata in pbar:
-                msg = reader.deserialize(rawdata, conn.msgtype)
-                try:
-                    for sensor in topic_to_sensors[conn.topic]:
-                        key = (
-                            "multiagent" if sensor.startswith("multiagent_") else sensor
-                        )
-                        frame_id, measurement = EXTRACTORS[key](msg)
-                        graph.add_message(sensor, frame_id, measurement)
-                except Exception as e:  # noqa: BLE001
-                    logger.error(f"Factor graph optimization failed: {e}")
-                    crashed = True
-                    break
-        else:
-            logger.error("No matching sensor topics found in the bag.")
+        crashed = _replay_messages(reader, graph, graph.topic_map)
 
     if not crashed:
         try:
@@ -96,20 +123,9 @@ def process_bag_offline(
         except Exception as e:  # noqa: BLE001
             logger.error(f"Final optimization failed: {e}")
             crashed = True
-    results = graph.get_results()
 
+    results = graph.get_results()
     if results is None:
-        if not graph.is_initialized:
-            missing = graph.pending_init_sensors()
-            if missing:
-                logger.error(
-                    f"Graph never initialized. No data received for: {', '.join(missing)}."
-                )
-            else:
-                logger.error(
-                    "Graph never initialized. Not enough sensor data in the bag."
-                )
-        else:
-            logger.error("Graph initialized but produced no results.")
+        _log_missing_results(graph)
 
     return results, crashed

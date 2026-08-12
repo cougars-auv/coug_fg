@@ -136,6 +136,7 @@ class BearingFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Po
                                H_pose_n ? &H_bearing_n : nullptr);
 
     // 2D bearing residual, anchored at the measured direction to match the noise model basis
+    // TODO: Ask Kalliyan about this
     gtsam::Unit3 measured_direction = losDirection(measured_azi_el_);
     gtsam::Matrix22 H_error = gtsam::Matrix22::Zero();
     gtsam::Vector2 error = measured_direction.errorVector(

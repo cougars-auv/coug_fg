@@ -185,7 +185,7 @@ class OfflineFactorGraph:
         """
         Return prior-seeding sensors with nothing queued to initialize from.
 
-        :return: Sensor keys blocking initialization, in priority order.
+        :return: Sensor keys blocking initialization.
         """
         return [
             s

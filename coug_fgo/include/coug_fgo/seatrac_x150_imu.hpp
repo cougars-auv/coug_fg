@@ -53,7 +53,7 @@ class SeatracX150ImuNode : public rclcpp::Node {
   /**
    * @brief Builds a NED IMU message from the modem attitude with declination correction.
    * @param msg The incoming ModemStatus message (attitude in 0.1-degree units).
-   * @return The converted Imu message (orientation only; parameter noise sigmas).
+   * @return The converted Imu message (orientation and parameter sigmas, or flagged unknown).
    */
   sensor_msgs::msg::Imu convertToImu(const seatrac_interfaces::msg::ModemStatus::SharedPtr msg);
 

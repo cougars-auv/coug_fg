@@ -77,13 +77,13 @@ class FactorGraphNode : public rclcpp::Node {
 
  private:
   /**
-   * @brief Creates publishers, subscribers, TF interfaces, and diagnostics.
+   * @brief Creates publishers, subscribers, services, timers, TF interfaces, and diagnostics.
    */
   void setupRosInterfaces();
 
   // --- Main Logic ---
   /**
-   * @brief Initializes the factor graph using averaged sensor data or parameters.
+   * @brief Initializes the factor graph from the newest sensor samples or parameter priors.
    */
   void initializeGraph();
 
@@ -168,7 +168,7 @@ class FactorGraphNode : public rclcpp::Node {
   // --- Publishing ---
   /**
    * @brief Publishes the optimized pose as map-frame odometry of the base frame.
-   * @param current_pose The estimated target pose (re-expressed at the base frame).
+   * @param current_pose The estimated target pose (re-expressed at the base frame here).
    * @param pose_covariance The estimation error covariance.
    * @param timestamp The message timestamp.
    */

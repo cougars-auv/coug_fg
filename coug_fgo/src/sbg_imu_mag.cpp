@@ -14,7 +14,7 @@
 
 /**
  * @file sbg_imu_mag.cpp
- * @brief ROS 2 node that converts SBG magnetometer output from arbitrary units to nominal Tesla.
+ * @brief Implementation of the SbgImuMagNode.
  * @author Nelson Durrant
  * @date August 2026
  */

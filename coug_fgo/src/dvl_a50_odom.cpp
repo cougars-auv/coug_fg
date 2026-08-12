@@ -66,7 +66,7 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
 nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
     const dvl_msgs::msg::DVLDR::SharedPtr msg, const std::string& dvl_frame,
     const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) {
-  // Transform from DVL-frame to base-frame pose in the map frame
+  // Transform from DVL-frame to base-frame pose in the odom frame
   geometry_msgs::msg::Pose dvl_T_base;
   dvl_T_base.position.x = dvl_T_base_tf.transform.translation.x;
   dvl_T_base.position.y = dvl_T_base_tf.transform.translation.y;

@@ -53,7 +53,7 @@ class DvlA50TwistNode : public rclcpp::Node {
   /**
    * @brief Converts a DVL report to a stamped twist with FOM- or message-derived covariance.
    * @param msg The incoming DVL message.
-   * @return The converted TwistWithCovarianceStamped message (DVL time-of-validity stamp).
+   * @return The converted TwistWithCovarianceStamped message (time-of-validity or header stamp).
    */
   geometry_msgs::msg::TwistWithCovarianceStamped convertToTwist(
       const dvl_msgs::msg::DVL::SharedPtr msg);

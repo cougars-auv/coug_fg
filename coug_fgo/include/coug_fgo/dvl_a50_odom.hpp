@@ -59,7 +59,7 @@ class DvlA50OdomNode : public rclcpp::Node {
    * @param msg The incoming DVLDR message (position in meters, attitude in degrees).
    * @param dvl_frame The frame the dead-reckoning pose is expressed in.
    * @param dvl_T_base_tf The DVL-to-base transform.
-   * @return The converted Odometry message (DVL time-of-validity stamp).
+   * @return The converted Odometry message (DVL report-time or header stamp).
    */
   nav_msgs::msg::Odometry convertToOdom(const dvl_msgs::msg::DVLDR::SharedPtr msg,
                                         const std::string& dvl_frame,

@@ -120,7 +120,7 @@ class FactorGraphCore {
    * @param target_time The keyframe timestamp.
    * @param queues Drained sensor data structs (consumed).
    * @param tfs Latest sensor transforms to refresh (picks up lazily-resolved ones).
-   * @return Structs newer than the keyframe to re-queue, or nullopt if the timestamp was stale.
+   * @return Structs newer than the keyframe to re-queue, or nullopt if the keyframe was rejected.
    */
   std::optional<utils::QueueBundle> update(double target_time, utils::QueueBundle& queues,
                                            const utils::TfBundle& tfs);
@@ -172,7 +172,7 @@ class FactorGraphCore {
     explicit NeighborState(size_t agent_queue_idx) : current_step(agent_queue_idx << kStepShift) {}
 
     /**
-     * @brief Seeds both window slots from the neighbor's first status message, leaving the key.
+     * @brief Seeds the window from the neighbor's first status message without advancing the key.
      * @param pose The reported map-frame base pose.
      * @param covariance The base-frame tangent-space pose covariance.
      * @param time The status message timestamp.
@@ -230,7 +230,7 @@ class FactorGraphCore {
 
   // --- Initialization ---
   /**
-   * @brief Computes the initial pose, velocity, bias, and start time from the newest samples.
+   * @brief Computes the initial state, covariances, and start time from the newest samples.
    * @param queues Bundle of drained sensor message deques (only the newest of each is used).
    * @return The computed initial state, or nullopt while a required sensor is missing.
    */
@@ -296,7 +296,7 @@ class FactorGraphCore {
 
   // --- Factor Construction ---
   /**
-   * @brief Adds pose, velocity, and IMU bias prior factors to the initial graph.
+   * @brief Adds the pose, velocity, IMU bias, and any hard-iron bias priors to the initial graph.
    * @param init_state Provides the computed initial state values.
    * @param graph The target factor graph.
    * @param values The initial variable estimates.
@@ -321,7 +321,7 @@ class FactorGraphCore {
                       const std::deque<std::shared_ptr<utils::OdometryData>>& depth_msgs);
 
   /**
-   * @brief Adds a magnetometer field factor with sensor rotation compensation.
+   * @brief Adds a magnetometer field factor with sensor rotation and hard-iron bias compensation.
    * @param graph The target factor graph.
    * @param mag_msgs Drained magnetometer structs (only the newest is used).
    */

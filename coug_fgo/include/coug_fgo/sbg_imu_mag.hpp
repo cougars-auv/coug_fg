@@ -14,7 +14,7 @@
 
 /**
  * @file sbg_imu_mag.hpp
- * @brief ROS 2 node that converts SBG magnetometer output from arbitrary units to Tesla.
+ * @brief ROS 2 node that converts SBG magnetometer output from arbitrary units to nominal Tesla.
  * @author Nelson Durrant
  * @date August 2026
  */

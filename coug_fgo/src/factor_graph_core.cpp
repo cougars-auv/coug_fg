@@ -528,7 +528,7 @@ FactorGraphCore::configureImuPreintegration(const InitialState& init_state) cons
       gtsam::Vector3(params_.imu.gravity[0], params_.imu.gravity[1], params_.imu.gravity[2]);
   imu_params->body_P_sensor = tfs_.target_T_imu;
 
-  // IMPORTANT! GTSAM preintegration requires continuous-time densities.
+  // GTSAM preintegration requires continuous-time densities
   bool use_param_cov = params_.imu.use_parameter_covariance;
   if (!use_param_cov && params_.imu.sensor_rate_hz <= 0.0) {
     logMessage(utils::LogLevel::kWarn,
@@ -575,7 +575,6 @@ void FactorGraphCore::addPriorFactors(const InitialState& init_state,
     values.insert(M(0), init_state.mag_bias);
   }
 
-  // Log the computed initial state and covariance
   gtsam::Vector6 prior_pose_sigmas = init_state.pose_cov.diagonal().cwiseSqrt();
   gtsam::Vector3 prior_vel_sigmas = init_state.vel_cov.diagonal().cwiseSqrt();
   gtsam::Vector6 prior_imu_bias_sigmas = init_state.bias_cov.diagonal().cwiseSqrt();
@@ -650,8 +649,6 @@ void FactorGraphCore::addMagFactor(
 
   const auto& mag_msg = mag_msgs.back();
 
-  // IMPORTANT! The reference field must be in the world frame (ENU), not NED.
-  // If getting values from NOAA (NED), convert as: [Y, X, -Z].
   gtsam::Point3 ref_vec(params_.mag.reference_field[0], params_.mag.reference_field[1],
                         params_.mag.reference_field[2]);
 
@@ -668,7 +665,7 @@ void FactorGraphCore::addMagFactor(
     return;
   }
 
-  // Apply the configured offset directly when it is not being estimated
+  // Apply the configured hard-iron bias directly when it is not being estimated
   graph.emplace_shared<MagFactorArm>(X(current_step_), mag_msg->magnetic_field - prev_mag_bias_,
                                      ref_vec, tfs_.target_T_mag, mag_noise);
 }
@@ -681,7 +678,6 @@ void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 
   const auto& ahrs_msg = ahrs_msgs.back();
 
-  // Handle yaw-only AHRS factor option
   if (params_.ahrs.constrain_yaw_only) {
     const double ahrs_yaw_var =
         resolveVar(params_.ahrs.use_parameter_covariance,
@@ -955,7 +951,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
     }
   };
 
-  // Method derived from Thoms et al., IEEE JOE 2023
+  // Tightly-coupled DVL integration method derived from Thoms et al., IEEE JOE 2023
   auto integrateDvlMeasurement = [&](double mid_time, double dt) {
     stepImuPreintegrator(mid_time);
 
@@ -1015,7 +1011,6 @@ void FactorGraphCore::addNeighborPriorFactor(gtsam::NonlinearFactorGraph& graph,
       N(neighbor.current_step), neighbor.curr_pose,
       gtsam::noiseModel::Gaussian::Covariance(neighbor.curr_covariance));
 
-  // Log the anchored neighbor state and covariance
   gtsam::Vector6 prior_pose_sigmas = neighbor.curr_covariance.diagonal().cwiseSqrt();
 
   std::ostringstream oss;
@@ -1164,7 +1159,7 @@ void FactorGraphCore::addMultiAgentFactors(
       neighbor.initialize(msg->pose, base_cov, msg->timestamp);
       addNeighborPriorFactor(graph, neighbor, i);
     } else {
-      // IMPORTANT! Handle acomms dropouts that are longer than the smoother lag
+      // Handle acomms dropouts longer than the smoother lag
       const bool expired =
           inc_smoother_ && (target_time - neighbor.curr_time) > params_.smoother_lag;
 
@@ -1273,7 +1268,7 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
     addAhrsFactor(new_graph, queues.ahrs);
   }
 
-  // DVL dropout handling
+  // Handle DVL dropouts
   auto addDropoutFactors = [&](gtsam::NonlinearFactorGraph& g) {
     bool use_dynamics =
         params_.dynamics.enable_dynamics || params_.dynamics.enable_dynamics_dropout_only;
@@ -1324,7 +1319,6 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   new_timestamps[V(current_step_)] = target_time;
   new_timestamps[B(current_step_)] = target_time;
 
-  // IMPORTANT! Refresh the static key every step or the fixed-lag smoother marginalizes it out
   if (params_.mag.estimate_hard_iron_bias) {
     new_timestamps[M(0)] = target_time;
   }

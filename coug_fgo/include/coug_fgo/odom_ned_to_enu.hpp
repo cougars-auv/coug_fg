@@ -32,6 +32,9 @@ namespace coug_fgo {
 /**
  * @class OdomNedToEnuNode
  * @brief ROS 2 node that converts an odometry pose from the NED to the ENU world convention.
+ *
+ * IMPORTANT! Only the world reference is rotated. Sensor axes pass through untouched, so an FRD
+ * sensor has to be converted to FLU by its driver node or the URDF first.
  */
 class OdomNedToEnuNode : public rclcpp::Node {
  public:

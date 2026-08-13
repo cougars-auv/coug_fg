@@ -32,6 +32,9 @@ namespace coug_fgo {
 /**
  * @class ImuNedToEnuNode
  * @brief ROS 2 node that converts AHRS IMU orientation from the NED to the ENU world convention.
+ *
+ * IMPORTANT! Only the world reference is rotated. Sensor axes pass through untouched, so an FRD
+ * sensor has to be converted to FLU by its driver node or the URDF first.
  */
 class ImuNedToEnuNode : public rclcpp::Node {
  public:

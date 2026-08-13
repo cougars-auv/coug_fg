@@ -14,7 +14,7 @@
 
 /**
  * @file seatrac_x150_imu_depth.hpp
- * @brief ROS 2 node that converts SeaTrac ModemStatus to IMU, magnetometer, and depth messages.
+ * @brief ROS 2 node that converts SeaTrac ModemStatus to IMU and depth messages.
  * @author Nelson Durrant
  * @date May 2026
  */
@@ -26,7 +26,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <seatrac_interfaces/msg/modem_status.hpp>
 #include <sensor_msgs/msg/imu.hpp>
-#include <sensor_msgs/msg/magnetic_field.hpp>
 
 #include "coug_fgo/seatrac_x150_imu_depth_parameters.hpp"
 
@@ -34,7 +33,7 @@ namespace coug_fgo {
 
 /**
  * @class SeatracX150ImuDepthNode
- * @brief ROS 2 node that converts SeaTrac ModemStatus to IMU, magnetometer, and depth messages.
+ * @brief ROS 2 node that converts SeaTrac ModemStatus to IMU and depth messages.
  */
 class SeatracX150ImuDepthNode : public rclcpp::Node {
  public:
@@ -46,7 +45,7 @@ class SeatracX150ImuDepthNode : public rclcpp::Node {
 
  private:
   /**
-   * @brief Publishes IMU, magnetometer, and/or depth messages when the modem report includes them.
+   * @brief Publishes IMU and/or depth messages when the modem report includes them.
    * @param msg The incoming ModemStatus message.
    */
   void modemStatusCallback(const seatrac_interfaces::msg::ModemStatus::SharedPtr msg);
@@ -59,14 +58,6 @@ class SeatracX150ImuDepthNode : public rclcpp::Node {
   sensor_msgs::msg::Imu convertToImu(const seatrac_interfaces::msg::ModemStatus::SharedPtr msg);
 
   /**
-   * @brief Builds a MagneticField message from the modem field readings.
-   * @param msg The incoming ModemStatus message.
-   * @return The converted MagneticField message; the covariance comes from parameter sigmas.
-   */
-  sensor_msgs::msg::MagneticField convertToMag(
-      const seatrac_interfaces::msg::ModemStatus::SharedPtr msg);
-
-  /**
    * @brief Builds a NED depth Odometry message from the modem pressure sensor reading.
    * @param msg The incoming ModemStatus message (depth in 0.1-meter units, positive down).
    * @return The converted Odometry message; only the Z position and its variance are populated.
@@ -76,7 +67,6 @@ class SeatracX150ImuDepthNode : public rclcpp::Node {
   // --- ROS Interfaces ---
   rclcpp::Subscription<seatrac_interfaces::msg::ModemStatus>::SharedPtr modem_sub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_pub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr depth_pub_;
 
   // --- Parameters ---

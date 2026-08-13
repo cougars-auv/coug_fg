@@ -43,9 +43,6 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
   imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(params_.imu_output_topic,
                                                      rclcpp::SystemDefaultsQoS());
 
-  mag_pub_ = create_publisher<sensor_msgs::msg::MagneticField>(params_.mag_output_topic,
-                                                               rclcpp::SystemDefaultsQoS());
-
   depth_pub_ = create_publisher<nav_msgs::msg::Odometry>(params_.depth_output_topic,
                                                          rclcpp::SystemDefaultsQoS());
 
@@ -56,10 +53,6 @@ void SeatracX150ImuDepthNode::modemStatusCallback(
     const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
   if (msg->includes_local_attitude) {
     imu_pub_->publish(convertToImu(msg));
-  }
-
-  if (msg->includes_comp_ahrs) {
-    mag_pub_->publish(convertToMag(msg));
   }
 
   if (msg->includes_env_fields) {
@@ -82,6 +75,11 @@ sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
 
   tf2::Quaternion q;
   q.setRPY(roll_rad, pitch_rad, yaw_rad);
+
+  // Convert FRD -> FLU
+  static const tf2::Quaternion kFrdToFlu(1.0, 0.0, 0.0, 0.0);
+  q *= kFrdToFlu;
+
   imu_msg.orientation = tf2::toMsg(q);
 
   const auto& s = params_.orientation_noise_sigmas;
@@ -94,26 +92,6 @@ sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
   imu_msg.angular_velocity_covariance[0] = kUnknownCovariance;
 
   return imu_msg;
-}
-
-sensor_msgs::msg::MagneticField SeatracX150ImuDepthNode::convertToMag(
-    const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
-  sensor_msgs::msg::MagneticField mag_msg;
-  mag_msg.header = msg->header;
-  if (params_.use_parameter_frame) {
-    mag_msg.header.frame_id = params_.parameter_frame;
-  }
-
-  mag_msg.magnetic_field.x = msg->mag_x;
-  mag_msg.magnetic_field.y = msg->mag_y;
-  mag_msg.magnetic_field.z = msg->mag_z;
-
-  const auto& m = params_.magnetic_field_noise_sigmas;
-  mag_msg.magnetic_field_covariance[0] = m[0] * m[0];
-  mag_msg.magnetic_field_covariance[4] = m[1] * m[1];
-  mag_msg.magnetic_field_covariance[8] = m[2] * m[2];
-
-  return mag_msg;
 }
 
 nav_msgs::msg::Odometry SeatracX150ImuDepthNode::convertToOdom(

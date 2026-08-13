@@ -47,6 +47,7 @@ using utils::toVectorMsg;
 namespace {
 
 constexpr double kUnknownCovariance = -1.0;
+constexpr size_t kSensorQueueDepth = 200;
 
 /**
  * @brief Maps a row-major ROS covariance array onto an N x N Eigen matrix.
@@ -114,7 +115,7 @@ void FactorGraphNode::setupRosInterfaces() {
 
   // --- ROS Subscribers ---
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
-      params_.imu_topic, rclcpp::SensorDataQoS().keep_last(200),
+      params_.imu_topic, rclcpp::SensorDataQoS().keep_last(kSensorQueueDepth),
       [this](const sensor_msgs::msg::Imu::SharedPtr msg) {
         std::string child =
             params_.imu.use_parameter_frame ? params_.imu.parameter_frame : msg->header.frame_id;
@@ -209,7 +210,7 @@ void FactorGraphNode::setupRosInterfaces() {
   if (params_.ahrs.enable_ahrs || params_.ahrs.enable_ahrs_init_priors ||
       params_.comparison.enable_loose_dvl_preintegration) {
     ahrs_sub_ = create_subscription<sensor_msgs::msg::Imu>(
-        params_.ahrs_topic, rclcpp::SensorDataQoS().keep_last(200),
+        params_.ahrs_topic, rclcpp::SensorDataQoS().keep_last(kSensorQueueDepth),
         [this](const sensor_msgs::msg::Imu::SharedPtr msg) {
           std::string child = params_.ahrs.use_parameter_frame ? params_.ahrs.parameter_frame
                                                                : msg->header.frame_id;

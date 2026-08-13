@@ -88,6 +88,9 @@ using utils::SolverType;
 namespace {
 
 constexpr double kMinIntegrationDt = 1.0e-6;
+constexpr double kMinInterpDt = 1.0e-9;
+constexpr double kMinRandomWalkDt = 0.001;
+constexpr double kSecondsToNanoseconds = 1e9;
 
 /**
  * @brief Builds a diagonal covariance matrix from a vector of standard deviations.
@@ -201,7 +204,7 @@ gtsam::Rot3 getInterpolatedOrientation(
   double t2 = (*it_after)->timestamp;
   double denominator = t2 - t1;
 
-  if (std::abs(denominator) < 1e-9) {
+  if (std::abs(denominator) < kMinInterpDt) {
     return (*(it_after - 1))->orientation;
   }
 
@@ -271,7 +274,7 @@ bool FactorGraphCore::initialize(const utils::QueueBundle& queues, const utils::
   addPriorFactors(init_state, initial_graph, initial_values);
 
   if (params_.publish_smoothed_path) {
-    time_to_key_[static_cast<int64_t>(prev_time_ * 1e9)] = X(0);
+    time_to_key_[static_cast<int64_t>(prev_time_ * kSecondsToNanoseconds)] = X(0);
   }
 
   // --- Initialize Preintegrators ---
@@ -738,7 +741,7 @@ void FactorGraphCore::addConstVelFactor(gtsam::NonlinearFactorGraph& graph, doub
   Eigen::Vector3d vel_random_walk =
       Eigen::Map<const Eigen::Vector3d>(params_.const_vel.prediction_noise_sigmas.data()) *
       std::sqrt(params_.const_vel.covariance_scalar);
-  double sqrt_dt = std::sqrt(std::max(dt, 0.001));
+  double sqrt_dt = std::sqrt(std::max(dt, kMinRandomWalkDt));
   Eigen::Vector3d scaled_sigma = vel_random_walk * sqrt_dt;
 
   gtsam::SharedNoiseModel zero_accel_noise = gtsam::noiseModel::Diagonal::Sigmas(scaled_sigma);
@@ -765,7 +768,7 @@ void FactorGraphCore::addAuvDynamicsFactor(
   const auto& wrench_msg = last_wrench_msg_;
 
   double dt = target_time - prev_time_;
-  double sqrt_dt = std::sqrt(std::max(dt, 0.001));
+  double sqrt_dt = std::sqrt(std::max(dt, kMinRandomWalkDt));
   gtsam::Vector3 dynamics_sigmas =
       Eigen::Map<const Eigen::Vector3d>(params_.dynamics.prediction_noise_sigmas.data()) *
       std::sqrt(params_.dynamics.covariance_scalar) * sqrt_dt;
@@ -1193,7 +1196,7 @@ void FactorGraphCore::addMultiAgentFactors(
 std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
                                                           utils::QueueBundle& queues,
                                                           const utils::TfBundle& tfs) {
-  if (target_time <= prev_time_ + 1e-6) {
+  if (target_time <= prev_time_ + kMinIntegrationDt) {
     return std::nullopt;
   }
 
@@ -1332,10 +1335,11 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   imu_preintegrator_->resetIntegrationAndSetBias(prev_imu_bias_);
 
   if (params_.publish_smoothed_path) {
-    time_to_key_[static_cast<int64_t>(target_time * 1e9)] = X(current_step_);
+    time_to_key_[static_cast<int64_t>(target_time * kSecondsToNanoseconds)] = X(current_step_);
     if (inc_smoother_) {
-      time_to_key_.erase(time_to_key_.begin(), time_to_key_.lower_bound(static_cast<int64_t>(
-                                                   (target_time - params_.smoother_lag) * 1e9)));
+      time_to_key_.erase(time_to_key_.begin(),
+                         time_to_key_.lower_bound(static_cast<int64_t>(
+                             (target_time - params_.smoother_lag) * kSecondsToNanoseconds)));
     }
   }
 

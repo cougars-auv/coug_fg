@@ -266,6 +266,7 @@ class FactorGraphNode : public rclcpp::Node {
 
   // --- Node State ---
   std::atomic<bool> is_initialized_{false};
+  std::atomic<bool> has_crashed_{false};
   bool init_data_ready_{false};
   rclcpp::Time last_update_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_opt_time_{0, 0, RCL_ROS_TIME};

@@ -730,6 +730,11 @@ void FactorGraphNode::frontendThreadLoop() {
     {
       std::shared_lock reset_lock(reset_mutex_);
 
+      if (has_crashed_.load()) {
+        drainAllQueues();
+        continue;
+      }
+
       if (!is_initialized_.load()) {
         initializeGraph();
       } else if (checkAndUpdateRateLimit(last_update_time_, params_.max_update_rate_hz)) {
@@ -750,11 +755,11 @@ void FactorGraphNode::backendThreadLoop() {
       break;
     }
 
-    if (is_initialized_.load()) {
+    if (is_initialized_.load() && !has_crashed_.load()) {
       lock.unlock();
 
       std::shared_lock reset_lock(reset_mutex_);
-      if (!is_initialized_.load()) {
+      if (!is_initialized_.load() || has_crashed_.load()) {
         continue;
       }
 
@@ -925,7 +930,7 @@ void FactorGraphNode::optimizeGraph() {
     }
   } catch (const std::exception& e) {
     RCLCPP_FATAL(get_logger(), "%s", e.what());
-    rclcpp::shutdown();
+    has_crashed_.store(true);
   }
 }
 
@@ -991,7 +996,10 @@ void FactorGraphNode::checkSensorStatus(diagnostic_updater::DiagnosticStatusWrap
 }
 
 void FactorGraphNode::checkGraphStatus(diagnostic_updater::DiagnosticStatusWrapper& stat) {
-  if (!is_initialized_.load()) {
+  if (has_crashed_.load()) {
+    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR,
+                 "Optimizer crashed. Waiting for a reset.");
+  } else if (!is_initialized_.load()) {
     stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Waiting for sensor data.");
   } else if (processing_overflow_.load()) {
     stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN,
@@ -1036,6 +1044,7 @@ void FactorGraphNode::resetGraph(const std_srvs::srv::Trigger::Request::SharedPt
   });
 
   is_initialized_.store(false);
+  has_crashed_.store(false);
   init_data_ready_ = false;
   last_target_time_.reset();
   last_update_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);

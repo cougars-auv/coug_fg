@@ -44,14 +44,14 @@ class SbgImuMagNode : public rclcpp::Node {
  private:
   /**
    * @brief Publishes the Tesla-scaled copy of an incoming magnetometer message.
-   * @param msg The incoming magnetometer message, in arbitrary units.
+   * @param msg The incoming MagneticField message (in arbitrary units).
    */
   void magCallback(const sensor_msgs::msg::MagneticField::SharedPtr msg);
 
   /**
    * @brief Scales the field and its covariance from arbitrary units into nominal Tesla.
-   * @param msg The incoming magnetometer message, in arbitrary units.
-   * @return The converted magnetometer message.
+   * @param msg The incoming MagneticField message (in arbitrary units).
+   * @return The converted MagneticField message; an unknown covariance is left unscaled.
    */
   sensor_msgs::msg::MagneticField convertToTesla(
       const sensor_msgs::msg::MagneticField::SharedPtr msg);

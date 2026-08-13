@@ -1,23 +1,8 @@
-seatrac_x150_imu_node:
+seatrac_x150_imu_depth_node:
   # --- Node Settings ---
-  publish_diagnostics:
-    type: bool
-    default_value: false
-  diagnostic_timeout_sec:
-    type: double
-    default_value: 0.5
-    validation:
-      gt<>: [0.0]
-
   orientation_noise_sigmas:
     type: double_array
     default_value: [0.00349, 0.00349, 0.01745]
-    validation:
-      fixed_size<>: [3]
-      lower_element_bounds<>: [0.0]
-  magnetic_field_noise_sigmas:
-    type: double_array
-    default_value: [0.006, 0.006, 0.006]
     validation:
       fixed_size<>: [3]
       lower_element_bounds<>: [0.0]
@@ -26,6 +11,19 @@ seatrac_x150_imu_node:
     default_value: 0.0
     validation:
       bounds<>: [-3.14159, 3.14159]
+
+  magnetic_field_noise_sigmas:
+    type: double_array
+    default_value: [0.006, 0.006, 0.006]
+    validation:
+      fixed_size<>: [3]
+      lower_element_bounds<>: [0.0]
+
+  depth_noise_sigma:
+    type: double
+    default_value: 0.1
+    validation:
+      gt_eq<>: [0.0]
 
   # --- ROS Topics and Frames ---
   input_topic:
@@ -41,6 +39,17 @@ seatrac_x150_imu_node:
   mag_output_topic:
     type: string
     default_value: "seatrac/imu/mag"
+    validation:
+      not_empty<>: []
+  depth_output_topic:
+    type: string
+    default_value: "seatrac/depth/odometry_ned"
+    validation:
+      not_empty<>: []
+
+  map_frame:
+    type: string
+    default_value: "map"
     validation:
       not_empty<>: []
 

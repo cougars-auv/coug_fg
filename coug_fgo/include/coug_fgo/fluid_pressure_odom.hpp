@@ -39,7 +39,7 @@ namespace coug_fgo {
 class FluidPressureOdomNode : public rclcpp::Node {
  public:
   /**
-   * @brief Constructs the node and sets up fluid pressure conversion.
+   * @brief Constructs the node and sets up the fluid pressure conversion.
    * @param options The node options.
    */
   explicit FluidPressureOdomNode(const rclcpp::NodeOptions& options);

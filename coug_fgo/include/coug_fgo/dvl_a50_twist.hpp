@@ -38,7 +38,7 @@ namespace coug_fgo {
 class DvlA50TwistNode : public rclcpp::Node {
  public:
   /**
-   * @brief Constructs the node and sets up DVL velocity conversion.
+   * @brief Constructs the node and sets up the DVL velocity conversion.
    * @param options The node options.
    */
   explicit DvlA50TwistNode(const rclcpp::NodeOptions& options);

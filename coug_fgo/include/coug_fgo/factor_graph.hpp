@@ -66,7 +66,7 @@ class FactorGraphNode : public rclcpp::Node {
  public:
   /**
    * @brief Constructs the node and launches frontend/backend threads.
-   * @param options ROS 2 node options (composable node support).
+   * @param options The node options.
    */
   explicit FactorGraphNode(const rclcpp::NodeOptions& options);
 
@@ -99,8 +99,8 @@ class FactorGraphNode : public rclcpp::Node {
 
   /**
    * @brief Resets the factor graph and state estimator to re-initialize from scratch.
-   * @param request The service request to trigger the reset.
-   * @param response The service response indicating success or failure.
+   * @param request Unused Trigger request.
+   * @param response Trigger response reporting whether the reset was applied.
    */
   void resetGraph(const std_srvs::srv::Trigger::Request::SharedPtr request,
                   std::shared_ptr<std_srvs::srv::Trigger::Response> response);

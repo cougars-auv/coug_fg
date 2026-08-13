@@ -13,13 +13,13 @@
 // limitations under the License.
 
 /**
- * @file seatrac_x150_imu.cpp
- * @brief Implementation of the SeatracX150ImuNode.
+ * @file seatrac_x150_imu_depth.cpp
+ * @brief Implementation of the SeatracX150ImuDepthNode.
  * @author Nelson Durrant
  * @date May 2026
  */
 
-#include "coug_fgo/seatrac_x150_imu.hpp"
+#include "coug_fgo/seatrac_x150_imu_depth.hpp"
 
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -29,16 +29,16 @@
 
 namespace coug_fgo {
 
-SeatracX150ImuNode::SeatracX150ImuNode(const rclcpp::NodeOptions& options)
-    : Node("seatrac_x150_imu_node", options) {
+SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& options)
+    : Node("seatrac_x150_imu_depth_node", options) {
   param_listener_ =
-      std::make_shared<seatrac_x150_imu_node::ParamListener>(get_node_parameters_interface());
+      std::make_shared<seatrac_x150_imu_depth_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
   // --- ROS Interfaces ---
   modem_sub_ = create_subscription<seatrac_interfaces::msg::ModemStatus>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      std::bind(&SeatracX150ImuNode::modemStatusCallback, this, std::placeholders::_1));
+      std::bind(&SeatracX150ImuDepthNode::modemStatusCallback, this, std::placeholders::_1));
 
   imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(params_.imu_output_topic,
                                                      rclcpp::SystemDefaultsQoS());
@@ -46,21 +46,28 @@ SeatracX150ImuNode::SeatracX150ImuNode(const rclcpp::NodeOptions& options)
   mag_pub_ = create_publisher<sensor_msgs::msg::MagneticField>(params_.mag_output_topic,
                                                                rclcpp::SystemDefaultsQoS());
 
+  depth_pub_ = create_publisher<nav_msgs::msg::Odometry>(params_.depth_output_topic,
+                                                         rclcpp::SystemDefaultsQoS());
+
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void SeatracX150ImuNode::modemStatusCallback(
+void SeatracX150ImuDepthNode::modemStatusCallback(
     const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
-  if (msg->includes_local_attitude || msg->includes_comp_ahrs) {
+  if (msg->includes_local_attitude) {
     imu_pub_->publish(convertToImu(msg));
   }
 
   if (msg->includes_comp_ahrs) {
     mag_pub_->publish(convertToMag(msg));
   }
+
+  if (msg->includes_env_fields) {
+    depth_pub_->publish(convertToOdom(msg));
+  }
 }
 
-sensor_msgs::msg::Imu SeatracX150ImuNode::convertToImu(
+sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
     const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
   sensor_msgs::msg::Imu imu_msg;
   imu_msg.header = msg->header;
@@ -68,33 +75,28 @@ sensor_msgs::msg::Imu SeatracX150ImuNode::convertToImu(
     imu_msg.header.frame_id = params_.parameter_frame;
   }
 
+  static constexpr double kSeatracToRad = M_PI / 1800.0;
+  double roll_rad = msg->attitude_roll * kSeatracToRad;
+  double pitch_rad = msg->attitude_pitch * kSeatracToRad;
+  double yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
+
+  tf2::Quaternion q;
+  q.setRPY(roll_rad, pitch_rad, yaw_rad);
+  imu_msg.orientation = tf2::toMsg(q);
+
+  const auto& s = params_.orientation_noise_sigmas;
+  imu_msg.orientation_covariance[0] = s[0] * s[0];
+  imu_msg.orientation_covariance[4] = s[1] * s[1];
+  imu_msg.orientation_covariance[8] = s[2] * s[2];
+
   static constexpr double kUnknownCovariance = -1.0;
-
-  if (msg->includes_local_attitude) {
-    static constexpr double kSeatracToRad = M_PI / 1800.0;
-    double roll_rad = msg->attitude_roll * kSeatracToRad;
-    double pitch_rad = msg->attitude_pitch * kSeatracToRad;
-    double yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
-
-    tf2::Quaternion q;
-    q.setRPY(roll_rad, pitch_rad, yaw_rad);
-    imu_msg.orientation = tf2::toMsg(q);
-
-    const auto& s = params_.orientation_noise_sigmas;
-    imu_msg.orientation_covariance[0] = s[0] * s[0];
-    imu_msg.orientation_covariance[4] = s[1] * s[1];
-    imu_msg.orientation_covariance[8] = s[2] * s[2];
-  } else {
-    imu_msg.orientation_covariance[0] = kUnknownCovariance;
-  }
-
   imu_msg.linear_acceleration_covariance[0] = kUnknownCovariance;
   imu_msg.angular_velocity_covariance[0] = kUnknownCovariance;
 
   return imu_msg;
 }
 
-sensor_msgs::msg::MagneticField SeatracX150ImuNode::convertToMag(
+sensor_msgs::msg::MagneticField SeatracX150ImuDepthNode::convertToMag(
     const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
   sensor_msgs::msg::MagneticField mag_msg;
   mag_msg.header = msg->header;
@@ -114,6 +116,24 @@ sensor_msgs::msg::MagneticField SeatracX150ImuNode::convertToMag(
   return mag_msg;
 }
 
+nav_msgs::msg::Odometry SeatracX150ImuDepthNode::convertToOdom(
+    const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
+  nav_msgs::msg::Odometry odom_msg;
+  odom_msg.header.stamp = msg->header.stamp;
+  odom_msg.header.frame_id = params_.map_frame;
+
+  odom_msg.child_frame_id =
+      params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
+
+  static constexpr double kSeatracToMeters = 0.1;
+  odom_msg.pose.pose.position.z = msg->depth_local * kSeatracToMeters;
+  odom_msg.pose.pose.orientation.w = 1.0;
+
+  odom_msg.pose.covariance[14] = params_.depth_noise_sigma * params_.depth_noise_sigma;
+
+  return odom_msg;
+}
+
 }  // namespace coug_fgo
 
-RCLCPP_COMPONENTS_REGISTER_NODE(coug_fgo::SeatracX150ImuNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(coug_fgo::SeatracX150ImuDepthNode)

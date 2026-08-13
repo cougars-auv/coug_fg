@@ -13,8 +13,8 @@
 // limitations under the License.
 
 /**
- * @file seatrac_x150_imu_node.cpp
- * @brief Standalone executable for the SeatracX150ImuNode.
+ * @file seatrac_x150_imu_depth_node.cpp
+ * @brief Standalone executable for the SeatracX150ImuDepthNode.
  * @author Nelson Durrant
  * @date May 2026
  */
@@ -22,11 +22,11 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 
-#include "coug_fgo/seatrac_x150_imu.hpp"
+#include "coug_fgo/seatrac_x150_imu_depth.hpp"
 
 int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<coug_fgo::SeatracX150ImuNode>(rclcpp::NodeOptions());
+  auto node = std::make_shared<coug_fgo::SeatracX150ImuDepthNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

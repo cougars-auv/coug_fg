@@ -63,7 +63,7 @@ set(COUG_FGO_NODES
   odom_ned_to_enu
   odom_to_tf
   sbg_imu_mag
-  seatrac_x150_imu
+  seatrac_x150_imu_depth
 )
 
 # --- Parameters ---
@@ -102,7 +102,7 @@ rclcpp_components_register_nodes(factor_graph_component
   "coug_fgo::OdomNedToEnuNode"
   "coug_fgo::OdomToTfNode"
   "coug_fgo::SbgImuMagNode"
-  "coug_fgo::SeatracX150ImuNode"
+  "coug_fgo::SeatracX150ImuDepthNode"
 )
 
 # --- Executables ---

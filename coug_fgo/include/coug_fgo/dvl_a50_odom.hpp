@@ -42,7 +42,7 @@ namespace coug_fgo {
 class DvlA50OdomNode : public rclcpp::Node {
  public:
   /**
-   * @brief Constructs the node and sets up DVL dead-reckoning conversion.
+   * @brief Constructs the node and sets up the DVL dead-reckoning conversion.
    * @param options The node options.
    */
   explicit DvlA50OdomNode(const rclcpp::NodeOptions& options);

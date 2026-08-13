@@ -1,14 +1,5 @@
 fluid_pressure_odom_node:
   # --- Node Settings ---
-  publish_diagnostics:
-    type: bool
-    default_value: false
-  diagnostic_timeout_sec:
-    type: double
-    default_value: 0.5
-    validation:
-      gt<>: [0.0]
-
   pressure_scale:
     type: double
     default_value: 1.0

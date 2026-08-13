@@ -792,7 +792,7 @@ factor_graph_node:
             gt<>: [0.0]
         orientation_noise_sigmas:
           type: double_array
-          default_value: [0.00698, 0.00698, 0.01745]
+          default_value: [0.00349, 0.00349, 0.01745]
           validation:
             fixed_size<>: [3]
             lower_element_bounds<>: [0.0]
@@ -822,7 +822,7 @@ factor_graph_node:
             gt<>: [0.0]
         position_z_noise_sigma:
           type: double
-          default_value: 0.02
+          default_value: 0.1
           validation:
             gt<>: [0.0]
         robust_kernel:

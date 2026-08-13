@@ -336,13 +336,14 @@ def generate_launch_description() -> LaunchDescription:
             ),
             Node(
                 package="coug_fgo",
-                executable="seatrac_x150_imu",
-                name="seatrac_x150_imu_node",
+                executable="seatrac_x150_imu_depth",
+                name="seatrac_x150_imu_depth_node",
                 parameters=[
                     fleet_params,
                     auv_params,
                     {
                         "use_sim_time": use_sim_time,
+                        "map_frame": "map",
                         "parameter_frame": modem_link_frame,
                     },
                 ],
@@ -351,6 +352,18 @@ def generate_launch_description() -> LaunchDescription:
                 package="coug_fgo",
                 executable="imu_ned_to_enu",
                 name="seatrac_imu_ned_to_enu_node",
+                parameters=[
+                    fleet_params,
+                    auv_params,
+                    {
+                        "use_sim_time": use_sim_time,
+                    },
+                ],
+            ),
+            Node(
+                package="coug_fgo",
+                executable="odom_ned_to_enu",
+                name="seatrac_odom_ned_to_enu_node",
                 parameters=[
                     fleet_params,
                     auv_params,

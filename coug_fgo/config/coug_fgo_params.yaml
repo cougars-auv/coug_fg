@@ -256,7 +256,7 @@
           # Blueprint Subsea SeaTrac X150 AHRS: ±0.2° pitch/roll, ±1.0° yaw standard deviation.
           # https://www.blueprintsubsea.com/seatrac/seatrac-standard
           orientation_noise_sigmas: [0.00349, 0.00349, 0.01745] # [roll, pitch, yaw] [rad] AHRS orientation uncertainty sigmas.
-# East-positive declination (NOAA convention).
+          # East-positive declination (NOAA convention).
           # https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml#declination
           mag_declination_radians: 0.0 # [rad]
           robust_kernel: "None"

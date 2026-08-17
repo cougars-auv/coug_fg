@@ -153,6 +153,7 @@ pgm_preint_loose = copy.deepcopy(pgm)
 pgm_preint_tight = copy.deepcopy(pgm)
 pgm_dynamics = copy.deepcopy(pgm)
 pgm_const_vel = copy.deepcopy(pgm)
+pgm_dvl_beams = copy.deepcopy(pgm)
 
 # =============================================================================
 # BINARY DVL GRAPH
@@ -175,6 +176,32 @@ for i in range(5):
 pgm.render()
 pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_binary.pdf", bbox_inches="tight")
 pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_binary.png", bbox_inches="tight", dpi=300)
+
+# =============================================================================
+# PER-BEAM DVL GRAPH
+# =============================================================================
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+
+    for beam in reversed(range(4)):
+        pgm_dvl_beams.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+        pgm_dvl_beams.add_edge(f"x{i}", f"dvl{i}_{beam}")
+        pgm_dvl_beams.add_edge(f"v{i}", f"dvl{i}_{beam}")
+
+pgm_dvl_beams.render()
+pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fgo_dvl_beams.pdf", bbox_inches="tight")
+pgm_dvl_beams.figure.savefig(
+    OUTPUT_DIR / "fgo_dvl_beams.png", bbox_inches="tight", dpi=300
+)
 
 # =============================================================================
 # LOOSE PREINTEGRATED DVL GRAPH

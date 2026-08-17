@@ -54,7 +54,7 @@ prior_dist = col_spacing / 2
 win_pad = col_spacing / 2
 win_left = (start_x + col_spacing) - win_pad
 win_width = (3 * col_spacing) + (2 * win_pad)
-win_bottom = 1 - win_pad
+win_bottom = 0 - win_pad + 0.175
 
 # =============================================================================
 # BASE FACTOR GRAPH
@@ -98,7 +98,7 @@ for i in range(5):
 
     pgm.add_node(
         f"heading{i}",
-        f"$\\psi_{i}$",
+        f"$\\psi^*_{i}$",
         col_x + 0.4,
         3.4,
         fixed=True,
@@ -138,6 +138,19 @@ pgm.add_node(
     plot_params=style_factor_gps,
 )
 pgm.add_edge("x3", "gps")
+
+mag_x = start_x + col_spacing
+pgm.add_node(
+    "pm",
+    "$p_\\mathbf{m}$",
+    mag_x - prior_dist,
+    0,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_prior,
+)
+pgm.add_node("mag", "$\\mathbf{m}^*$", mag_x, 0, plot_params=style_var)
+pgm.add_edge("pm", "mag")
 
 # Shade the sliding window
 win_top = 3.6 + win_pad - 0.2
@@ -394,7 +407,7 @@ for i in range(5):
 
     pgm_multiagent.add_node(
         f"heading{i}",
-        f"$\\psi^0_{i}$",
+        f"$\\psi^{{0*}}_{i}$",
         col_x + 0.4,
         3.4,
         fixed=True,
@@ -434,6 +447,18 @@ pgm_multiagent.add_node(
     plot_params=style_factor_gps,
 )
 pgm_multiagent.add_edge("x3", "gps")
+
+pgm_multiagent.add_node(
+    "pm",
+    "$p^0_\\mathbf{m}$",
+    start_x - prior_dist,
+    0,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_prior,
+)
+pgm_multiagent.add_node("mag", "$\\mathbf{m}^{0*}$", start_x, 0, plot_params=style_var)
+pgm_multiagent.add_edge("pm", "mag")
 
 for i in range(5):
     col_x = start_x + (i * col_spacing)

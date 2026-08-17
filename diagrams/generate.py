@@ -478,22 +478,22 @@ for i in range(5):
 pgm_multiagent.add_node(
     "px1",
     "$p^1_\\mathbf{n}$",
-    start_x - prior_dist,
+    (start_x + (2 * col_spacing)) - prior_dist,
     4.5,
     fixed=True,
     offset=[0, 3],
     plot_params=style_prior,
 )
 
-for i in [0, 2, 4]:
+for i in [2, 4]:
     col_x = start_x + (i * col_spacing)
     pgm_multiagent.add_node(
         f"x1_{i}", f"$\\mathbf{{n}}^1_{{{i}}}$", col_x, 4.5, plot_params=style_var
     )
 
-pgm_multiagent.add_edge("px1", "x1_0")
+pgm_multiagent.add_edge("px1", "x1_2")
 
-for i in [0, 2, 4]:
+for i in [2, 4]:
     col_x = start_x + (i * col_spacing)
 
     pgm_multiagent.add_node(
@@ -518,7 +518,7 @@ for i in [0, 2, 4]:
     )
     pgm_multiagent.add_edge(f"x1_{i}", f"heading1_{i}")
 
-for a, b in [(0, 2), (2, 4)]:
+for a, b in [(2, 4)]:
     mid_x = start_x + ((a + b) / 2) * col_spacing
     pgm_multiagent.add_node(
         f"odom1_{a}{b}",

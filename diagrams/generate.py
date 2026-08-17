@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import copy
+import math
 from pathlib import Path
 
 import daft
@@ -29,9 +30,11 @@ COLOR_PRIOR = "#4C72B0"
 COLOR_FACTOR_DEPTH = "#DD8452"
 COLOR_FACTOR_HEADING = "#C44E52"
 COLOR_FACTOR_GPS = "#55A868"
-COLOR_FACTOR_DVL = "#8172B2"
+COLOR_FACTOR_DVL = "#8172B3"
 COLOR_FACTOR_IMU = "#000000"
 COLOR_FACTOR_DYNAMICS = "#DA8BC3"
+COLOR_FACTOR_RANGE = "#937860"
+COLOR_FACTOR_BEARING = "#CCB974"
 
 style_var = {"facecolor": COLOR_VAR, "edgecolor": "black"}
 style_prior = {"facecolor": COLOR_PRIOR, "edgecolor": "black"}
@@ -41,6 +44,8 @@ style_factor_gps = {"facecolor": COLOR_FACTOR_GPS, "edgecolor": "black"}
 style_factor_dvl = {"facecolor": COLOR_FACTOR_DVL, "edgecolor": "black"}
 style_factor_imu = {"facecolor": COLOR_FACTOR_IMU, "edgecolor": "black"}
 style_factor_dynamics = {"facecolor": COLOR_FACTOR_DYNAMICS, "edgecolor": "black"}
+style_factor_range = {"facecolor": COLOR_FACTOR_RANGE, "edgecolor": "black"}
+style_factor_bearing = {"facecolor": COLOR_FACTOR_BEARING, "edgecolor": "black"}
 
 col_spacing = 1.5
 start_x = 2.0
@@ -418,9 +423,9 @@ for i in range(5):
 # Second agent factor graph
 pgm_multiagent.add_node(
     "px1",
-    "$p^1_\\mathbf{{x}}$",
+    "$p^1_\\mathbf{x}$",
     start_x - prior_dist,
-    5.7,
+    4.5,
     fixed=True,
     offset=[0, 3],
     plot_params=style_prior,
@@ -429,7 +434,7 @@ pgm_multiagent.add_node(
 for i in [0, 2, 4]:
     col_x = start_x + (i * col_spacing)
     pgm_multiagent.add_node(
-        f"x1_{i}", f"$\\mathbf{{x}}^1_{{{i}}}$", col_x, 5.7, plot_params=style_var
+        f"x1_{i}", f"$\\mathbf{{n}}^1_{{{i}}}$", col_x, 4.5, plot_params=style_var
     )
 
 pgm_multiagent.add_edge("px1", "x1_0")
@@ -441,7 +446,7 @@ for i in [0, 2, 4]:
         f"depth1_{i}",
         f"$z^1_{i}$",
         col_x - 0.4,
-        6.1,
+        4.9,
         fixed=True,
         plot_params=style_factor_depth,
         offset=[0, 3],
@@ -452,7 +457,7 @@ for i in [0, 2, 4]:
         f"heading1_{i}",
         f"$\\psi^1_{i}$",
         col_x + 0.4,
-        6.1,
+        4.9,
         fixed=True,
         plot_params=style_factor_heading,
         offset=[0, 3],
@@ -465,7 +470,7 @@ for a, b in [(0, 2), (2, 4)]:
         f"odom1_{a}{b}",
         f"$u^1_{{{a}{b}}}$",
         mid_x,
-        5.7,
+        4.5,
         fixed=True,
         offset=[0, -20],
         plot_params=style_factor_imu,
@@ -473,41 +478,37 @@ for a, b in [(0, 2), (2, 4)]:
     pgm_multiagent.add_edge(f"x1_{a}", f"odom1_{a}{b}")
     pgm_multiagent.add_edge(f"odom1_{a}{b}", f"x1_{b}")
 
-# Anchor nodes
-for agent, row in [(1, 5), (0, 4)]:
-    pgm_multiagent.add_node(
-        f"panchor{agent}",
-        f"$p^{agent}_\\mathbf{{\\Delta}}$",
-        start_x - prior_dist,
-        row,
-        fixed=True,
-        offset=[0, 3],
-        plot_params=style_prior,
-    )
-    pgm_multiagent.add_node(
-        f"anchor{agent}",
-        f"$\\mathbf{{\\Delta}}^{agent}$",
-        start_x,
-        row,
-        plot_params=style_var,
-    )
-    pgm_multiagent.add_edge(f"panchor{agent}", f"anchor{agent}")
+# Inter-agent factors
+inter_radius = math.hypot(0.4, 0.4)
+inter_dx = inter_radius * math.sin(math.radians(20))
+inter_dy = inter_radius * math.cos(math.radians(20))
 
-# Inter-agent constraint factors
 for i in [2, 4]:
+    col_x = start_x + (i * col_spacing)
+
     pgm_multiagent.add_node(
-        f"constraint{i}",
-        f"$c_{i}$",
-        start_x + i * col_spacing,
-        4.5,
+        f"range{i}",
+        f"$r^{{01}}_{{{i}}}$",
+        col_x - inter_dx,
+        4.5 - inter_dy,
+        fixed=True,
+        offset=[-13, -8],
+        plot_params=style_factor_range,
+    )
+    pgm_multiagent.add_edge(f"x{i}", f"range{i}")
+    pgm_multiagent.add_edge(f"range{i}", f"x1_{i}")
+
+    pgm_multiagent.add_node(
+        f"bearing{i}",
+        f"$\\beta^{{01}}_{{{i}}}$",
+        col_x + inter_dx,
+        4.5 - inter_dy,
         fixed=True,
         offset=[13, -8],
-        plot_params=style_factor_dynamics,
+        plot_params=style_factor_bearing,
     )
-    pgm_multiagent.add_edge("anchor0", f"constraint{i}")
-    pgm_multiagent.add_edge("anchor1", f"constraint{i}")
-    pgm_multiagent.add_edge(f"x{i}", f"constraint{i}")
-    pgm_multiagent.add_edge(f"x1_{i}", f"constraint{i}")
+    pgm_multiagent.add_edge(f"x{i}", f"bearing{i}")
+    pgm_multiagent.add_edge(f"bearing{i}", f"x1_{i}")
 
 pgm_multiagent.render()
 pgm_multiagent.figure.savefig(OUTPUT_DIR / "fgo_multiagent.pdf", bbox_inches="tight")

@@ -423,7 +423,7 @@ for i in range(5):
 # Second agent factor graph
 pgm_multiagent.add_node(
     "px1",
-    "$p^1_\\mathbf{x}$",
+    "$p^1_\\mathbf{n}$",
     start_x - prior_dist,
     4.5,
     fixed=True,

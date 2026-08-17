@@ -156,7 +156,7 @@ pgm_const_vel = copy.deepcopy(pgm)
 pgm_dvl_beams = copy.deepcopy(pgm)
 
 # =============================================================================
-# BINARY DVL GRAPH
+# DIRECT DVL GRAPH
 # =============================================================================
 
 for i in range(5):
@@ -174,8 +174,8 @@ for i in range(5):
     pgm.add_edge(f"v{i}", f"dvl{i}")
 
 pgm.render()
-pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_binary.pdf", bbox_inches="tight")
-pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_binary.png", bbox_inches="tight", dpi=300)
+pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_direct.pdf", bbox_inches="tight")
+pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_direct.png", bbox_inches="tight", dpi=300)
 
 # =============================================================================
 # PER-BEAM DVL GRAPH

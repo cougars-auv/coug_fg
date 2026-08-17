@@ -207,8 +207,9 @@ for i in range(5):
             offset=[-10, -8],
             plot_params=style_factor_dvl,
         )
-        pgm_dvl_beams.add_edge(f"x{i}", f"dvl{i}_{beam}")
-        pgm_dvl_beams.add_edge(f"v{i}", f"dvl{i}_{beam}")
+
+    pgm_dvl_beams.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_dvl_beams.add_edge(f"v{i}", f"dvl{i}_0")
 
 pgm_dvl_beams.render()
 pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fgo_dvl_beams.pdf", bbox_inches="tight")
@@ -279,17 +280,20 @@ pgm_preint_tight.figure.savefig(
 
 for i in [0, 1, 4]:
     col_x = start_x + (i * col_spacing)
-    pgm_dynamics.add_node(
-        f"dvl{i}",
-        f"${{v}}_{{{i}}}$",
-        col_x,
-        2.5,
-        fixed=True,
-        offset=[-10, -8],
-        plot_params=style_factor_dvl,
-    )
-    pgm_dynamics.add_edge(f"x{i}", f"dvl{i}")
-    pgm_dynamics.add_edge(f"v{i}", f"dvl{i}")
+
+    for beam in reversed(range(4)):
+        pgm_dynamics.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+
+    pgm_dynamics.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_dynamics.add_edge(f"v{i}", f"dvl{i}_0")
 
 for i in range(4):
     col_x = start_x + (i * col_spacing)
@@ -321,17 +325,20 @@ pgm_dynamics.figure.savefig(
 
 for i in [0, 1, 4]:
     col_x = start_x + (i * col_spacing)
-    pgm_const_vel.add_node(
-        f"dvl{i}",
-        f"${{v}}_{{{i}}}$",
-        col_x,
-        2.5,
-        fixed=True,
-        offset=[-10, -8],
-        plot_params=style_factor_dvl,
-    )
-    pgm_const_vel.add_edge(f"x{i}", f"dvl{i}")
-    pgm_const_vel.add_edge(f"v{i}", f"dvl{i}")
+
+    for beam in reversed(range(4)):
+        pgm_const_vel.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+
+    pgm_const_vel.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_const_vel.add_edge(f"v{i}", f"dvl{i}_0")
 
 for i in range(1, 3):
     col_x = start_x + (i * col_spacing)
@@ -462,17 +469,20 @@ pgm_multiagent.add_edge("pm", "mag")
 
 for i in range(5):
     col_x = start_x + (i * col_spacing)
-    pgm_multiagent.add_node(
-        f"dvl{i}",
-        f"${{v}}^0_{{{i}}}$",
-        col_x,
-        2.5,
-        fixed=True,
-        offset=[-10, -8],
-        plot_params=style_factor_dvl,
-    )
-    pgm_multiagent.add_edge(f"x{i}", f"dvl{i}")
-    pgm_multiagent.add_edge(f"v{i}", f"dvl{i}")
+
+    for beam in reversed(range(4)):
+        pgm_multiagent.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}^0_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+
+    pgm_multiagent.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_multiagent.add_edge(f"v{i}", f"dvl{i}_0")
 
 # Second agent factor graph
 pgm_multiagent.add_node(

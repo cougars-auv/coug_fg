@@ -333,6 +333,8 @@ for i in range(1, 3):
         plot_params=style_factor_dynamics,
         offset=[0, 3],
     )
+    pgm_const_vel.add_edge(f"x{i}", f"const_vel{i}")
+    pgm_const_vel.add_edge(f"const_vel{i}", f"x{i + 1}")
     pgm_const_vel.add_edge(f"v{i}", f"const_vel{i}")
     pgm_const_vel.add_edge(f"v{i + 1}", f"const_vel{i}")
 

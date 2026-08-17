@@ -509,7 +509,7 @@ for i in [0, 2, 4]:
 
     pgm_multiagent.add_node(
         f"heading1_{i}",
-        f"$\\psi^1_{i}$",
+        f"$\\phi\\theta\\psi^1_{i}$",
         col_x + 0.4,
         4.9,
         fixed=True,

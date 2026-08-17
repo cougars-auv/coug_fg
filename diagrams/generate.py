@@ -451,13 +451,13 @@ pgm_multiagent.add_edge("x3", "gps")
 pgm_multiagent.add_node(
     "pm",
     "$p^0_\\mathbf{m}$",
-    start_x - prior_dist,
+    mag_x - prior_dist,
     0,
     fixed=True,
     offset=[0, 3],
     plot_params=style_prior,
 )
-pgm_multiagent.add_node("mag", "$\\mathbf{m}^{0*}$", start_x, 0, plot_params=style_var)
+pgm_multiagent.add_node("mag", "$\\mathbf{m}^{0*}$", mag_x, 0, plot_params=style_var)
 pgm_multiagent.add_edge("pm", "mag")
 
 for i in range(5):
@@ -563,6 +563,16 @@ for i in [2, 4]:
     )
     pgm_multiagent.add_edge(f"x{i}", f"bearing{i}")
     pgm_multiagent.add_edge(f"bearing{i}", f"x1_{i}")
+
+# Shade the sliding window
+win_top_multiagent = 4.9 + win_pad - 0.2
+pgm_multiagent.add_plate(
+    [win_left, win_bottom, win_width, win_top_multiagent - win_bottom],
+    label="sliding window",
+    position="bottom right",
+    rect_params={"fc": "#E8E8E8", "ec": "none"},
+    fontsize=10,
+)
 
 pgm_multiagent.render()
 pgm_multiagent.figure.savefig(OUTPUT_DIR / "fgo_multiagent.pdf", bbox_inches="tight")

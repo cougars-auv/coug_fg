@@ -57,7 +57,7 @@ factor_graph_node:
     default_value: -1.0
     validation:
       gt_eq<>: [-1.0]
-  smoother_lag:
+  smoother_lag_sec:
     type: double
     default_value: 20.0
     validation:
@@ -767,6 +767,11 @@ factor_graph_node:
     range_noise_sigma:
       type: double
       default_value: 0.1
+      validation:
+        gt<>: [0.0]
+    sound_speed:
+      type: double
+      default_value: 1500.0
       validation:
         gt<>: [0.0]
     neighbor:

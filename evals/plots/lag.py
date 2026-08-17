@@ -61,9 +61,9 @@ def _get_smoother_lag(bag_dir: Path, agent_name: str) -> float | None:
         except (KeyError, TypeError):
             pass
 
-    if "smoother_lag" not in params:
+    if "smoother_lag_sec" not in params:
         return None
-    return float(params["smoother_lag"])
+    return float(params["smoother_lag_sec"])
 
 
 def _read_bag_durations(bag_dir: Path, agent_name: str) -> list[float]:
@@ -102,7 +102,7 @@ def _collect_durations_by_lag(target_dir: Path) -> pd.DataFrame:
         lag = _get_smoother_lag(bag_dir, agent_dir.name)
         if lag is None:
             logger.warning(
-                f"No smoother_lag found in {bag_dir} for {agent_dir.name}, skipping."
+                f"No smoother_lag_sec found in {bag_dir} for {agent_dir.name}, skipping."
             )
             continue
 

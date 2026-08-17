@@ -273,7 +273,7 @@ bool FactorGraphCore::initialize(const utils::QueueBundle& queues, const utils::
   gtsam::Values initial_values;
   addPriorFactors(init_state, initial_graph, initial_values);
 
-  if (params_.publish_smoothed_path) {
+  if (params_.publish_smoothed_path || params_.multiagent.enable_multiagent) {
     time_to_key_[static_cast<int64_t>(prev_time_ * kSecondsToNanoseconds)] = X(0);
   }
 
@@ -327,8 +327,8 @@ bool FactorGraphCore::initialize(const utils::QueueBundle& queues, const utils::
       lm_values_ = initial_values;
       break;
     case SolverType::kIncrementalFixedLagSmoother:
-      inc_smoother_ =
-          std::make_unique<gtsam::IncrementalFixedLagSmoother>(params_.smoother_lag, isam2_params);
+      inc_smoother_ = std::make_unique<gtsam::IncrementalFixedLagSmoother>(params_.smoother_lag_sec,
+                                                                           isam2_params);
       inc_smoother_->update(initial_graph, initial_values, initial_timestamps);
       break;
   }
@@ -1083,7 +1083,7 @@ void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 
 void FactorGraphCore::addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& graph,
                                                const utils::AgentStatusData& msg,
-                                               const NeighborState& neighbor) {
+                                               const NeighborState& neighbor, gtsam::Key pose_key) {
   if (!msg.includes_range) {
     return;
   }
@@ -1095,13 +1095,14 @@ void FactorGraphCore::addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& grap
   range_noise =
       applyRobustKernel(range_noise, params_.multiagent.robust_kernel, params_.multiagent.robust_k);
 
-  graph.emplace_shared<RangeFactorArm>(X(current_step_), N(neighbor.current_step), msg.range_dist,
+  graph.emplace_shared<RangeFactorArm>(pose_key, N(neighbor.current_step), msg.range_dist,
                                        tfs_.target_T_modem, neighbor_base_T_modem_, range_noise);
 }
 
 void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& graph,
                                                  const utils::AgentStatusData& msg,
-                                                 const NeighborState& neighbor) {
+                                                 const NeighborState& neighbor,
+                                                 gtsam::Key pose_key) {
   if (!msg.includes_usbl) {
     return;
   }
@@ -1118,9 +1119,9 @@ void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& gr
   bearing_noise = applyRobustKernel(bearing_noise, params_.multiagent.robust_kernel,
                                     params_.multiagent.robust_k);
 
-  graph.emplace_shared<BearingFactorArm>(X(current_step_), N(neighbor.current_step),
-                                         measured_azi_el, tfs_.target_T_modem,
-                                         neighbor_base_T_modem_, bearing_noise);
+  graph.emplace_shared<BearingFactorArm>(pose_key, N(neighbor.current_step), measured_azi_el,
+                                         tfs_.target_T_modem, neighbor_base_T_modem_,
+                                         bearing_noise);
 }
 
 void FactorGraphCore::addMultiAgentFactors(
@@ -1136,7 +1137,23 @@ void FactorGraphCore::addMultiAgentFactors(
     return gtsam::Matrix66(base_R_map.transpose() * msg.pose_covariance * base_R_map);
   };
 
-  // TODO: Fix the timing issues here w Kalliyan
+  auto nearestPoseKey = [this, target_time](double stamp) {
+    const auto stamp_ns = static_cast<int64_t>(stamp * kSecondsToNanoseconds);
+    const auto after = time_to_key_.lower_bound(stamp_ns);
+
+    gtsam::Key key = X(current_step_);
+    int64_t best = std::llabs(static_cast<int64_t>(target_time * kSecondsToNanoseconds) - stamp_ns);
+
+    if (after != time_to_key_.end() && after->first - stamp_ns < best) {
+      best = after->first - stamp_ns;
+      key = after->second;
+    }
+    if (after != time_to_key_.begin() && stamp_ns - std::prev(after)->first < best) {
+      key = std::prev(after)->second;
+    }
+    return key;
+  };
+
   for (size_t i = 0; i < queues.multiagent.size(); ++i) {
     const auto& queue = queues.multiagent[i];
     if (queue.empty()) {
@@ -1158,15 +1175,20 @@ void FactorGraphCore::addMultiAgentFactors(
 
     const gtsam::Matrix66 base_cov = baseTangentCovariance(*msg);
 
+    // Subtract the acoustic flight time to determine when the neighbor replied
+    const double sent_time = msg->includes_range
+                                 ? msg->timestamp - msg->range_dist / params_.multiagent.sound_speed
+                                 : msg->timestamp;
+
     if (inserted) {
-      neighbor.initialize(msg->pose, base_cov, msg->timestamp);
+      neighbor.initialize(msg->pose, base_cov, sent_time);
       addNeighborPriorFactor(graph, neighbor, i);
     } else {
       // Handle acomms dropouts longer than the smoother lag
       const bool expired =
-          inc_smoother_ && (target_time - neighbor.curr_time) > params_.smoother_lag;
+          inc_smoother_ && (target_time - neighbor.curr_time) > params_.smoother_lag_sec;
 
-      neighbor.advance(msg->pose, base_cov, msg->timestamp);
+      neighbor.advance(msg->pose, base_cov, sent_time);
 
       if (expired) {
         addNeighborPriorFactor(graph, neighbor, i);
@@ -1176,7 +1198,7 @@ void FactorGraphCore::addMultiAgentFactors(
     }
 
     values.insert(N(neighbor.current_step), neighbor.curr_pose);
-    timestamps[N(neighbor.current_step)] = msg->timestamp;
+    timestamps[N(neighbor.current_step)] = sent_time;
 
     if (params_.multiagent.neighbor.depth.enable_depth) {
       addNeighborDepthFactor(graph, *msg, neighbor);
@@ -1184,11 +1206,13 @@ void FactorGraphCore::addMultiAgentFactors(
     if (params_.multiagent.neighbor.ahrs.enable_ahrs) {
       addNeighborAhrsFactor(graph, *msg, neighbor);
     }
+
+    const gtsam::Key pose_key = nearestPoseKey(sent_time);
     if (params_.multiagent.enable_range) {
-      addInterAgentRangeFactor(graph, *msg, neighbor);
+      addInterAgentRangeFactor(graph, *msg, neighbor, pose_key);
     }
     if (params_.multiagent.enable_bearing) {
-      addInterAgentBearingFactor(graph, *msg, neighbor);
+      addInterAgentBearingFactor(graph, *msg, neighbor, pose_key);
     }
   }
 }
@@ -1334,12 +1358,12 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   // --- Reset Preintegrators ---
   imu_preintegrator_->resetIntegrationAndSetBias(prev_imu_bias_);
 
-  if (params_.publish_smoothed_path) {
+  if (params_.publish_smoothed_path || params_.multiagent.enable_multiagent) {
     time_to_key_[static_cast<int64_t>(target_time * kSecondsToNanoseconds)] = X(current_step_);
     if (inc_smoother_) {
       time_to_key_.erase(time_to_key_.begin(),
                          time_to_key_.lower_bound(static_cast<int64_t>(
-                             (target_time - params_.smoother_lag) * kSecondsToNanoseconds)));
+                             (target_time - params_.smoother_lag_sec) * kSecondsToNanoseconds)));
     }
   }
 

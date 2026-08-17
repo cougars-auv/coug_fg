@@ -439,18 +439,22 @@ class FactorGraphCore {
    * @param graph The target factor graph.
    * @param msg The neighbor's broadcast status struct (skipped unless it carries a range).
    * @param neighbor The rolling window state for this neighbor.
+   * @param pose_key The local keyframe closest to when the reply was sent.
    */
   void addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& graph,
-                                const utils::AgentStatusData& msg, const NeighborState& neighbor);
+                                const utils::AgentStatusData& msg, const NeighborState& neighbor,
+                                gtsam::Key pose_key);
 
   /**
    * @brief Adds a USBL bearing factor between the local and neighbor modems.
    * @param graph The target factor graph.
    * @param msg The neighbor's broadcast status struct (skipped unless it carries a bearing).
    * @param neighbor The rolling window state for this neighbor.
+   * @param pose_key The local keyframe closest to when the reply was sent.
    */
   void addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& graph,
-                                  const utils::AgentStatusData& msg, const NeighborState& neighbor);
+                                  const utils::AgentStatusData& msg, const NeighborState& neighbor,
+                                  gtsam::Key pose_key);
 
   /**
    * @brief Adds neighboring-agent odometry, depth, AHRS, range, and bearing factors.

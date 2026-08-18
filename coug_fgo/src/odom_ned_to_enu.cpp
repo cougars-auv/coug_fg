@@ -21,8 +21,12 @@
 
 #include "coug_fgo/odom_ned_to_enu.hpp"
 
+#include <tf2/LinearMath/Quaternion.h>
+
 #include <Eigen/Core>
+#include <cmath>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace coug_fgo {
 
@@ -51,16 +55,18 @@ nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
     const nav_msgs::msg::Odometry::SharedPtr msg) {
   nav_msgs::msg::Odometry out = *msg;
 
-  out.pose.pose.position.x = msg->pose.pose.position.y;
-  out.pose.pose.position.y = msg->pose.pose.position.x;
-  out.pose.pose.position.z = -msg->pose.pose.position.z;
+  // Convert NED -> ENU
+  static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
 
-  const auto& q = msg->pose.pose.orientation;
-  static constexpr double kInvSqrt2 = M_SQRT1_2;
-  out.pose.pose.orientation.w = -kInvSqrt2 * (q.x + q.y);
-  out.pose.pose.orientation.x = kInvSqrt2 * (q.w + q.z);
-  out.pose.pose.orientation.y = kInvSqrt2 * (q.w - q.z);
-  out.pose.pose.orientation.z = kInvSqrt2 * (q.y - q.x);
+  const auto& p = msg->pose.pose.position;
+  tf2::Vector3 position = tf2::quatRotate(kNedToEnu, tf2::Vector3(p.x, p.y, p.z));
+  out.pose.pose.position.x = position.x();
+  out.pose.pose.position.y = position.y();
+  out.pose.pose.position.z = position.z();
+
+  tf2::Quaternion q;
+  tf2::fromMsg(msg->pose.pose.orientation, q);
+  out.pose.pose.orientation = tf2::toMsg(kNedToEnu * q);
 
   if (out.pose.covariance[0] >= 0.0) {
     // Pose orientation covariance is expressed about the world-frame axes

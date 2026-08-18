@@ -86,9 +86,12 @@ geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistNode::convertToTwist(
     twist_msg.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 
-  twist_msg.twist.twist.linear.x = msg->velocity.x;
-  twist_msg.twist.twist.linear.y = msg->velocity.y;
-  twist_msg.twist.twist.linear.z = msg->velocity.z;
+  // Convert FRD -> FLU
+  static constexpr double kFrdToFlu[3] = {1.0, -1.0, -1.0};
+
+  twist_msg.twist.twist.linear.x = kFrdToFlu[0] * msg->velocity.x;
+  twist_msg.twist.twist.linear.y = kFrdToFlu[1] * msg->velocity.y;
+  twist_msg.twist.twist.linear.z = kFrdToFlu[2] * msg->velocity.z;
 
   if (params_.use_fom_covariance) {
     double cov_val = msg->fom * params_.fom_covariance_scale;
@@ -98,7 +101,8 @@ geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistNode::convertToTwist(
   } else {
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
-        twist_msg.twist.covariance[i * 6 + j] = msg->covariance[i * 3 + j];
+        twist_msg.twist.covariance[i * 6 + j] =
+            kFrdToFlu[i] * kFrdToFlu[j] * msg->covariance[i * 3 + j];
       }
     }
   }

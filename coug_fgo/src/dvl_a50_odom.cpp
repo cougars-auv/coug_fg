@@ -83,6 +83,11 @@ nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
   static constexpr double kDegToRad = M_PI / 180.0;
   tf2::Quaternion q;
   q.setRPY(msg->roll * kDegToRad, msg->pitch * kDegToRad, msg->yaw * kDegToRad);
+
+  // Convert FRD -> FLU
+  static const tf2::Quaternion kFrdToFlu(1.0, 0.0, 0.0, 0.0);
+  q *= kFrdToFlu;
+
   odom_T_dvl_tf.transform.rotation = tf2::toMsg(q);
 
   geometry_msgs::msg::Pose odom_T_base;

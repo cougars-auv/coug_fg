@@ -21,9 +21,12 @@
 
 #include "coug_fgo/imu_ned_to_enu.hpp"
 
+#include <tf2/LinearMath/Quaternion.h>
+
 #include <Eigen/Core>
 #include <cmath>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace coug_fgo {
 
@@ -51,12 +54,12 @@ void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
 sensor_msgs::msg::Imu ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu::SharedPtr msg) {
   sensor_msgs::msg::Imu out = *msg;
 
-  const auto& q = msg->orientation;
-  static constexpr double kInvSqrt2 = M_SQRT1_2;
-  out.orientation.w = -kInvSqrt2 * (q.x + q.y);
-  out.orientation.x = kInvSqrt2 * (q.w + q.z);
-  out.orientation.y = kInvSqrt2 * (q.w - q.z);
-  out.orientation.z = kInvSqrt2 * (q.y - q.x);
+  // Convert NED -> ENU
+  static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
+
+  tf2::Quaternion q;
+  tf2::fromMsg(msg->orientation, q);
+  out.orientation = tf2::toMsg(kNedToEnu * q);
 
   if (out.orientation_covariance[0] >= 0.0) {
     // IMU orientation covariance is expressed about the world-frame axes

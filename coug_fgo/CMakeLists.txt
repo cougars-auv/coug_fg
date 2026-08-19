@@ -126,11 +126,14 @@ if(BUILD_TESTING)
 
   set(COUG_FGO_FACTOR_TESTS
     test_ahrs_factor
+    test_ahrs_origin_delta_factor
     test_ahrs_yaw_factor
     test_auv_dynamics_factor
     test_bearing_factor
+    test_bearing_origin_delta_factor
     test_const_vel_factor
     test_depth_factor
+    test_depth_origin_delta_factor
     test_dvl_factor
     test_dvl_loose_preint_factor
     test_dvl_tight_preint_factor
@@ -138,6 +141,7 @@ if(BUILD_TESTING)
     test_mag_calib_factor
     test_mag_factor
     test_range_factor
+    test_range_origin_delta_factor
   )
 
   foreach(test_name IN LISTS COUG_FGO_FACTOR_TESTS)

@@ -484,12 +484,29 @@ for i in range(5):
     pgm_multiagent.add_edge(f"x{i}", f"dvl{i}_0")
     pgm_multiagent.add_edge(f"v{i}", f"dvl{i}_0")
 
-# Second agent factor graph
+# Origin delta
+delta_row = 4.0
+neighbor_row = delta_row + 1.0
+pgm_multiagent.add_node(
+    "pdelta",
+    "$p^{01}_\\mathbf{\\Delta}$",
+    mag_x - prior_dist,
+    delta_row,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_prior,
+)
+pgm_multiagent.add_node(
+    "delta", "$\\mathbf{\\Delta}^{01\\dagger}$", mag_x, delta_row, plot_params=style_var
+)
+pgm_multiagent.add_edge("pdelta", "delta")
+
+# Neighbor agent factor graph
 pgm_multiagent.add_node(
     "px1",
     "$p^1_\\mathbf{n}$",
     (start_x + (2 * col_spacing)) - prior_dist,
-    4.5,
+    neighbor_row,
     fixed=True,
     offset=[0, 3],
     plot_params=style_prior,
@@ -498,7 +515,11 @@ pgm_multiagent.add_node(
 for i in [2, 4]:
     col_x = start_x + (i * col_spacing)
     pgm_multiagent.add_node(
-        f"x1_{i}", f"$\\mathbf{{n}}^1_{{{i}}}$", col_x, 4.5, plot_params=style_var
+        f"x1_{i}",
+        f"$\\mathbf{{n}}^1_{{{i}}}$",
+        col_x,
+        neighbor_row,
+        plot_params=style_var,
     )
 
 pgm_multiagent.add_edge("px1", "x1_2")
@@ -508,9 +529,9 @@ for i in [2, 4]:
 
     pgm_multiagent.add_node(
         f"depth1_{i}",
-        f"$z^1_{i}$",
+        f"$z^{{1\\dagger}}_{i}$",
         col_x - 0.4,
-        4.9,
+        neighbor_row + 0.4,
         fixed=True,
         plot_params=style_factor_depth,
         offset=[0, 3],
@@ -519,9 +540,9 @@ for i in [2, 4]:
 
     pgm_multiagent.add_node(
         f"heading1_{i}",
-        f"$\\phi\\theta\\psi^1_{i}$",
+        f"$\\phi\\theta\\psi^{{1\\dagger}}_{i}$",
         col_x + 0.4,
-        4.9,
+        neighbor_row + 0.4,
         fixed=True,
         plot_params=style_factor_heading,
         offset=[0, 3],
@@ -534,7 +555,7 @@ for a, b in [(2, 4)]:
         f"odom1_{a}{b}",
         f"$u^1_{{{a}{b}}}$",
         mid_x,
-        4.5,
+        neighbor_row,
         fixed=True,
         offset=[0, -20],
         plot_params=style_factor_imu,
@@ -552,11 +573,11 @@ for i in [2, 4]:
 
     pgm_multiagent.add_node(
         f"range{i}",
-        f"$r^{{01}}_{{{i}}}$",
+        f"$r^{{01\\dagger}}_{{{i}}}$",
         col_x - inter_dx,
-        4.5 - inter_dy,
+        neighbor_row - inter_dy,
         fixed=True,
-        offset=[-13, -8],
+        offset=[-15, -8],
         plot_params=style_factor_range,
     )
     pgm_multiagent.add_edge(f"x{i}", f"range{i}")
@@ -564,18 +585,18 @@ for i in [2, 4]:
 
     pgm_multiagent.add_node(
         f"bearing{i}",
-        f"$\\beta^{{01}}_{{{i}}}$",
+        f"$\\beta^{{01\\dagger}}_{{{i}}}$",
         col_x + inter_dx,
-        4.5 - inter_dy,
+        neighbor_row - inter_dy,
         fixed=True,
-        offset=[13, -8],
+        offset=[15, -8],
         plot_params=style_factor_bearing,
     )
     pgm_multiagent.add_edge(f"x{i}", f"bearing{i}")
     pgm_multiagent.add_edge(f"bearing{i}", f"x1_{i}")
 
 # Shade the sliding window
-win_top_multiagent = 4.9 + win_pad - 0.2
+win_top_multiagent = (neighbor_row + 0.4) + win_pad - 0.2
 pgm_multiagent.add_plate(
     [win_left, win_bottom, win_width, win_top_multiagent - win_bottom],
     label="sliding window",

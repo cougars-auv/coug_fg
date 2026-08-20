@@ -177,7 +177,7 @@ class FactorGraphNode : public rclcpp::Node {
 
   /**
    * @brief Publishes a neighbor's optimized pose as map-frame odometry of its base frame.
-   * @param agent_queue_idx The neighbor's status queue index (not its agent id).
+   * @param agent_queue_idx Index of the neighbor's status queue, not its agent id.
    * @param current_pose The estimated neighbor pose (already at the base frame).
    * @param pose_covariance The estimation error covariance.
    * @param timestamp The message timestamp.
@@ -195,7 +195,7 @@ class FactorGraphNode : public rclcpp::Node {
 
   /**
    * @brief Broadcasts the map-to-base transform for a neighbor.
-   * @param agent_queue_idx The neighbor's status queue index (not its agent id).
+   * @param agent_queue_idx Index of the neighbor's status queue, not its agent id.
    * @param current_pose The estimated neighbor pose (already at the base frame).
    * @param timestamp The transform timestamp.
    */

@@ -24,6 +24,7 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/navigation/NavState.h>
+#include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 
@@ -40,11 +41,14 @@
 #include <vector>
 
 #include "coug_fgo/factors/ahrs_factor.hpp"
+#include "coug_fgo/factors/ahrs_origin_delta_factor.hpp"
 #include "coug_fgo/factors/ahrs_yaw_factor.hpp"
 #include "coug_fgo/factors/auv_dynamics_factor.hpp"
 #include "coug_fgo/factors/bearing_factor.hpp"
+#include "coug_fgo/factors/bearing_origin_delta_factor.hpp"
 #include "coug_fgo/factors/const_vel_factor.hpp"
 #include "coug_fgo/factors/depth_factor.hpp"
+#include "coug_fgo/factors/depth_origin_delta_factor.hpp"
 #include "coug_fgo/factors/dvl_factor.hpp"
 #include "coug_fgo/factors/dvl_loose_preint_factor.hpp"
 #include "coug_fgo/factors/dvl_tight_preint_factor.hpp"
@@ -52,14 +56,18 @@
 #include "coug_fgo/factors/mag_calib_factor.hpp"
 #include "coug_fgo/factors/mag_factor.hpp"
 #include "coug_fgo/factors/range_factor.hpp"
+#include "coug_fgo/factors/range_origin_delta_factor.hpp"
 #include "coug_fgo/utils/param_enums.hpp"
 
 using coug_fgo::factors::AhrsFactorArm;
+using coug_fgo::factors::AhrsOriginDeltaFactorArm;
 using coug_fgo::factors::AhrsYawFactorArm;
 using coug_fgo::factors::AuvDynamicsFactorArm;
 using coug_fgo::factors::BearingFactorArm;
+using coug_fgo::factors::BearingOriginDeltaFactorArm;
 using coug_fgo::factors::ConstVelFactor;
 using coug_fgo::factors::DepthFactorArm;
+using coug_fgo::factors::DepthOriginDeltaFactorArm;
 using coug_fgo::factors::DvlFactorArm;
 using coug_fgo::factors::DvlLoosePreintFactorArm;
 using coug_fgo::factors::DvlTightPreintFactorArm;
@@ -67,10 +75,12 @@ using coug_fgo::factors::Gps2dFactorArm;
 using coug_fgo::factors::MagCalibFactorArm;
 using coug_fgo::factors::MagFactorArm;
 using coug_fgo::factors::RangeFactorArm;
+using coug_fgo::factors::RangeOriginDeltaFactorArm;
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
 using gtsam::symbol_shorthand::M;  // Magnetometer hard-iron bias (x,y,z)
 using gtsam::symbol_shorthand::N;  // Neighbor agent Pose3 (x,y,z,r,p,y)
+using gtsam::symbol_shorthand::O;  // Neighbor origin delta Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
 
@@ -495,7 +505,7 @@ gtsam::Matrix6 FactorGraphCore::computeInitialPoseCovariance(
 
   const gtsam::Matrix3 target_R_map = map_R_target.inverse().matrix();
 
-  // Rotate into the target-frame tangent space
+  // Conjugate map-frame pose covariance into the target-frame tangent space
   gtsam::Matrix6 pose_cov = gtsam::Matrix6::Zero();
   pose_cov.topLeftCorner<3, 3>() = target_R_map * map_orientation_cov * target_R_map.transpose();
   pose_cov.bottomRightCorner<3, 3>() = target_R_map * map_position_cov * target_R_map.transpose();
@@ -1007,6 +1017,54 @@ void FactorGraphCore::addDvlTightPreintFactor(
       prev_imu_bias_.gyroscope(), preint_noise);
 }
 
+void FactorGraphCore::addOriginDeltaPriorFactor(gtsam::NonlinearFactorGraph& graph,
+                                                gtsam::Values& values, size_t agent_queue_idx,
+                                                const utils::AgentStatusData& msg) {
+  const auto& priors = params_.priors;
+
+  gtsam::Rot3 map_R_delta =
+      gtsam::Rot3::Ypr(priors.origin_delta_orientation[2], priors.origin_delta_orientation[1],
+                       priors.origin_delta_orientation[0]);
+  gtsam::Point3 map_p_delta(priors.origin_delta_position[0], priors.origin_delta_position[1],
+                            priors.origin_delta_position[2]);
+  gtsam::Pose3 delta_prior(map_R_delta, map_p_delta);
+
+  gtsam::Matrix3 map_orientation_cov = sigmasSquaredDiag(priors.origin_delta_orientation_sigmas);
+  gtsam::Matrix3 map_position_cov = sigmasSquaredDiag(priors.origin_delta_position_sigmas);
+
+  const gtsam::Matrix3 delta_R_map = map_R_delta.inverse().matrix();
+
+  // Conjugate map-frame pose covariance into the delta-frame tangent space
+  gtsam::Matrix6 delta_cov = gtsam::Matrix6::Zero();
+  delta_cov.topLeftCorner<3, 3>() = delta_R_map * map_orientation_cov * delta_R_map.transpose();
+  delta_cov.bottomRightCorner<3, 3>() = delta_R_map * map_position_cov * delta_R_map.transpose();
+
+  graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
+      O(agent_queue_idx), delta_prior, gtsam::noiseModel::Gaussian::Covariance(delta_cov));
+
+  // Use the first range/bearing pair as an xy delta seed to prevent antipodal trapping
+  gtsam::Pose3 delta_seed = delta_prior;
+  if (msg.includes_range && msg.includes_usbl) {
+    const gtsam::Pose3 map_T_modem_l = prev_pose_ * tfs_.target_T_modem;
+    const gtsam::Unit3 modem_l_dir_n =
+        BearingFactorArm::losDirection(gtsam::Point2(msg.usbl_azimuth, msg.usbl_elevation));
+
+    const gtsam::Point3 modem_l_p_modem_n(msg.range_dist * modem_l_dir_n.point3());
+    const gtsam::Point3 map_p_modem_n = map_T_modem_l.transformFrom(modem_l_p_modem_n);
+
+    // Account for the neighbor's modem lever arm
+    const gtsam::Rot3 map_R_n = map_R_delta * msg.pose.rotation();
+    const gtsam::Point3 map_p_n = map_p_modem_n - map_R_n * neighbor_base_T_modem_.translation();
+
+    const gtsam::Point3 map_p_delta_los = map_p_n - map_R_delta * msg.pose.translation();
+    delta_seed = gtsam::Pose3(
+        map_R_delta, gtsam::Point3(map_p_delta_los.x(), map_p_delta_los.y(), map_p_delta.z()));
+  }
+
+  values.insert(O(agent_queue_idx), delta_seed);
+  prev_origin_deltas_[agent_queue_idx] = delta_seed;
+}
+
 void FactorGraphCore::addNeighborPriorFactor(gtsam::NonlinearFactorGraph& graph,
                                              const NeighborState& neighbor,
                                              size_t agent_queue_idx) {
@@ -1046,7 +1104,8 @@ void FactorGraphCore::addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& grap
 
 void FactorGraphCore::addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph,
                                              const utils::AgentStatusData& msg,
-                                             const NeighborState& neighbor) {
+                                             const NeighborState& neighbor,
+                                             size_t agent_queue_idx) {
   const gtsam::Pose3 kNoArm;
 
   const double depth_sigma = params_.multiagent.neighbor.depth.position_z_noise_sigma *
@@ -1056,13 +1115,18 @@ void FactorGraphCore::addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph,
   depth_noise = applyRobustKernel(depth_noise, params_.multiagent.neighbor.depth.robust_kernel,
                                   params_.multiagent.neighbor.depth.robust_k);
 
-  graph.emplace_shared<DepthFactorArm>(N(neighbor.current_step), msg.pressure_depth, kNoArm,
-                                       depth_noise);
+  if (params_.multiagent.estimate_origin_delta) {
+    graph.emplace_shared<DepthOriginDeltaFactorArm>(O(agent_queue_idx), N(neighbor.current_step),
+                                                    msg.pressure_depth, kNoArm, depth_noise);
+  } else {
+    graph.emplace_shared<DepthFactorArm>(N(neighbor.current_step), msg.pressure_depth, kNoArm,
+                                         depth_noise);
+  }
 }
 
 void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
                                             const utils::AgentStatusData& msg,
-                                            const NeighborState& neighbor) {
+                                            const NeighborState& neighbor, size_t agent_queue_idx) {
   const gtsam::Pose3 kNoArm;
 
   const gtsam::Matrix3 ahrs_cov =
@@ -1076,14 +1140,21 @@ void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
   ahrs_noise = applyRobustKernel(ahrs_noise, params_.multiagent.neighbor.ahrs.robust_kernel,
                                  params_.multiagent.neighbor.ahrs.robust_k);
 
-  graph.emplace_shared<AhrsFactorArm>(N(neighbor.current_step), msg.imu_orientation, kNoArm,
-                                      params_.multiagent.neighbor.ahrs.mag_declination_radians,
-                                      ahrs_noise);
+  if (params_.multiagent.estimate_origin_delta) {
+    graph.emplace_shared<AhrsOriginDeltaFactorArm>(
+        O(agent_queue_idx), N(neighbor.current_step), msg.imu_orientation, kNoArm,
+        params_.multiagent.neighbor.ahrs.mag_declination_radians, ahrs_noise);
+  } else {
+    graph.emplace_shared<AhrsFactorArm>(N(neighbor.current_step), msg.imu_orientation, kNoArm,
+                                        params_.multiagent.neighbor.ahrs.mag_declination_radians,
+                                        ahrs_noise);
+  }
 }
 
 void FactorGraphCore::addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& graph,
                                                const utils::AgentStatusData& msg,
-                                               const NeighborState& neighbor, gtsam::Key pose_key) {
+                                               const NeighborState& neighbor, gtsam::Key pose_key,
+                                               size_t agent_queue_idx) {
   if (!msg.includes_range) {
     return;
   }
@@ -1095,14 +1166,20 @@ void FactorGraphCore::addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& grap
   range_noise =
       applyRobustKernel(range_noise, params_.multiagent.robust_kernel, params_.multiagent.robust_k);
 
-  graph.emplace_shared<RangeFactorArm>(pose_key, N(neighbor.current_step), msg.range_dist,
-                                       tfs_.target_T_modem, neighbor_base_T_modem_, range_noise);
+  if (params_.multiagent.estimate_origin_delta) {
+    graph.emplace_shared<RangeOriginDeltaFactorArm>(
+        pose_key, O(agent_queue_idx), N(neighbor.current_step), msg.range_dist, tfs_.target_T_modem,
+        neighbor_base_T_modem_, range_noise);
+  } else {
+    graph.emplace_shared<RangeFactorArm>(pose_key, N(neighbor.current_step), msg.range_dist,
+                                         tfs_.target_T_modem, neighbor_base_T_modem_, range_noise);
+  }
 }
 
 void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& graph,
                                                  const utils::AgentStatusData& msg,
-                                                 const NeighborState& neighbor,
-                                                 gtsam::Key pose_key) {
+                                                 const NeighborState& neighbor, gtsam::Key pose_key,
+                                                 size_t agent_queue_idx) {
   if (!msg.includes_usbl) {
     return;
   }
@@ -1119,22 +1196,28 @@ void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& gr
   bearing_noise = applyRobustKernel(bearing_noise, params_.multiagent.robust_kernel,
                                     params_.multiagent.robust_k);
 
-  graph.emplace_shared<BearingFactorArm>(pose_key, N(neighbor.current_step), measured_azi_el,
-                                         tfs_.target_T_modem, neighbor_base_T_modem_,
-                                         bearing_noise);
+  if (params_.multiagent.estimate_origin_delta) {
+    graph.emplace_shared<BearingOriginDeltaFactorArm>(
+        pose_key, O(agent_queue_idx), N(neighbor.current_step), measured_azi_el,
+        tfs_.target_T_modem, neighbor_base_T_modem_, bearing_noise);
+  } else {
+    graph.emplace_shared<BearingFactorArm>(pose_key, N(neighbor.current_step), measured_azi_el,
+                                           tfs_.target_T_modem, neighbor_base_T_modem_,
+                                           bearing_noise);
+  }
 }
 
 void FactorGraphCore::addMultiAgentFactors(
     gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
     gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
     const utils::QueueBundle& queues, double target_time) {
-  // Rotate a neighbor's broadcast pose covariance into its base-frame tangent space
+  // Conjugate a neighbor's broadcast pose covariance into its base-frame tangent space
   auto baseTangentCovariance = [](const utils::AgentStatusData& msg) {
-    gtsam::Matrix66 base_R_map = gtsam::Matrix66::Zero();
-    base_R_map.block<3, 3>(0, 0) = msg.pose.rotation().matrix();
-    base_R_map.block<3, 3>(3, 3) = msg.pose.rotation().matrix();
+    gtsam::Matrix66 map_R_base = gtsam::Matrix66::Zero();
+    map_R_base.block<3, 3>(0, 0) = msg.pose.rotation().matrix();
+    map_R_base.block<3, 3>(3, 3) = msg.pose.rotation().matrix();
 
-    return gtsam::Matrix66(base_R_map.transpose() * msg.pose_covariance * base_R_map);
+    return gtsam::Matrix66(map_R_base.transpose() * msg.pose_covariance * map_R_base);
   };
 
   auto nearestPoseKey = [this, target_time](double stamp) {
@@ -1173,6 +1256,18 @@ void FactorGraphCore::addMultiAgentFactors(
     auto [it, inserted] = neighbors_.try_emplace(i, NeighborState(i));
     auto& neighbor = it->second;
 
+    if (inserted && params_.multiagent.estimate_origin_delta) {
+      if (!msg->includes_range || !msg->includes_usbl) {
+        logMessage(utils::LogLevel::kWarn,
+                   "Neighbor status (queue " + std::to_string(i) +
+                       ") has no range/bearing pair to seed the origin delta; dropping the "
+                       "keyframe.");
+        neighbors_.erase(it);
+        continue;
+      }
+      addOriginDeltaPriorFactor(graph, values, i, *msg);
+    }
+
     const gtsam::Matrix66 base_cov = baseTangentCovariance(*msg);
 
     // Subtract the acoustic flight time to determine when the neighbor replied
@@ -1201,18 +1296,18 @@ void FactorGraphCore::addMultiAgentFactors(
     timestamps[N(neighbor.current_step)] = sent_time;
 
     if (params_.multiagent.neighbor.depth.enable_depth) {
-      addNeighborDepthFactor(graph, *msg, neighbor);
+      addNeighborDepthFactor(graph, *msg, neighbor, i);
     }
     if (params_.multiagent.neighbor.ahrs.enable_ahrs) {
-      addNeighborAhrsFactor(graph, *msg, neighbor);
+      addNeighborAhrsFactor(graph, *msg, neighbor, i);
     }
 
     const gtsam::Key pose_key = nearestPoseKey(sent_time);
     if (params_.multiagent.enable_range) {
-      addInterAgentRangeFactor(graph, *msg, neighbor, pose_key);
+      addInterAgentRangeFactor(graph, *msg, neighbor, pose_key, i);
     }
     if (params_.multiagent.enable_bearing) {
-      addInterAgentBearingFactor(graph, *msg, neighbor, pose_key);
+      addInterAgentBearingFactor(graph, *msg, neighbor, pose_key, i);
     }
   }
 }
@@ -1350,6 +1445,10 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
     new_timestamps[M(0)] = target_time;
   }
 
+  for (const auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+    new_timestamps[O(agent_queue_idx)] = target_time;
+  }
+
   if (!inc_smoother_ && !isam_) {
     prev_pose_ = pred.pose();
     prev_vel_ = pred.velocity();
@@ -1374,9 +1473,12 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   // --- Add Graph to Buffer ---
   buffer_graph_ += new_graph;
   buffer_values_.insert(new_values);
-  buffer_timestamps_.insert(new_timestamps.begin(), new_timestamps.end());
+  for (const auto& [key, stamp] : new_timestamps) {
+    buffer_timestamps_.insert_or_assign(key, stamp);
+  }
   buffer_target_time_ = target_time;
   buffer_last_step_ = prev_step_;
+  buffer_keyframes_++;
   has_buffer_ = true;
 
   return leftover;
@@ -1389,6 +1491,7 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
   gtsam::IncrementalFixedLagSmoother::KeyTimestampMap batch_timestamps;
   double batch_target_time{0.0};
   size_t batch_last_step = 0;
+  size_t batch_keyframes = 0;
 
   {
     std::scoped_lock state_lock(state_mutex_);
@@ -1401,10 +1504,12 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
     batch_timestamps = std::move(buffer_timestamps_);
     batch_target_time = buffer_target_time_;
     batch_last_step = buffer_last_step_;
+    batch_keyframes = buffer_keyframes_;
 
     buffer_graph_ = gtsam::NonlinearFactorGraph();
     buffer_values_ = gtsam::Values();
     buffer_timestamps_.clear();
+    buffer_keyframes_ = 0;
     has_buffer_ = false;
   }
 
@@ -1412,7 +1517,7 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
   result.timestamp = batch_target_time;
 
   // --- Detect Processing Overflow ---
-  result.num_keyframes = batch_timestamps.size() / 3;
+  result.num_keyframes = batch_keyframes;
   if (result.num_keyframes > 1) {
     result.processing_overflow = true;
   }
@@ -1436,6 +1541,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
       if (params_.mag.estimate_hard_iron_bias) {
         prev_mag_bias_ = inc_smoother_->calculateEstimate<gtsam::Point3>(M(0));
       }
+      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+        delta = inc_smoother_->calculateEstimate<gtsam::Pose3>(O(agent_queue_idx));
+      }
     }
 
     if (params_.publish_diagnostics || params_.publish_graph_metrics) {
@@ -1456,6 +1564,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
       prev_imu_bias_ = isam_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_last_step));
       if (params_.mag.estimate_hard_iron_bias) {
         prev_mag_bias_ = isam_->calculateEstimate<gtsam::Point3>(M(0));
+      }
+      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+        delta = isam_->calculateEstimate<gtsam::Pose3>(O(agent_queue_idx));
       }
     }
 
@@ -1481,6 +1592,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
       prev_imu_bias_ = lm_values_.at<gtsam::imuBias::ConstantBias>(B(batch_last_step));
       if (params_.mag.estimate_hard_iron_bias) {
         prev_mag_bias_ = lm_values_.at<gtsam::Point3>(M(0));
+      }
+      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+        delta = lm_values_.at<gtsam::Pose3>(O(agent_queue_idx));
       }
     }
 
@@ -1516,6 +1630,11 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
         continue;
       }
 
+      // Transform the neighbor's pose into the map frame with the origin delta
+      if (params_.multiagent.estimate_origin_delta) {
+        estimate.pose = prev_origin_deltas_.at(agent_queue_idx) * estimate.pose;
+      }
+
       result.neighbors_est.push_back(std::move(estimate));
     }
   }
@@ -1544,8 +1663,44 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
   result.mag_bias_cov = marginal_cov(params_.mag.estimate_hard_iron_bias &&
                                          params_.publish_mag_bias && params_.publish_mag_bias_cov,
                                      M(0), 3);
+
+  // Neighbor poses are published as (origin delta * neighbor), so use the joint over both keys
+  const gtsam::Values* cov_values = nullptr;
+  std::optional<gtsam::Marginals> cov_marginals;
+  if (params_.publish_neighbor_pose_cov && params_.multiagent.estimate_origin_delta &&
+      !result.neighbors_est.empty()) {
+    if (inc_smoother_) {
+      cov_values = &inc_smoother_->getLinearizationPoint();
+      cov_marginals.emplace(inc_smoother_->getFactors(), *cov_values);
+    } else if (isam_) {
+      cov_values = &isam_->getLinearizationPoint();
+      cov_marginals.emplace(isam_->getFactorsUnsafe(), *cov_values);
+    }
+  }
+
+  auto neighbor_cov = [&](gtsam::Key key, size_t agent_queue_idx) -> gtsam::Matrix {
+    const gtsam::Key delta_key = O(agent_queue_idx);
+
+    if (!cov_marginals || !cov_values->exists(delta_key) || !cov_values->exists(key)) {
+      return marginal_cov(params_.publish_neighbor_pose_cov, key, 6);
+    }
+
+    gtsam::Matrix66 H_delta;
+    gtsam::Matrix66 H_neighbor;
+    cov_values->at<gtsam::Pose3>(delta_key).compose(cov_values->at<gtsam::Pose3>(key), H_delta,
+                                                    H_neighbor);
+
+    const gtsam::JointMarginal joint =
+        cov_marginals->jointMarginalCovariance(gtsam::KeyVector{delta_key, key});
+
+    // Propagate the joint through the composition, keeping the cross-correlation
+    const gtsam::Matrix66 cross = H_delta * joint.at(delta_key, key) * H_neighbor.transpose();
+    return H_delta * joint.at(delta_key, delta_key) * H_delta.transpose() +
+           H_neighbor * joint.at(key, key) * H_neighbor.transpose() + cross + cross.transpose();
+  };
+
   for (auto& neighbor : result.neighbors_est) {
-    neighbor.pose_cov = marginal_cov(params_.publish_neighbor_pose_cov, neighbor.key, 6);
+    neighbor.pose_cov = neighbor_cov(neighbor.key, neighbor.agent_queue_idx);
   }
 
   auto cov_end = std::chrono::steady_clock::now();

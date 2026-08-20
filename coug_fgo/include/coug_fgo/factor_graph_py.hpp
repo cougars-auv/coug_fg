@@ -92,7 +92,7 @@ class FactorGraphPy {
 
   /**
    * @brief Builds factors for one keyframe from the given measurement batches.
-   * @param target_time Keyframe timestamp in seconds.
+   * @param target_time The keyframe timestamp in seconds.
    * @param imu The IMU measurement batch.
    * @param gps The GPS measurement batch.
    * @param depth The depth measurement batch.

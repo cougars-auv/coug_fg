@@ -117,7 +117,7 @@ class FactorGraphCore {
 
   /**
    * @brief Builds factors for one keyframe and writes the graph to the buffer.
-   * @param target_time The keyframe timestamp.
+   * @param target_time The current keyframe timestamp.
    * @param queues Drained sensor data structs (consumed).
    * @param tfs Latest sensor transforms to refresh (picks up lazily-resolved ones).
    * @return Structs newer than the keyframe to re-queue, or nullopt if the keyframe was rejected.
@@ -288,7 +288,7 @@ class FactorGraphCore {
   // --- Configuration ---
   /**
    * @brief Configures the GTSAM combined IMU preintegration parameters.
-   * @param init_state Provides the initial IMU sample.
+   * @param init_state The computed initial state, sourcing the initial IMU sample.
    * @return Shared pointer to the configured preintegration parameters.
    */
   std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params> configureImuPreintegration(
@@ -297,9 +297,9 @@ class FactorGraphCore {
   // --- Factor Construction ---
   /**
    * @brief Adds the pose, velocity, IMU bias, and any hard-iron bias priors to the initial graph.
-   * @param init_state Provides the computed initial state values.
+   * @param init_state The computed initial state values.
    * @param graph The target factor graph.
-   * @param values The initial variable estimates.
+   * @param values The target initial values.
    */
   void addPriorFactors(const InitialState& init_state, gtsam::NonlinearFactorGraph& graph,
                        gtsam::Values& values);
@@ -401,6 +401,16 @@ class FactorGraphCore {
                                const gtsam::Vector3& held_imu_gyr);
 
   /**
+   * @brief Adds a pose prior seeding a neighbor's origin delta from the parameter values.
+   * @param graph The target factor graph.
+   * @param values The target initial values.
+   * @param agent_queue_idx Index of the neighbor's status queue, for the origin delta key.
+   * @param msg The neighbor's first status message.
+   */
+  void addOriginDeltaPriorFactor(gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
+                                 size_t agent_queue_idx, const utils::AgentStatusData& msg);
+
+  /**
    * @brief Adds a pose prior anchoring a neighbor's chain to its own reported estimate.
    * @param graph The target factor graph.
    * @param neighbor The rolling window state for this neighbor.
@@ -421,18 +431,20 @@ class FactorGraphCore {
    * @param graph The target factor graph.
    * @param msg The neighbor's broadcast status struct.
    * @param neighbor The rolling window state for this neighbor.
+   * @param agent_queue_idx Index of the neighbor's status queue, for the origin delta key.
    */
   void addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph, const utils::AgentStatusData& msg,
-                              const NeighborState& neighbor);
+                              const NeighborState& neighbor, size_t agent_queue_idx);
 
   /**
    * @brief Adds an AHRS attitude factor to a neighbor's keyframe with declination compensation.
    * @param graph The target factor graph.
    * @param msg The neighbor's broadcast status struct.
    * @param neighbor The rolling window state for this neighbor.
+   * @param agent_queue_idx Index of the neighbor's status queue, for the origin delta key.
    */
   void addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph, const utils::AgentStatusData& msg,
-                             const NeighborState& neighbor);
+                             const NeighborState& neighbor, size_t agent_queue_idx);
 
   /**
    * @brief Adds an acoustic range factor between the local and neighbor modems.
@@ -440,10 +452,11 @@ class FactorGraphCore {
    * @param msg The neighbor's broadcast status struct (skipped unless it carries a range).
    * @param neighbor The rolling window state for this neighbor.
    * @param pose_key The local keyframe closest to when the reply was sent.
+   * @param agent_queue_idx Index of the neighbor's status queue, for the origin delta key.
    */
   void addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& graph,
                                 const utils::AgentStatusData& msg, const NeighborState& neighbor,
-                                gtsam::Key pose_key);
+                                gtsam::Key pose_key, size_t agent_queue_idx);
 
   /**
    * @brief Adds a USBL bearing factor between the local and neighbor modems.
@@ -451,18 +464,19 @@ class FactorGraphCore {
    * @param msg The neighbor's broadcast status struct (skipped unless it carries a bearing).
    * @param neighbor The rolling window state for this neighbor.
    * @param pose_key The local keyframe closest to when the reply was sent.
+   * @param agent_queue_idx Index of the neighbor's status queue, for the origin delta key.
    */
   void addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& graph,
                                   const utils::AgentStatusData& msg, const NeighborState& neighbor,
-                                  gtsam::Key pose_key);
+                                  gtsam::Key pose_key, size_t agent_queue_idx);
 
   /**
    * @brief Adds neighboring-agent odometry, depth, AHRS, range, and bearing factors.
    * @param graph The target factor graph.
-   * @param values The new variable estimates.
+   * @param values The target initial values.
    * @param timestamps The new key timestamps.
    * @param queues Drained, time-sorted per-neighbor status structs.
-   * @param target_time The keyframe time, used to detect chains broken by the smoother lag.
+   * @param target_time The current keyframe timestamp, used to detect broken neighbor chains.
    */
   void addMultiAgentFactors(gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
                             gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
@@ -499,6 +513,7 @@ class FactorGraphCore {
   // --- Multi-agent ---
   gtsam::Pose3 neighbor_base_T_modem_;
   std::unordered_map<size_t, NeighborState> neighbors_;
+  std::unordered_map<size_t, gtsam::Pose3> prev_origin_deltas_;
 
   // --- Sensor Data ---
   gtsam::Vector3 last_dvl_velocity_ = gtsam::Vector3::Zero();
@@ -515,6 +530,7 @@ class FactorGraphCore {
   gtsam::IncrementalFixedLagSmoother::KeyTimestampMap buffer_timestamps_;
   double buffer_target_time_{0.0};
   size_t buffer_last_step_ = 0;
+  size_t buffer_keyframes_ = 0;
   bool has_buffer_ = false;
 };
 

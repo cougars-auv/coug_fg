@@ -725,6 +725,9 @@ factor_graph_node:
     enable_multiagent:
       type: bool
       default_value: false
+    estimate_origin_delta:
+      type: bool
+      default_value: false
     use_parameter_frame:
       type: bool
       default_value: false
@@ -892,6 +895,16 @@ factor_graph_node:
       default_value: [0.0, 0.0, 0.0]
       validation:
         fixed_size<>: [3]
+    origin_delta_position:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    origin_delta_orientation:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
     use_parameter_priors_covariance:
       type: bool
       default_value: true
@@ -929,6 +942,18 @@ factor_graph_node:
     hard_iron_bias_sigmas:
       type: double_array
       default_value: [1.0e-05, 1.0e-05, 1.0e-05]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    origin_delta_position_sigmas:
+      type: double_array
+      default_value: [1000.0, 1000.0, 1.0e-04]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    origin_delta_orientation_sigmas:
+      type: double_array
+      default_value: [1.0e-04, 1.0e-04, 1.0e-04]
       validation:
         fixed_size<>: [3]
         lower_element_bounds<>: [0.0]

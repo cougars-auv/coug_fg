@@ -55,6 +55,16 @@ def generate_launch_description() -> LaunchDescription:
         ]
     )
 
+    # imu_link_frame = PythonExpression(
+    #     [
+    #         "'",
+    #         auv_ns,
+    #         "/imu_link' if '",
+    #         auv_ns,
+    #         "' != '' else 'imu_link'",
+    #     ]
+    # )
+
     gps_link_frame = PythonExpression(
         [
             "'",
@@ -65,15 +75,15 @@ def generate_launch_description() -> LaunchDescription:
         ]
     )
 
-    # imu_link_frame = PythonExpression(
-    #     [
-    #         "'",
-    #         auv_ns,
-    #         "/imu_link' if '",
-    #         auv_ns,
-    #         "' != '' else 'imu_link'",
-    #     ]
-    # )
+    depth_link_frame = PythonExpression(
+        [
+            "'",
+            auv_ns,
+            "/depth_link' if '",
+            auv_ns,
+            "' != '' else 'depth_link'",
+        ]
+    )
 
     dvl_link_frame = PythonExpression(
         [
@@ -85,13 +95,43 @@ def generate_launch_description() -> LaunchDescription:
         ]
     )
 
-    depth_link_frame = PythonExpression(
+    beam0_link_frame = PythonExpression(
         [
             "'",
             auv_ns,
-            "/depth_link' if '",
+            "/beam0_link' if '",
             auv_ns,
-            "' != '' else 'depth_link'",
+            "' != '' else 'beam0_link'",
+        ]
+    )
+
+    beam1_link_frame = PythonExpression(
+        [
+            "'",
+            auv_ns,
+            "/beam1_link' if '",
+            auv_ns,
+            "' != '' else 'beam1_link'",
+        ]
+    )
+
+    beam2_link_frame = PythonExpression(
+        [
+            "'",
+            auv_ns,
+            "/beam2_link' if '",
+            auv_ns,
+            "' != '' else 'beam2_link'",
+        ]
+    )
+
+    beam3_link_frame = PythonExpression(
+        [
+            "'",
+            auv_ns,
+            "/beam3_link' if '",
+            auv_ns,
+            "' != '' else 'beam3_link'",
         ]
     )
 
@@ -129,13 +169,17 @@ def generate_launch_description() -> LaunchDescription:
             ),
             Node(
                 package="coug_fgo",
-                executable="dvl_a50_twist",
-                name="dvl_a50_twist_node",
+                executable="dvl_a50_twist_beams",
+                name="dvl_a50_twist_beams_node",
                 parameters=[
                     fleet_params,
                     auv_params,
                     {
                         "use_sim_time": use_sim_time,
+                        "beam0_frame": beam0_link_frame,
+                        "beam1_frame": beam1_link_frame,
+                        "beam2_frame": beam2_link_frame,
+                        "beam3_frame": beam3_link_frame,
                         "parameter_frame": dvl_link_frame,
                     },
                 ],

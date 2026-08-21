@@ -56,7 +56,7 @@ target_link_libraries(gtsam_with_eigen INTERFACE
 set(COUG_FGO_NODES
   factor_graph
   dvl_a50_odom
-  dvl_a50_twist
+  dvl_a50_twist_beams
   fluid_pressure_odom
   imu_ned_to_enu
   navsat_odom
@@ -95,7 +95,7 @@ target_link_libraries(factor_graph_component
 rclcpp_components_register_nodes(factor_graph_component
   "coug_fgo::FactorGraphNode"
   "coug_fgo::DvlA50OdomNode"
-  "coug_fgo::DvlA50TwistNode"
+  "coug_fgo::DvlA50TwistBeamsNode"
   "coug_fgo::FluidPressureOdomNode"
   "coug_fgo::ImuNedToEnuNode"
   "coug_fgo::NavsatOdomNode"

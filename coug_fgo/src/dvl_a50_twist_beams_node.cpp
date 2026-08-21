@@ -13,8 +13,8 @@
 // limitations under the License.
 
 /**
- * @file dvl_a50_twist_node.cpp
- * @brief Standalone executable for the DvlA50TwistNode.
+ * @file dvl_a50_twist_beams_node.cpp
+ * @brief Standalone executable for the DvlA50TwistBeamsNode.
  * @author Nelson Durrant
  * @date May 2026
  */
@@ -22,11 +22,11 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 
-#include "coug_fgo/dvl_a50_twist.hpp"
+#include "coug_fgo/dvl_a50_twist_beams.hpp"
 
 int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<coug_fgo::DvlA50TwistNode>(rclcpp::NodeOptions());
+  auto node = std::make_shared<coug_fgo::DvlA50TwistBeamsNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

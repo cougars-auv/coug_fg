@@ -481,6 +481,66 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /AUV_NS/waypoints_map
       Value: true
+    - Class: rviz_common/Group
+      Displays:
+        - Alpha: 0.5
+          Buffer Length: 1
+          Class: rviz_default_plugins/Range
+          Color: 255; 255; 255
+          Enabled: true
+          Name: Beam0
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /AUV_NS/dvl/beam0/range
+          Value: true
+        - Alpha: 0.5
+          Buffer Length: 1
+          Class: rviz_default_plugins/Range
+          Color: 255; 255; 255
+          Enabled: true
+          Name: Beam1
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /AUV_NS/dvl/beam1/range
+          Value: true
+        - Alpha: 0.5
+          Buffer Length: 1
+          Class: rviz_default_plugins/Range
+          Color: 255; 255; 255
+          Enabled: true
+          Name: Beam2
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /AUV_NS/dvl/beam2/range
+          Value: true
+        - Alpha: 0.5
+          Buffer Length: 1
+          Class: rviz_default_plugins/Range
+          Color: 255; 255; 255
+          Enabled: true
+          Name: Beam3
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /AUV_NS/dvl/beam3/range
+          Value: true
+      Enabled: true
+      Name: DVL Beams
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

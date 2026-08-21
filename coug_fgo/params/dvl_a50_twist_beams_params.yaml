@@ -1,0 +1,117 @@
+dvl_a50_twist_beams_node:
+  # --- Node Settings ---
+  simulate_dropout:
+    type: bool
+    default_value: false
+  dropout_frequency_hz:
+    type: double
+    default_value: 0.033
+    validation:
+      gt_eq<>: [0.0]
+  dropout_duration_sec:
+    type: double
+    default_value: 5.0
+    validation:
+      gt_eq<>: [0.0]
+
+  fom_valid_threshold:
+    type: double
+    default_value: 0.01
+    validation:
+      gt<>: [0.0]
+  use_fom_covariance:
+    type: bool
+    default_value: false
+  fom_covariance_scale:
+    type: double
+    default_value: 4.0
+    validation:
+      gt<>: [0.0]
+
+  override_timestamp:
+    type: bool
+    default_value: false
+
+  beam_field_of_view_radians:
+    type: double
+    default_value: 0.0768
+    validation:
+      gt<>: [0.0]
+  beam_min_range:
+    type: double
+    default_value: 0.05
+    validation:
+      gt_eq<>: [0.0]
+  beam_max_range:
+    type: double
+    default_value: 50.0
+    validation:
+      gt<>: [0.0]
+
+  # --- ROS Topics and Frames ---
+  input_topic:
+    type: string
+    default_value: "dvl/data"
+    validation:
+      not_empty<>: []
+  twist_output_topic:
+    type: string
+    default_value: "dvl/twist"
+    validation:
+      not_empty<>: []
+  beams_output_topic:
+    type: string
+    default_value: "dvl/beams"
+    validation:
+      not_empty<>: []
+
+  beam0_range_topic:
+    type: string
+    default_value: "dvl/beam0/range"
+    validation:
+      not_empty<>: []
+  beam1_range_topic:
+    type: string
+    default_value: "dvl/beam1/range"
+    validation:
+      not_empty<>: []
+  beam2_range_topic:
+    type: string
+    default_value: "dvl/beam2/range"
+    validation:
+      not_empty<>: []
+  beam3_range_topic:
+    type: string
+    default_value: "dvl/beam3/range"
+    validation:
+      not_empty<>: []
+
+  beam0_frame:
+    type: string
+    default_value: "beam0_link"
+    validation:
+      not_empty<>: []
+  beam1_frame:
+    type: string
+    default_value: "beam1_link"
+    validation:
+      not_empty<>: []
+  beam2_frame:
+    type: string
+    default_value: "beam2_link"
+    validation:
+      not_empty<>: []
+  beam3_frame:
+    type: string
+    default_value: "beam3_link"
+    validation:
+      not_empty<>: []
+
+  use_parameter_frame:
+    type: bool
+    default_value: false
+  parameter_frame:
+    type: string
+    default_value: "dvl_link"
+    validation:
+      not_empty<>: []

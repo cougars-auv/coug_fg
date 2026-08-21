@@ -974,7 +974,7 @@ void FactorGraphNode::checkSensorStatus(diagnostic_updater::DiagnosticStatusWrap
   check_queue("Wrench", wrench_queue_.size(), wrench_queue_.secondsSinceLastArrival(),
               params_.dynamics.enable_dynamics, false, params_.dynamics.diagnostic_timeout_sec);
   for (size_t i = 0; i < multiagent_queues_.size(); ++i) {
-    check_queue("Multi (" + params_.multiagent_namespaces[i] + ")", multiagent_queues_[i]->size(),
+    check_queue("Modem (" + params_.multiagent_namespaces[i] + ")", multiagent_queues_[i]->size(),
                 multiagent_queues_[i]->secondsSinceLastArrival(),
                 params_.multiagent.enable_multiagent, false,
                 params_.multiagent.diagnostic_timeout_sec);

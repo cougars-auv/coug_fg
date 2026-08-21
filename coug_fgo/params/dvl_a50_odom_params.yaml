@@ -23,14 +23,6 @@ dvl_a50_odom_node:
     validation:
       not_empty<>: []
 
-  use_parameter_frame:
-    type: bool
-    default_value: false
-  parameter_frame:
-    type: string
-    default_value: "dvl_link"
-    validation:
-      not_empty<>: []
   odom_frame:
     type: string
     default_value: "odom"
@@ -39,5 +31,14 @@ dvl_a50_odom_node:
   base_frame:
     type: string
     default_value: "base_link"
+    validation:
+      not_empty<>: []
+
+  use_parameter_frame:
+    type: bool
+    default_value: false
+  parameter_frame:
+    type: string
+    default_value: "dvl_link"
     validation:
       not_empty<>: []

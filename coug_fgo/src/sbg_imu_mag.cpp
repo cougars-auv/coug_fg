@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file sbg_imu_mag.cpp
- * @brief Implementation of the SbgImuMagNode.
- * @author Nelson Durrant
- * @date August 2026
- */
-
 #include "coug_fgo/sbg_imu_mag.hpp"
 
 #include <rclcpp_components/register_node_macro.hpp>

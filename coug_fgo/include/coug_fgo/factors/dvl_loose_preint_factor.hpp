@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_loose_preint_factor.hpp
- * @brief GTSAM factor for loosely-coupled preintegrated DVL translations with a lever arm.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -28,23 +21,11 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class DvlLoosePreintFactorArm
- * @brief GTSAM factor for loosely-coupled preintegrated DVL translations with a lever arm.
- */
 class DvlLoosePreintFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
   gtsam::Point3 target_p_sensor_;
   gtsam::Vector3 measured_translation_;
 
  public:
-  /**
-   * @brief Constructs the factor from a preintegrated translation delta.
-   * @param pose_key_i GTSAM key for the starting AUV pose.
-   * @param pose_key_j GTSAM key for the ending AUV pose.
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param measured_translation The preintegrated translation measurement (target frame at i) [m].
-   * @param noise_model The noise model for the constraint.
-   */
   DvlLoosePreintFactorArm(gtsam::Key pose_key_i, gtsam::Key pose_key_j,
                           const gtsam::Pose3& target_T_sensor,
                           const gtsam::Vector3& measured_translation,
@@ -53,14 +34,6 @@ class DvlLoosePreintFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gt
         target_p_sensor_(target_T_sensor.translation()),
         measured_translation_(measured_translation) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_i Starting AUV pose estimate.
-   * @param pose_j Ending AUV pose estimate.
-   * @param H_pose_i Optional Jacobian matrix with respect to pose_i.
-   * @param H_pose_j Optional Jacobian matrix with respect to pose_j.
-   * @return The 3D translation residual [m].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Pose3& pose_j,
                               gtsam::OptionalMatrixType H_pose_i = nullptr,
                               gtsam::OptionalMatrixType H_pose_j = nullptr) const override {

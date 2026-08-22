@@ -21,12 +21,6 @@ FGO_COLOR = estimators.timed_estimators()[0].color
 
 
 def gap_indices(t: np.ndarray) -> np.ndarray:
-    """
-    Find the insertion indices where NaN breaks should split large timestamp gaps.
-
-    :param t: Sample timestamps.
-    :return: Insertion indices where the timestamps jump (empty if none).
-    """
     if len(t) < 2:
         return np.array([], dtype=int)
     dts = np.diff(t)
@@ -35,13 +29,6 @@ def gap_indices(t: np.ndarray) -> np.ndarray:
 
 
 def _mask_gaps(t: np.ndarray, vals: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Insert NaN breaks at large timestamp gaps to avoid bridging in plots.
-
-    :param t: Sample timestamps.
-    :param vals: Sample values aligned with the timestamps.
-    :return: Timestamps and values with NaN entries inserted at the gaps.
-    """
     gap_idx = gap_indices(t)
     if len(gap_idx):
         t = np.insert(t, gap_idx, np.nan)
@@ -50,13 +37,6 @@ def _mask_gaps(t: np.ndarray, vals: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
 
 def plot_results(results: dict, pose_gt: dict, label: str = "") -> None:
-    """
-    Plot the estimated states against ground truth where available.
-
-    :param results: Estimated arrays keyed by state name.
-    :param pose_gt: Ground truth arrays keyed by state name (may be empty).
-    :param label: Figure window title, typically the bag name.
-    """
     t0 = results["time"][0]
     t_fgo = results["time"] - t0
 

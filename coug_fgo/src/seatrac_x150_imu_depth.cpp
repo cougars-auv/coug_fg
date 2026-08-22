@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file seatrac_x150_imu_depth.cpp
- * @brief Implementation of the SeatracX150ImuDepthNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/seatrac_x150_imu_depth.hpp"
 
 #include <tf2/LinearMath/Quaternion.h>

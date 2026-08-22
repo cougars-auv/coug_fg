@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file factor_graph_py.cpp
- * @brief Implementation and pybind11 module for the FactorGraphPy wrapper.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/factor_graph_py.hpp"
 
 #include <gtsam/inference/Symbol.h>
@@ -38,40 +31,19 @@ namespace coug_fgo {
 
 namespace {
 
-/**
- * @brief Converts a ROS (x, y, z, w) quaternion to a GTSAM Rot3.
- * @param quat_xyzw Orientation quaternion (x, y, z, w).
- * @return The equivalent GTSAM Rot3.
- */
 gtsam::Rot3 toRot3(const Eigen::Vector4d& quat_xyzw) {
   return gtsam::Rot3::Quaternion(quat_xyzw(3), quat_xyzw(0), quat_xyzw(1), quat_xyzw(2));
 }
 
-/**
- * @brief Converts a GTSAM Rot3 to a ROS (x, y, z, w) quaternion.
- * @param rot The rotation to convert.
- * @return The equivalent quaternion (x, y, z, w).
- */
 Eigen::Vector4d toQuatXyzw(const gtsam::Rot3& rot) {
   gtsam::Quaternion q = rot.toQuaternion();
   return Eigen::Vector4d(q.x(), q.y(), q.z(), q.w());
 }
 
-/**
- * @brief Converts a ROS (x, y, z, w) quaternion and translation to a GTSAM Pose3.
- * @param position Translation [x, y, z].
- * @param quat_xyzw Orientation quaternion (x, y, z, w).
- * @return The equivalent GTSAM Pose3.
- */
 gtsam::Pose3 toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& quat_xyzw) {
   return gtsam::Pose3(toRot3(quat_xyzw), gtsam::Point3(position));
 }
 
-/**
- * @brief Forwards core log messages to the Python `logging` module.
- * @param level The core log level.
- * @param msg The log message.
- */
 void pyLogCallback(utils::LogLevel level, const std::string& msg) {
   int py_level = 30;  // logging.WARNING
   switch (level) {
@@ -94,15 +66,6 @@ void pyLogCallback(utils::LogLevel level, const std::string& msg) {
       .attr("log")(py_level, msg);
 }
 
-/**
- * @brief Converts one optimized state into a Python dict of named scalars.
- * @param time State timestamp in seconds.
- * @param pose The optimized pose.
- * @param velocity The optimized velocity, if available.
- * @param bias The optimized IMU bias, if available.
- * @param mag_bias The optimized magnetometer hard-iron bias, if available.
- * @return Dict with time, position, orientation, velocity, and bias entries.
- */
 pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
                            const std::optional<gtsam::Vector3>& velocity,
                            const std::optional<gtsam::imuBias::ConstantBias>& bias,
@@ -140,12 +103,6 @@ pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
   return d;
 }
 
-/**
- * @brief Converts a dict of named sensor transforms into a core TfBundle.
- * @param tfs Sensor poses in the target frame, keyed by sensor name.
- * @return The equivalent core TfBundle, with unset transforms left as identity.
- * @throws std::invalid_argument If a key is not a known transform name.
- */
 utils::TfBundle toTfBundle(const FactorGraphPy::TfMap& tfs) {
   static const std::unordered_map<std::string, gtsam::Pose3 utils::TfBundle::*> kTfFields = {
       {"imu", &utils::TfBundle::target_T_imu},     {"gps", &utils::TfBundle::target_T_gps},
@@ -165,18 +122,6 @@ utils::TfBundle toTfBundle(const FactorGraphPy::TfMap& tfs) {
   return bundle;
 }
 
-/**
- * @brief Converts Python measurement batches into a core QueueBundle.
- * @param imu The IMU measurement batch.
- * @param gps The GPS measurement batch.
- * @param depth The depth measurement batch.
- * @param mag The magnetometer measurement batch.
- * @param ahrs The AHRS measurement batch.
- * @param dvl The DVL measurement batch.
- * @param wrench The wrench measurement batch.
- * @param multiagent The per-neighbor agent status batches.
- * @return The equivalent core QueueBundle.
- */
 utils::QueueBundle toQueueBundle(
     const FactorGraphPy::ImuBatch& imu, const FactorGraphPy::OdomBatch& gps,
     const FactorGraphPy::DepthBatch& depth, const FactorGraphPy::MagBatch& mag,
@@ -267,11 +212,6 @@ utils::QueueBundle toQueueBundle(
   return queues;
 }
 
-/**
- * @brief Converts a core QueueBundle back into a dict of Python measurement batches.
- * @param queues The core queues to convert.
- * @return Dict of measurement batches keyed by sensor name.
- */
 pybind11::dict toBatchDict(const utils::QueueBundle& queues) {
   FactorGraphPy::ImuBatch imu;
   for (const auto& m : queues.imu) {

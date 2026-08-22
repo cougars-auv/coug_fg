@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file data_types.hpp
- * @brief Shared data types for the factor graph core.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -32,10 +25,6 @@
 
 namespace coug_fgo::utils {
 
-/**
- * @struct TfBundle
- * @brief C++ container for static sensor transformations.
- */
 struct TfBundle {
   gtsam::Pose3 target_T_imu;
   gtsam::Pose3 target_T_gps;
@@ -48,10 +37,6 @@ struct TfBundle {
   gtsam::Pose3 target_T_modem;
 };
 
-/**
- * @struct ImuData
- * @brief C++ container for IMU data.
- */
 struct ImuData {
   double timestamp{0.0};
   gtsam::Vector3 linear_acceleration;
@@ -60,40 +45,24 @@ struct ImuData {
   gtsam::Matrix3 angular_velocity_covariance;
 };
 
-/**
- * @struct OdometryData
- * @brief C++ container for Odometry data.
- */
 struct OdometryData {
   double timestamp{0.0};
   gtsam::Pose3 pose;
   gtsam::Matrix66 pose_covariance;
 };
 
-/**
- * @struct MagneticFieldData
- * @brief C++ container for Magnetometer data.
- */
 struct MagneticFieldData {
   double timestamp{0.0};
   gtsam::Vector3 magnetic_field;
   gtsam::Matrix3 magnetic_field_covariance;
 };
 
-/**
- * @struct AhrsData
- * @brief C++ container for AHRS data.
- */
 struct AhrsData {
   double timestamp{0.0};
   gtsam::Rot3 orientation;
   gtsam::Matrix3 orientation_covariance;
 };
 
-/**
- * @struct TwistData
- * @brief C++ container for Twist data.
- */
 struct TwistData {
   double timestamp{0.0};
   gtsam::Vector3 linear_velocity;
@@ -101,20 +70,12 @@ struct TwistData {
   gtsam::Matrix66 twist_covariance;
 };
 
-/**
- * @struct WrenchData
- * @brief C++ container for Wrench data.
- */
 struct WrenchData {
   double timestamp{0.0};
   gtsam::Vector3 force;
   gtsam::Vector3 torque;
 };
 
-/**
- * @struct AgentStatusData
- * @brief C++ container for a neighboring agent's broadcast status data.
- */
 struct AgentStatusData {
   double timestamp{0.0};
   gtsam::Pose3 pose;
@@ -130,10 +91,6 @@ struct AgentStatusData {
   double position_depth{0.0};
 };
 
-/**
- * @struct QueueBundle
- * @brief Bundle of drained per-sensor message deques.
- */
 struct QueueBundle {
   std::deque<std::shared_ptr<ImuData>> imu;
   std::deque<std::shared_ptr<OdometryData>> gps;

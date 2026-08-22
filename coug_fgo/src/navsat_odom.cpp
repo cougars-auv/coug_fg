@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file navsat_odom.cpp
- * @brief Implementation of the NavsatOdomNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/navsat_odom.hpp"
 
 #include <algorithm>
@@ -85,15 +78,6 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
-  local_cartesian_.Reset(msg.latitude, msg.longitude, msg.altitude);
-  origin_navsat_ = msg;
-  if (origin_navsat_.header.frame_id.empty()) {
-    origin_navsat_.header.frame_id = params_.map_frame;
-  }
-  origin_set_ = true;
-}
-
 void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg) {
   if (!origin_set_ && msg->status.status >= sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
     setOrigin(*msg);
@@ -132,6 +116,15 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr
   }
 
   odom_pub_->publish(convertToOdom(msg));
+}
+
+void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
+  local_cartesian_.Reset(msg.latitude, msg.longitude, msg.altitude);
+  origin_navsat_ = msg;
+  if (origin_navsat_.header.frame_id.empty()) {
+    origin_navsat_.header.frame_id = params_.map_frame;
+  }
+  origin_set_ = true;
 }
 
 nav_msgs::msg::Odometry NavsatOdomNode::convertToOdom(

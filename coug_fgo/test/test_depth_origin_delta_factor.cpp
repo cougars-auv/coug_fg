@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file test_depth_origin_delta_factor.cpp
- * @brief Unit tests for depth_origin_delta_factor.hpp.
- * @author Nelson Durrant (w Claude Opus 5)
- * @date May 2026
- */
-
 #include <gtest/gtest.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Values.h>
@@ -34,9 +27,6 @@ constexpr double kResidualTol = 1e-9;
 
 }  // namespace
 
-/**
- * @brief Verify Jacobians against numerical differentiation.
- */
 TEST(DepthOriginDeltaFactorArmTest, Jacobians) {
   gtsam::Key delta_key = gtsam::symbol_shorthand::O(1);
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
@@ -57,9 +47,6 @@ TEST(DepthOriginDeltaFactorArmTest, Jacobians) {
                                                    kStep, kJacobianTol));
 }
 
-/**
- * @brief Verify the residual against an independently predicted measurement.
- */
 TEST(DepthOriginDeltaFactorArmTest, Residual) {
   gtsam::Key delta_key = gtsam::symbol_shorthand::O(1);
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);

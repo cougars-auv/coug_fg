@@ -57,31 +57,14 @@ TRIGGER_SOURCES: dict[str, KeyframeSource] = {
 }
 
 
+# IMPORTANT! This should match the ROS 2 framework in factor_graph.cpp as closely as possible.
 class OfflineFactorGraph:
-    """
-    Offline factor graph using the FactorGraphPy Python wrapper.
-
-    Should match the ROS 2 framework in ``factor_graph.cpp`` as closely as possible.
-
-    :author: Nelson Durrant (w Claude Opus 4.8)
-    :date: July 2026
-    """
-
     def __init__(
         self,
         config_paths: list[str],
         namespace: str = "",
         urdf: UrdfTree | None = None,
     ) -> None:
-        """
-        Load the parameters and prepare the sensor queues.
-
-        :param config_paths: Parameter YAML files, in increasing priority.
-        :param namespace: AUV namespace used to select parameters.
-        :param urdf: Parsed URDF tree for transform lookups, if available.
-        :raises RuntimeError: If LevenbergMarquardt lacks publish_smoothed_path.
-        :raises ValueError: If a keyframe source is unknown or its sensor is disabled.
-        """
         # --- Node Settings ---
         self.core = coug_fgo_py.FactorGraphPy(config_paths, namespace)
         self.params = self.core.get_params()
@@ -166,11 +149,6 @@ class OfflineFactorGraph:
 
     @property
     def topic_map(self) -> dict[str, list[str]]:
-        """
-        Map each namespace-resolved topic to the sensors that read from it.
-
-        :return: Resolved topic names to lists of sensor keys.
-        """
         sources = [(self.params["topics"][s], s) for s in SENSORS if self.enabled[s]]
         sources += list(zip(self.multiagent_topics, self.multiagent_keys))
 
@@ -182,11 +160,6 @@ class OfflineFactorGraph:
         return topics
 
     def pending_init_sensors(self) -> list[str]:
-        """
-        Return prior-seeding sensors with nothing queued to initialize from.
-
-        :return: Sensor keys blocking initialization.
-        """
         return [
             s
             for s, seeds_priors in self.init_priors.items()
@@ -194,14 +167,7 @@ class OfflineFactorGraph:
         ]
 
     def add_message(self, sensor: str, frame_id: str, measurement: tuple) -> None:
-        """
-        Queue one sensor measurement and trigger keyframe processing when due.
-
-        :param sensor: Sensor key from SENSORS, or ``multiagent_{i}`` for neighbor status.
-        :param frame_id: ROS frame the measurement was reported in.
-        :param measurement: Extracted measurement tuple, with the stamp first.
-        """
-        # IMPORTANT! Offline, the graph/timer fires on message stamps instead of the wall clock
+        # Offline, the graph/timer fires on message stamps instead of the wall clock
         self._stream_time = max(self._stream_time, measurement[0])
 
         is_neighbor = sensor.startswith("multiagent_")
@@ -218,17 +184,11 @@ class OfflineFactorGraph:
             self._tick_keyframe_timer()
 
     def finalize(self) -> None:
-        """Run the final batch optimization for LevenbergMarquardt solvers."""
         if self.is_lm and self.is_initialized:
             result = self.core.optimize()
             self.results = list(result.get("smoothed_path", [])) if result else []
 
     def get_results(self) -> dict | None:
-        """
-        Assemble the optimized results, re-expressed at the base frame.
-
-        :return: Result arrays keyed by state name, or None if there are none.
-        """
         if not self.results:
             return None
 
@@ -238,7 +198,7 @@ class OfflineFactorGraph:
             if k != "smoothed_path"
         }
 
-        # IMPORTANT! Pose covariance is just left at the target frame here
+        # Pose covariance is just left at the target frame here
         base_pos, base_quat = self.tfs["base"]
         base_rot = Rotation.from_quat(base_quat)
         target_positions = np.column_stack((results["x"], results["y"], results["z"]))
@@ -259,7 +219,6 @@ class OfflineFactorGraph:
         return results
 
     def _tick_keyframe_timer(self) -> None:
-        """Fire the keyframe timer once enough stream time has passed."""
         period = 1.0 / self.params["keyframe_timer_hz"]
         if self._last_timer_time is None:
             self._last_timer_time = self._stream_time
@@ -268,7 +227,6 @@ class OfflineFactorGraph:
             self._notify_frontend()
 
     def _notify_frontend(self) -> None:
-        """Initialize the graph or run a rate-limited update."""
         if not self.is_initialized:
             self._initialize_graph()
         elif self._check_and_update_rate_limit(
@@ -278,8 +236,7 @@ class OfflineFactorGraph:
             self._notify_backend()
 
     def _notify_backend(self) -> None:
-        """Run a rate-limited optimization."""
-        # IMPORTANT! Offline, LevenbergMarquardt batch optimizes once in finalize()
+        # Offline, LevenbergMarquardt batch optimizes once in finalize()
         if self.is_lm:
             return
         if self.is_initialized and self._check_and_update_rate_limit(
@@ -288,13 +245,6 @@ class OfflineFactorGraph:
             self._optimize_graph()
 
     def _check_and_update_rate_limit(self, key: str, max_rate_hz: float) -> bool:
-        """
-        Check a rate limit against stream time, updating it when passed.
-
-        :param key: Name of the rate-limited action.
-        :param max_rate_hz: Maximum rate in Hz, or non-positive to disable the limit.
-        :return: True if the action is allowed at the current stream time.
-        """
         if max_rate_hz <= 0.0:
             return True
         last_time = self._rate_limits.get(key)
@@ -304,12 +254,6 @@ class OfflineFactorGraph:
         return True
 
     def _resolve_sensor_tf(self, sensor: str, frame_id: str) -> None:
-        """
-        Resolve and register a sensor's static transform once.
-
-        :param sensor: Sensor key from SENSORS, or ``modem`` for neighbor status.
-        :param frame_id: Frame reported by the sensor's messages.
-        """
         name, cfg_key = ("com", "dynamics") if sensor == "wrench" else (sensor, sensor)
         if name in self.tfs:
             return
@@ -323,15 +267,7 @@ class OfflineFactorGraph:
         self.tfs[name] = self._lookup_static_tf(cfg, frame)
 
     def _lookup_static_tf(self, cfg: dict, frame: str) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Load a transform from parameters or look it up in the URDF.
-
-        :param cfg: Sensor parameter dictionary.
-        :param frame: Source frame to look up when parameters are not used.
-        :return: Position and xyzw quaternion in the target frame.
-        :raises RuntimeError: If a URDF lookup is required but no URDF was found.
-        """
-        # IMPORTANT! Offline, transforms come from the URDF instead of a live TF tree
+        # Offline, transforms come from the URDF instead of a live TF tree
         if cfg["use_parameter_tf"]:
             return np.array(cfg["tf_position"]), np.array(cfg["tf_orientation"])
         if self.urdf is None:
@@ -341,29 +277,18 @@ class OfflineFactorGraph:
         return self.urdf.lookup(self.params["target_frame"], frame)
 
     def _drain_all_queues(self) -> dict[str, list]:
-        """
-        Drain every queue, leaving them all empty.
-
-        :return: Queue bundle keyed by sensor, with neighbor status under ``multiagent``.
-        """
         bundle: dict[str, list] = {s: self.queues[s] for s in SENSORS}
         bundle["multiagent"] = [self.queues[k] for k in self.multiagent_keys]
         self.queues = {key: [] for key in self.queues}
         return bundle
 
     def _restore_all_queues(self, bundle: dict[str, list]) -> None:
-        """
-        Restore unprocessed messages to the front of the queues.
-
-        :param bundle: Queue bundle from ``_drain_all_queues`` or left over from an update.
-        """
         for sensor in SENSORS:
             self.queues[sensor][:0] = bundle[sensor]
         for key, msgs in zip(self.multiagent_keys, bundle["multiagent"]):
             self.queues[key][:0] = msgs
 
     def _initialize_graph(self) -> None:
-        """Attempt initialization once every sensor the core needs has reported."""
         # --- Wait for Required Sensor Data ---
         if not self.init_data_ready:
             if self.pending_init_sensors():
@@ -385,11 +310,6 @@ class OfflineFactorGraph:
             self._restore_all_queues(queues)
 
     def _active_keyframe_source(self) -> KeyframeSource:
-        """
-        Pick the keyframe source, falling back to the backup when the primary times out.
-
-        :return: The source to take the next target time from.
-        """
         if self.keyframe_source == KeyframeSource.TIMER:
             return self.keyframe_source
 
@@ -420,7 +340,6 @@ class OfflineFactorGraph:
         return self.backup_keyframe_source
 
     def _update_graph(self) -> None:
-        """Advance the graph to the newest stamp from the active source."""
         # Extract target time
         sensor = SOURCE_SENSORS.get(self._active_keyframe_source())
         target_time = (
@@ -449,7 +368,6 @@ class OfflineFactorGraph:
         self._restore_all_queues(queues if leftover is None else leftover)
 
     def _optimize_graph(self) -> None:
-        """Run one optimization and record the result."""
         # --- Optimization Request ---
         if result := self.core.optimize():
             num_keyframes = result.pop("num_keyframes")

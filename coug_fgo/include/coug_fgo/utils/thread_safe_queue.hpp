@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file thread_safe_queue.hpp
- * @brief Thread-safe queue for concurrent producer/consumer access.
- * @author Nelson Durrant (w Claude Opus 4.7)
- * @date May 2026
- */
-
 #pragma once
 
 #include <chrono>
@@ -29,18 +22,9 @@
 
 namespace coug_fgo::utils {
 
-/**
- * @class ThreadSafeQueue
- * @brief Thread-safe queue for concurrent producer/consumer access.
- * @tparam T Pointer-like type exposing a numeric `timestamp` [s] member.
- */
 template <typename T>
 class ThreadSafeQueue {
  public:
-  /**
-   * @brief Pushes a new item to the back of the queue and updates arrival metrics.
-   * @param value The item to push (must provide `->timestamp`).
-   */
   void push(const T& value) {
     std::scoped_lock lock(mutex_);
     queue_.push_back(value);
@@ -48,46 +32,26 @@ class ThreadSafeQueue {
     last_arrival_ = std::chrono::steady_clock::now();
   }
 
-  /**
-   * @brief Drains all items from the queue, leaving it empty (arrival metrics persist).
-   * @return A deque containing all items that were in the queue.
-   */
   std::deque<T> drain() {
     std::scoped_lock lock(mutex_);
     return std::exchange(queue_, {});
   }
 
-  /**
-   * @brief Checks if the queue is empty.
-   * @return True if the queue is empty, false otherwise.
-   */
   bool empty() const {
     std::scoped_lock lock(mutex_);
     return queue_.empty();
   }
 
-  /**
-   * @brief Gets the number of items in the queue.
-   * @return The size of the queue.
-   */
   size_t size() const {
     std::scoped_lock lock(mutex_);
     return queue_.size();
   }
 
-  /**
-   * @brief Gets the timestamp of the last item added to the queue (persists across drains).
-   * @return The timestamp as a double (seconds), or nullopt if no item has ever been pushed.
-   */
   std::optional<double> getLastTime() const {
     std::scoped_lock lock(mutex_);
     return last_msg_time_;
   }
 
-  /**
-   * @brief Gets the elapsed monotonic steady-clock time since the last item arrived.
-   * @return Elapsed seconds since the last arrival, or nullopt if no item has ever been pushed.
-   */
   std::optional<double> secondsSinceLastArrival() const {
     std::scoped_lock lock(mutex_);
     if (!last_arrival_.has_value()) {
@@ -96,10 +60,6 @@ class ThreadSafeQueue {
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - *last_arrival_).count();
   }
 
-  /**
-   * @brief Restores items in order to the front of the queue without altering arrival metrics.
-   * @param items The items to prepend.
-   */
   void restore(const std::deque<T>& items) {
     std::scoped_lock lock(mutex_);
     queue_.insert(queue_.begin(), items.begin(), items.end());

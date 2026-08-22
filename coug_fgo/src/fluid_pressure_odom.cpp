@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file fluid_pressure_odom.cpp
- * @brief Implementation of the FluidPressureOdomNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/fluid_pressure_odom.hpp"
 
 #include <cmath>
@@ -67,6 +60,27 @@ void FluidPressureOdomNode::pressureCallback(const sensor_msgs::msg::FluidPressu
   odom_pub_->publish(convertToOdom(msg, pressure, reference_pressure));
 }
 
+void FluidPressureOdomNode::calibrateCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+  (void)request;
+
+  if (last_pressure_ < 0.0) {
+    response->success = false;
+    response->message = "No pressure data.";
+    return;
+  }
+
+  calibrated_pressure_ = last_pressure_;
+  calibrated_ = true;
+  rejected_count_ = 0;
+
+  response->success = true;
+  response->message = "Depth calibrated.";
+  RCLCPP_INFO(get_logger(), "Depth calibrated: zero reference set to %.1f Pa.",
+              calibrated_pressure_);
+}
+
 nav_msgs::msg::Odometry FluidPressureOdomNode::convertToOdom(
     const sensor_msgs::msg::FluidPressure::SharedPtr msg, double pressure,
     double reference_pressure) {
@@ -89,27 +103,6 @@ nav_msgs::msg::Odometry FluidPressureOdomNode::convertToOdom(
   odom_msg.pose.covariance[14] = var_depth;
 
   return odom_msg;
-}
-
-void FluidPressureOdomNode::calibrateCallback(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-    std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
-  (void)request;
-
-  if (last_pressure_ < 0.0) {
-    response->success = false;
-    response->message = "No pressure data.";
-    return;
-  }
-
-  calibrated_pressure_ = last_pressure_;
-  calibrated_ = true;
-  rejected_count_ = 0;
-
-  response->success = true;
-  response->message = "Depth calibrated.";
-  RCLCPP_INFO(get_logger(), "Depth calibrated: zero reference set to %.1f Pa.",
-              calibrated_pressure_);
 }
 
 }  // namespace coug_fgo

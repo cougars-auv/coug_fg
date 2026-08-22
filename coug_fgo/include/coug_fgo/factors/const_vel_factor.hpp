@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file const_vel_factor.hpp
- * @brief GTSAM factor for constant target-frame velocity.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,38 +22,14 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class ConstVelFactor
- * @brief GTSAM factor for constant target-frame velocity.
- */
 class ConstVelFactor
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3> {
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key_i GTSAM key for the starting AUV pose.
-   * @param vel_key_i GTSAM key for the starting AUV velocity.
-   * @param pose_key_j GTSAM key for the ending AUV pose.
-   * @param vel_key_j GTSAM key for the ending AUV velocity.
-   * @param noise_model The noise model for the constraint.
-   */
   ConstVelFactor(gtsam::Key pose_key_i, gtsam::Key vel_key_i, gtsam::Key pose_key_j,
                  gtsam::Key vel_key_j, const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3>(
             noise_model, pose_key_i, vel_key_i, pose_key_j, vel_key_j) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_i Starting AUV pose estimate.
-   * @param vel_i Starting AUV map-frame velocity estimate.
-   * @param pose_j Ending AUV pose estimate.
-   * @param vel_j Ending AUV map-frame velocity estimate.
-   * @param H_pose_i Optional Jacobian matrix with respect to pose_i.
-   * @param H_vel_i Optional Jacobian matrix with respect to vel_i.
-   * @param H_pose_j Optional Jacobian matrix with respect to pose_j.
-   * @param H_vel_j Optional Jacobian matrix with respect to vel_j.
-   * @return The 3D velocity difference residual [m/s].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Vector3& vel_i,
                               const gtsam::Pose3& pose_j, const gtsam::Vector3& vel_j,
                               gtsam::OptionalMatrixType H_pose_i = nullptr,

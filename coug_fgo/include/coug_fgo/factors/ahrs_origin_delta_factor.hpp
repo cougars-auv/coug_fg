@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file ahrs_origin_delta_factor.hpp
- * @brief GTSAM factor for AHRS attitude measurements with an origin delta.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,32 +22,16 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class AhrsOriginDeltaFactorArm
- * @brief GTSAM factor for AHRS attitude measurements with an origin delta.
- */
 class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
   gtsam::Rot3 measured_orientation_;
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  /**
-   * @brief References a measured map-frame orientation to true north.
-   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
-   * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @return The measured orientation referenced to true north [rad].
-   */
   static gtsam::Rot3 trueNorthOrientation(const gtsam::Rot3& measured_orientation,
                                           double mag_declination) {
     return gtsam::Rot3::Yaw(-mag_declination) * measured_orientation;
   }
 
-  /**
-   * @brief Conjugates a map-frame orientation covariance into the sensor-frame tangent space.
-   * @param map_covariance The orientation covariance about the map-frame axes [rad^2].
-   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
-   * @return The equivalent covariance in the sensor-frame tangent space [rad^2].
-   */
   static gtsam::Matrix3 sensorTangentCovariance(const gtsam::Matrix3& map_covariance,
                                                 const gtsam::Rot3& measured_orientation) {
     const gtsam::Matrix3 map_R_sensor = measured_orientation.matrix();
@@ -62,15 +39,6 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
     return map_R_sensor.transpose() * map_covariance * map_R_sensor;
   }
 
-  /**
-   * @brief Constructs the factor.
-   * @param delta_key GTSAM key for the agent's origin delta (agent frame to map frame).
-   * @param pose_key GTSAM key for the AUV pose, in the agent's own frame.
-   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @param noise_model The noise model for the measurement (sensor-frame tangent space).
-   */
   AhrsOriginDeltaFactorArm(gtsam::Key delta_key, gtsam::Key pose_key,
                            const gtsam::Rot3& measured_orientation,
                            const gtsam::Pose3& target_T_sensor, double mag_declination,
@@ -79,14 +47,6 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
         measured_orientation_(trueNorthOrientation(measured_orientation, mag_declination)),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param delta The agent's origin delta estimate.
-   * @param pose The AUV pose estimate, in the agent's own frame.
-   * @param H_delta Optional Jacobian matrix with respect to delta.
-   * @param H_pose Optional Jacobian matrix with respect to pose.
-   * @return The 3D orientation residual (sensor-frame tangent space) [rad].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& delta, const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H_delta = nullptr,
                               gtsam::OptionalMatrixType H_pose = nullptr) const override {
@@ -105,7 +65,7 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
     gtsam::Rot3 predicted_orientation =
         map_R_agent.compose(target_R_sensor_, need_jacobians ? &H_compose : nullptr);
 
-    // 3D orientation residual (Lie algebra)
+    // 3D orientation residual (Lie algebra), anchored at the measurement to match the noise basis
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
     gtsam::Rot3 orientation_error = measured_orientation_.between(
         predicted_orientation, nullptr, need_jacobians ? &H_between : nullptr);

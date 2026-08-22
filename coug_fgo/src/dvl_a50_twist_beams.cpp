@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_a50_twist_beams.cpp
- * @brief Implementation of the DvlA50TwistBeamsNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/dvl_a50_twist_beams.hpp"
 
 #include <array>

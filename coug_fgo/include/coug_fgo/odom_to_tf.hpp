@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file odom_to_tf.hpp
- * @brief ROS 2 node that broadcasts a TF transform from an odometry topic.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <tf2_ros/transform_broadcaster.h>
@@ -32,30 +25,15 @@
 
 namespace coug_fgo {
 
-/**
- * @class OdomToTfNode
- * @brief ROS 2 node that broadcasts a TF transform from an odometry topic.
- */
 class OdomToTfNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the odometry-to-TF broadcaster.
-   * @param options The node options.
-   */
   explicit OdomToTfNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Re-broadcasts the odometry pose as a parent-to-child TF transform.
-   * @param msg The incoming Odometry message (header and child_frame_id name the frames).
-   */
+  // --- Callbacks ---
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-  /**
-   * @brief Converts an odometry pose to a parent-to-child TF transform.
-   * @param msg The incoming Odometry message (header and child_frame_id name the frames).
-   * @return The converted TransformStamped message; twist fields are dropped.
-   */
+  // --- Helpers ---
   geometry_msgs::msg::TransformStamped convertToTf(const nav_msgs::msg::Odometry::SharedPtr msg);
 
   // --- ROS Interfaces ---

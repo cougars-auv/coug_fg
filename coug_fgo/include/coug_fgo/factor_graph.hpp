@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file factor_graph.hpp
- * @brief ROS 2 node for AUV state estimation via factor graph optimization.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Vector.h>
@@ -58,201 +51,76 @@
 
 namespace coug_fgo {
 
-/**
- * @class FactorGraphNode
- * @brief ROS 2 node for AUV state estimation via factor graph optimization.
- */
 class FactorGraphNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and launches frontend/backend threads.
-   * @param options The node options.
-   */
   explicit FactorGraphNode(const rclcpp::NodeOptions& options);
 
-  /**
-   * @brief Joins worker threads and shuts down gracefully.
-   */
   ~FactorGraphNode() override;
 
  private:
-  /**
-   * @brief Creates publishers, subscribers, services, timers, TF interfaces, and diagnostics.
-   */
+  // --- Initialization ---
   void setupRosInterfaces();
 
   // --- Main Logic ---
-  /**
-   * @brief Initializes the factor graph from the newest sensor samples or parameter priors.
-   */
   void initializeGraph();
 
-  /**
-   * @brief Drains queues and delegates factor building to the core.
-   */
   void updateGraph();
 
-  /**
-   * @brief Delegates optimization to the core and publishes results.
-   */
   void optimizeGraph();
 
-  /**
-   * @brief Resets the factor graph and state estimator to re-initialize from scratch.
-   * @param request Unused Trigger request.
-   * @param response Trigger response reporting whether the reset was applied.
-   */
   void resetGraph(const std_srvs::srv::Trigger::Request::SharedPtr request,
                   std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
-  /**
-   * @brief The background loop run by the dedicated frontend thread.
-   */
   void frontendThreadLoop();
 
-  /**
-   * @brief The background loop run by the dedicated backend thread.
-   */
   void backendThreadLoop();
 
   // --- Helpers ---
-  /**
-   * @brief Wakes the frontend thread to process new data.
-   */
   void notifyFrontend();
 
-  /**
-   * @brief Wakes the backend thread to run optimization.
-   */
   void notifyBackend();
 
-  /**
-   * @brief Checks a rate limit and records the pass time; always passes if the rate is <= 0.
-   * @param last_time The last pass time (updated on pass).
-   * @param max_rate_hz The maximum allowed rate.
-   * @return True if enough time has elapsed since the last pass.
-   */
   bool checkAndUpdateRateLimit(rclcpp::Time& last_time, double max_rate_hz);
 
-  /**
-   * @brief Fills a sensor TF from parameters or the TF tree (no-op once filled).
-   * @param tf_out The cached transform to fill.
-   * @param child The child (sensor) frame id.
-   * @param use_parameter_tf Build the transform from parameters instead of the TF tree.
-   * @param pos Parameter translation [x, y, z].
-   * @param quat Parameter orientation [x, y, z, w].
-   * @return True once the transform is resolved and safe to convert.
-   */
   bool loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, const std::string& child,
                       bool use_parameter_tf, const std::vector<double>& pos,
                       const std::vector<double>& quat);
 
-  /**
-   * @brief Builds a GTSAM sensor transform bundle from the currently resolved transforms.
-   * @return The transform bundle; unresolved transforms are left identity.
-   */
   utils::TfBundle buildCurrentTfBundle();
 
-  /**
-   * @brief Drains every sensor queue into one bundle.
-   * @return The drained sensor data bundle.
-   */
   utils::QueueBundle drainAllQueues();
 
-  /**
-   * @brief Restores a bundle of sensor data to the front of the queues.
-   * @param queues The bundle to restore.
-   */
   void restoreAllQueues(const utils::QueueBundle& queues);
 
   // --- Publishing ---
-  /**
-   * @brief Publishes the optimized pose as map-frame odometry of the base frame.
-   * @param current_pose The estimated target pose (re-expressed at the base frame here).
-   * @param pose_covariance The estimation error covariance.
-   * @param timestamp The message timestamp.
-   */
   void publishGlobalOdom(const gtsam::Pose3& current_pose, const gtsam::Matrix& pose_covariance,
                          const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Publishes a neighbor's optimized pose as map-frame odometry of its base frame.
-   * @param agent_queue_idx Index of the neighbor's status queue, not its agent id.
-   * @param current_pose The estimated neighbor pose (already at the base frame).
-   * @param pose_covariance The estimation error covariance.
-   * @param timestamp The message timestamp.
-   */
   void publishNeighborGlobalOdom(size_t agent_queue_idx, const gtsam::Pose3& current_pose,
                                  const gtsam::Matrix& pose_covariance,
                                  const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Broadcasts the map-to-odom transform.
-   * @param current_pose The estimated target pose.
-   * @param timestamp The transform timestamp.
-   */
   void broadcastGlobalTf(const gtsam::Pose3& current_pose, const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Broadcasts the map-to-base transform for a neighbor.
-   * @param agent_queue_idx Index of the neighbor's status queue, not its agent id.
-   * @param current_pose The estimated neighbor pose (already at the base frame).
-   * @param timestamp The transform timestamp.
-   */
   void broadcastNeighborGlobalTf(size_t agent_queue_idx, const gtsam::Pose3& current_pose,
                                  const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Publishes the full optimized trajectory as base-frame poses in the map frame.
-   * @param values The final optimized values.
-   * @param timestamp The path timestamp.
-   */
   void publishSmoothedPath(const gtsam::Values& values, const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Publishes the optimized velocity (at the target frame in the map frame).
-   * @param current_vel The estimated velocity.
-   * @param vel_covariance The estimation error covariance.
-   * @param timestamp The message timestamp.
-   */
   void publishVelocity(const gtsam::Vector3& current_vel, const gtsam::Matrix& vel_covariance,
                        const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Publishes the optimized IMU biases.
-   * @param current_imu_bias The estimated biases (IMU frame).
-   * @param imu_bias_covariance The estimation error covariance.
-   * @param timestamp The message timestamp.
-   */
   void publishImuBias(const gtsam::imuBias::ConstantBias& current_imu_bias,
                       const gtsam::Matrix& imu_bias_covariance, const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Publishes the estimated magnetometer hard-iron bias.
-   * @param current_mag_bias The estimated hard-iron bias (sensor frame).
-   * @param mag_bias_covariance The estimation error covariance.
-   * @param timestamp The message timestamp.
-   */
   void publishMagBias(const gtsam::Point3& current_mag_bias,
                       const gtsam::Matrix& mag_bias_covariance, const rclcpp::Time& timestamp);
 
-  /**
-   * @brief Publishes high-frequency timing and graph metadata.
-   * @param timestamp The message timestamp.
-   */
   void publishGraphMetrics(const rclcpp::Time& timestamp);
 
   // --- Diagnostics ---
-  /**
-   * @brief Checks sensor inputs for queue sizes and data freshness.
-   * @param stat The diagnostic status wrapper.
-   */
   void checkSensorStatus(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
-  /**
-   * @brief Checks the overall graph lifecycle state and processing times.
-   * @param stat The diagnostic status wrapper.
-   */
   void checkGraphStatus(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
   // --- Parameters ---

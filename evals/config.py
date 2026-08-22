@@ -34,12 +34,6 @@ AGENTS = [
 
 
 def config_paths(namespace: str) -> list[str]:
-    """
-    Build the layered config paths for an agent namespace.
-
-    :param namespace: AUV namespace whose params override the fleet config.
-    :return: Fleet and namespace config file paths, in override order.
-    """
     return [
         str(Path.home() / "cougars-dev/config/fleet/coug_fgo_params.yaml"),
         str(Path.home() / f"cougars-dev/config/{namespace}_params.yaml"),

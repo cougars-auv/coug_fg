@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file test_mag_calib_factor.cpp
- * @brief Unit tests for mag_calib_factor.hpp.
- * @author Nelson Durrant (w Claude Opus 5)
- * @date August 2026
- */
-
 #include <gtest/gtest.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Values.h>
@@ -34,9 +27,6 @@ constexpr double kResidualTol = 1e-15;
 
 }  // namespace
 
-/**
- * @brief Verify Jacobians against numerical differentiation.
- */
 TEST(MagCalibFactorArmTest, Jacobians) {
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::Key bias_key = gtsam::symbol_shorthand::M(0);
@@ -57,9 +47,6 @@ TEST(MagCalibFactorArmTest, Jacobians) {
                                                    kJacobianTol));
 }
 
-/**
- * @brief Verify the residual against an independently predicted measurement.
- */
 TEST(MagCalibFactorArmTest, Residual) {
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::Key bias_key = gtsam::symbol_shorthand::M(0);

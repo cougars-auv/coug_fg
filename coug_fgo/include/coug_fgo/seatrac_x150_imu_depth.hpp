@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file seatrac_x150_imu_depth.hpp
- * @brief ROS 2 node that converts SeaTrac ModemStatus to IMU and depth messages.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <memory>
@@ -31,37 +24,17 @@
 
 namespace coug_fgo {
 
-/**
- * @class SeatracX150ImuDepthNode
- * @brief ROS 2 node that converts SeaTrac ModemStatus to IMU and depth messages.
- */
 class SeatracX150ImuDepthNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the ModemStatus conversion.
-   * @param options The node options.
-   */
   explicit SeatracX150ImuDepthNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Publishes IMU and/or depth messages when the modem report includes them.
-   * @param msg The incoming ModemStatus message.
-   */
+  // --- Callbacks ---
   void modemStatusCallback(const seatrac_interfaces::msg::ModemStatus::SharedPtr msg);
 
-  /**
-   * @brief Builds a NED IMU message from the modem attitude with declination correction.
-   * @param msg The incoming ModemStatus message (attitude in 0.1-degree units).
-   * @return The converted Imu message; rates and accelerations are flagged unmeasured.
-   */
+  // --- Helpers ---
   sensor_msgs::msg::Imu convertToImu(const seatrac_interfaces::msg::ModemStatus::SharedPtr msg);
 
-  /**
-   * @brief Builds a NED depth Odometry message from the modem pressure sensor reading.
-   * @param msg The incoming ModemStatus message (depth in 0.1-meter units, positive down).
-   * @return The converted Odometry message; only the Z position and its variance are populated.
-   */
   nav_msgs::msg::Odometry convertToOdom(const seatrac_interfaces::msg::ModemStatus::SharedPtr msg);
 
   // --- ROS Interfaces ---

@@ -32,11 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 def save_config(dest_dir: Path) -> None:
-    """
-    Copy the active config directory into a run's output directory.
-
-    :param dest_dir: Output directory to copy the config folder into.
-    """
     config_dir = os.environ.get("CONFIG_DIR", "")
     if not config_dir or not os.path.isdir(config_dir):
         return
@@ -54,17 +49,6 @@ def process_and_evaluate(
     evo_flags: list[str],
     **kwargs: Any,
 ) -> tuple[dict, dict, str] | None:
-    """
-    Run the full offline pipeline for one bag: load truth, process, save, evaluate.
-
-    :param bag_path: Path to the ROS 2 bag directory.
-    :param cfg_paths: Parameter YAML files, in increasing priority.
-    :param namespace: AUV namespace used for topics and parameters.
-    :param tag: Subdirectory and file suffix for this run (e.g. ``offline``).
-    :param evo_flags: Extra evo flags forwarded to the APE and RPE runs.
-    :param kwargs: Extra keyword arguments forwarded to ``process_bag_offline``.
-    :return: ``(results, pose_gt, label)`` tuple, or None if no results.
-    """
     logger.info(f"Processing bag: {bag_path}")
     pose_gt, gt_path = evo_cli.load_ground_truth(bag_path, namespace)
     results, _ = pipeline.process_bag_offline(bag_path, cfg_paths, namespace, **kwargs)

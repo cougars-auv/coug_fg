@@ -29,14 +29,6 @@ logger = logging.getLogger(__name__)
 def _replay_messages(
     reader: AnyReader, graph: OfflineFactorGraph, topic_to_sensors: dict[str, list[str]]
 ) -> bool:
-    """
-    Feed every matching message in the bag into the graph, in recorded order.
-
-    :param reader: Open reader for the bag being replayed.
-    :param graph: Offline graph to feed the measurements to.
-    :param topic_to_sensors: Resolved topic names to lists of sensor keys.
-    :return: True if the replay stopped early because the graph raised.
-    """
     matched_conns = [c for c in reader.connections if c.topic in topic_to_sensors]
     if not matched_conns:
         logger.error("No matching sensor topics found in the bag.")
@@ -66,11 +58,6 @@ def _replay_messages(
 
 
 def _log_missing_results(graph: OfflineFactorGraph) -> None:
-    """
-    Report why a finished replay produced no results.
-
-    :param graph: Graph that finished without producing results.
-    """
     if graph.is_initialized:
         logger.error("Graph initialized but produced no results.")
         return
@@ -90,15 +77,6 @@ def process_bag_offline(
     namespace: str,
     urdf_path: str | None = None,
 ) -> tuple[dict | None, bool]:
-    """
-    Replay a bag through the offline factor graph.
-
-    :param bag_path: Path to the ROS 2 bag directory.
-    :param config_paths: Parameter YAML files, in increasing priority.
-    :param namespace: AUV namespace used for topics and parameters.
-    :param urdf_path: Optional URDF path, resolved from config files if omitted.
-    :return: Result arrays keyed by state name (or None), and a crash flag.
-    """
     if urdf_path is None:
         urdf_path = resolve_urdf_path(namespace, config_paths)
 

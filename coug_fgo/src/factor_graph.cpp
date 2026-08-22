@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file factor_graph.cpp
- * @brief Implementation of the FactorGraphNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/factor_graph.hpp"
 
 #include <cmath>
@@ -49,11 +42,6 @@ namespace {
 constexpr double kUnknownCovariance = -1.0;
 constexpr size_t kSensorQueueDepth = 200;
 
-/**
- * @brief Maps a row-major ROS covariance array onto an N x N Eigen matrix.
- * @param arr The flat covariance array from a ROS message.
- * @return The covariance as a column-major Eigen matrix.
- */
 template <int N, typename Array>
 Eigen::Matrix<double, N, N> toCovMatrix(const Array& arr) {
   return Eigen::Map<const Eigen::Matrix<double, N, N, Eigen::RowMajor>>(arr.data());
@@ -547,8 +535,11 @@ void FactorGraphNode::publishGlobalOdom(const gtsam::Pose3& current_pose,
     Rot.block<3, 3>(0, 0) = map_R_base.matrix();
     Rot.block<3, 3>(3, 3) = map_R_base.matrix();
 
+    // Conjugate the target-frame pose covariance into the base-frame tangent space
     gtsam::Matrix66 warped_covariance = target_T_base.inverse().AdjointMap() * pose_covariance *
                                         target_T_base.inverse().AdjointMap().transpose();
+
+    // Conjugate the base-frame tangent covariance onto the map-frame axes
     cov_to_pub = Rot * warped_covariance * Rot.transpose();
   }
 
@@ -576,6 +567,7 @@ void FactorGraphNode::publishNeighborGlobalOdom(size_t agent_queue_idx,
     Rot.block<3, 3>(0, 0) = map_R_base.matrix();
     Rot.block<3, 3>(3, 3) = map_R_base.matrix();
 
+    // Conjugate the base-frame tangent covariance onto the map-frame axes
     cov_to_pub = Rot * pose_covariance * Rot.transpose();
   }
 

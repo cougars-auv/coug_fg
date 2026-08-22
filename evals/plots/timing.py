@@ -33,13 +33,6 @@ NAME_MAPPING = {e.node: e.label for e in estimators.timed_estimators()}
 
 
 def _read_timing_metrics(bag_dir: Path, agent_name: str) -> pd.DataFrame:
-    """
-    Read the solver timing metrics for one agent from a bag.
-
-    :param bag_dir: Path to the ROS 2 bag directory.
-    :param agent_name: Agent namespace to read the metrics topics for.
-    :return: DataFrame of per-message timing durations by algorithm.
-    """
     timing_data = []
     try:
         with AnyReader([bag_dir]) as reader:
@@ -70,11 +63,6 @@ def _read_timing_metrics(bag_dir: Path, agent_name: str) -> pd.DataFrame:
 
 
 def render(target_dir: Path) -> None:
-    """
-    Save solver timing plots for every evaluated agent under a target directory.
-
-    :param target_dir: A bag or directory of bags that has been evaluated.
-    """
     logger.info("Rendering timing plots...")
     for bag_dir, agent_dir in tum.iter_evaluated_agents(target_dir):
         df = _read_timing_metrics(bag_dir, agent_dir.name)

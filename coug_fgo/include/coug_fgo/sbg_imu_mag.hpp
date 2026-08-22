@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file sbg_imu_mag.hpp
- * @brief ROS 2 node that converts SBG magnetometer output from arbitrary units to nominal Tesla.
- * @author Nelson Durrant
- * @date August 2026
- */
-
 #pragma once
 
 #include <memory>
@@ -29,30 +22,15 @@
 
 namespace coug_fgo {
 
-/**
- * @class SbgImuMagNode
- * @brief ROS 2 node that converts SBG magnetometer output from arbitrary units to nominal Tesla.
- */
 class SbgImuMagNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the arbitrary units to nominal Tesla conversion.
-   * @param options The node options.
-   */
   explicit SbgImuMagNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Publishes the Tesla-scaled copy of an incoming magnetometer message.
-   * @param msg The incoming MagneticField message (in arbitrary units).
-   */
+  // --- Callbacks ---
   void magCallback(const sensor_msgs::msg::MagneticField::SharedPtr msg);
 
-  /**
-   * @brief Scales the field and its covariance from arbitrary units into nominal Tesla.
-   * @param msg The incoming MagneticField message (in arbitrary units).
-   * @return The converted MagneticField message; an unknown covariance is left unscaled.
-   */
+  // --- Helpers ---
   sensor_msgs::msg::MagneticField convertToTesla(
       const sensor_msgs::msg::MagneticField::SharedPtr msg);
 

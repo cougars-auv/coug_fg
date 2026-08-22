@@ -24,20 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class UrdfTree:
-    """
-    Offline TF resolver parsed from a URDF or xacro description.
-
-    :author: Nelson Durrant (w Claude Opus 4.8)
-    :date: July 2026
-    """
-
     def __init__(self, urdf_path: str) -> None:
-        """
-        Parse the joint tree from a robot description file.
-
-        :param urdf_path: Path to a URDF or xacro robot description.
-        :raises ValueError: If a joint is missing its parent or child link.
-        """
         path = Path(urdf_path)
         if path.suffix == ".xacro":
             import xacro
@@ -67,13 +54,6 @@ class UrdfTree:
     def lookup(
         self, target_frame: str, source_frame: str
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compute the static transform between two frames in the tree.
-
-        :param target_frame: Frame to express the transform in.
-        :param source_frame: Frame whose pose is being looked up.
-        :return: Position and xyzw quaternion of the source in the target.
-        """
         target_pos, target_rot = self._root_tf(target_frame)
         source_pos, source_rot = self._root_tf(source_frame)
         pos = target_rot.inv().apply(source_pos - target_pos)
@@ -81,13 +61,6 @@ class UrdfTree:
         return pos, rot.as_quat()
 
     def _root_tf(self, frame: str) -> tuple[np.ndarray, Rotation]:
-        """
-        Accumulate the fixed transform from the URDF root to a frame.
-
-        :param frame: Frame name (frame_prefix stripped before lookup).
-        :return: Position and rotation of the frame in the root link.
-        :raises KeyError: If the frame is not present in the URDF.
-        """
         link = frame.split("/")[-1]  # Strip robot_state_publisher frame_prefix
         if link not in self._links:
             raise KeyError(f"Frame '{frame}' not found in the URDF.")
@@ -101,13 +74,6 @@ class UrdfTree:
 
 
 def _read_urdf_param(yaml_path: Path, top_keys: list[str]) -> str | None:
-    """
-    Read the urdf_file parameter from one YAML file, if present.
-
-    :param yaml_path: Path to the parameter YAML file.
-    :param top_keys: Top-level namespace keys to try, in order.
-    :return: The urdf_file value, or None if it was not found.
-    """
     try:
         data = yaml.safe_load(yaml_path.read_text())
     except OSError:
@@ -127,12 +93,6 @@ def _read_urdf_param(yaml_path: Path, top_keys: list[str]) -> str | None:
 
 
 def _read_fleet_urdf_param(config_paths: list[str]) -> str | None:
-    """
-    Read urdf_file from the fleet-wide description params beside any given config.
-
-    :param config_paths: Parameter YAML files whose directories are searched.
-    :return: The urdf_file value from the first match, or None if there was none.
-    """
     for path in map(Path, config_paths):
         for config_dir in (path.parent / "fleet", path.parent):
             urdf_file = _read_urdf_param(
@@ -144,11 +104,6 @@ def _read_fleet_urdf_param(config_paths: list[str]) -> str | None:
 
 
 def _urdf_search_dirs() -> list[Path]:
-    """
-    List the directories a URDF file could have been installed or sourced from.
-
-    :return: Directories to search, in priority order.
-    """
     dirs = []
     try:
         from ament_index_python.packages import get_package_share_directory
@@ -164,13 +119,6 @@ def _urdf_search_dirs() -> list[Path]:
 
 
 def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
-    """
-    Find the URDF file referenced by the coug_description_launch parameters.
-
-    :param namespace: AUV namespace used to select namespaced parameters.
-    :param config_paths: Parameter YAML files to search for a urdf_file entry.
-    :return: Absolute path to the URDF file, or None if it was not found.
-    """
     urdf_file = None
     for path in map(Path, config_paths):
         urdf_file = _read_urdf_param(path, [f"/{namespace}", "/**"]) or urdf_file

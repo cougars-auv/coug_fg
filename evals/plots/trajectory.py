@@ -43,16 +43,6 @@ def _add_start_end_markers(
     end_symbol: str = "x",
     size: int = 15,
 ) -> None:
-    """
-    Mark the start and end points of a trajectory on the given axes.
-
-    :param ax: Axes to draw on.
-    :param traj: Trajectory whose endpoints are marked.
-    :param color: Marker color.
-    :param start_symbol: Marker symbol for the start point.
-    :param end_symbol: Marker symbol for the end point.
-    :param size: Marker size.
-    """
     if traj.num_poses > 0:
         start, end = traj.positions_xyz[0], traj.positions_xyz[-1]
         ax.scatter(
@@ -64,12 +54,6 @@ def _add_start_end_markers(
 def _load_trajectories(
     evo_agent_dir: Path,
 ) -> tuple[dict[str, PoseTrajectory3D], PoseTrajectory3D | None]:
-    """
-    Load the estimated and ground truth trajectories for one agent.
-
-    :param evo_agent_dir: Agent directory inside a bag's evo folder.
-    :return: Estimated trajectories keyed by algorithm, and the ground truth.
-    """
     gt_file = tum.latest_tum(evo_agent_dir)
     gt_traj = file_interface.read_tum_trajectory_file(str(gt_file)) if gt_file else None
 
@@ -83,24 +67,12 @@ def _load_trajectories(
 
 
 def _positions_with_gaps(traj: PoseTrajectory3D) -> np.ndarray:
-    """
-    Return positions with NaN breaks inserted at large timestamp gaps.
-
-    :param traj: Trajectory to extract positions from.
-    :return: Positions with NaN rows inserted where the timestamps jump.
-    """
     pos = traj.positions_xyz
     gap_idx = state.gap_indices(traj.timestamps)
     return np.insert(pos, gap_idx, np.nan, axis=0) if len(gap_idx) else pos
 
 
 def render(target_dir: Path, do_align: bool = False) -> None:
-    """
-    Save a top-down trajectory plot for every evaluated agent under a directory.
-
-    :param target_dir: A bag or directory of bags that has been evaluated.
-    :param do_align: Whether to Umeyama-align estimates to the ground truth.
-    """
     logger.info("Rendering trajectory plots...")
     for bag_dir, agent_dir in tum.iter_evaluated_agents(target_dir):
         est_trajs, gt_traj = _load_trajectories(agent_dir)

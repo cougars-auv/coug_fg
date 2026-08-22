@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_a50_odom.hpp
- * @brief ROS 2 node that converts DVL A50 dead-reckoning data to an odometry message.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <tf2_ros/buffer.h>
@@ -35,32 +28,15 @@
 
 namespace coug_fgo {
 
-/**
- * @class DvlA50OdomNode
- * @brief ROS 2 node that converts DVL A50 dead-reckoning data to an odometry message.
- */
 class DvlA50OdomNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the DVL dead-reckoning conversion.
-   * @param options The node options.
-   */
   explicit DvlA50OdomNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Looks up the DVL-to-base transform, then publishes the base-frame odometry.
-   * @param msg The incoming DVLDR message (position in meters, attitude in degrees).
-   */
+  // --- Callbacks ---
   void dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg);
 
-  /**
-   * @brief Re-expresses the DVL dead-reckoning pose as base-frame odometry.
-   * @param msg The incoming DVLDR message (position in meters, attitude in degrees).
-   * @param dvl_frame The frame the dead-reckoning pose is expressed in.
-   * @param dvl_T_base_tf The DVL-to-base transform.
-   * @return The converted Odometry message (DVL report-time or header stamp).
-   */
+  // --- Helpers ---
   nav_msgs::msg::Odometry convertToOdom(const dvl_msgs::msg::DVLDR::SharedPtr msg,
                                         const std::string& dvl_frame,
                                         const geometry_msgs::msg::TransformStamped& dvl_T_base_tf);

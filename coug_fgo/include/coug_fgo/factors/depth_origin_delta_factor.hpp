@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file depth_origin_delta_factor.hpp
- * @brief GTSAM factor for 1D depth (Z) measurements with a lever arm and an origin delta.
- * @author Nelson Durrant
- * @date August 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -28,23 +21,11 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class DepthOriginDeltaFactorArm
- * @brief GTSAM factor for 1D depth (Z) measurements with a lever arm and an origin delta.
- */
 class DepthOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
   double measured_depth_;
   gtsam::Point3 target_p_sensor_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param delta_key GTSAM key for the agent's origin delta (agent frame to map frame).
-   * @param pose_key GTSAM key for the AUV pose, in the agent's own frame.
-   * @param measured_depth The measured depth of the sensor in the map frame [m].
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param noise_model The noise model for the measurement.
-   */
   DepthOriginDeltaFactorArm(gtsam::Key delta_key, gtsam::Key pose_key, double measured_depth,
                             const gtsam::Pose3& target_T_sensor,
                             const gtsam::SharedNoiseModel& noise_model)
@@ -52,14 +33,6 @@ class DepthOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, 
         measured_depth_(measured_depth),
         target_p_sensor_(target_T_sensor.translation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param delta The agent's origin delta estimate.
-   * @param pose The AUV pose estimate, in the agent's own frame.
-   * @param H_delta Optional Jacobian matrix with respect to delta.
-   * @param H_pose Optional Jacobian matrix with respect to pose.
-   * @return The 1D depth residual [m].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& delta, const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H_delta = nullptr,
                               gtsam::OptionalMatrixType H_pose = nullptr) const override {

@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_tight_preintegrator.hpp
- * @brief Preintegrator that accumulates tightly-coupled DVL velocities into relative translation.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -27,20 +20,10 @@
 
 namespace coug_fgo::utils {
 
-/**
- * @class DvlTightPreintegrator
- * @brief Preintegrator that accumulates tightly-coupled DVL velocities into relative translation.
- */
 class DvlTightPreintegrator {
  public:
-  /**
-   * @brief Constructs the preintegrator in a reset state.
-   */
   DvlTightPreintegrator() { reset(); }
 
-  /**
-   * @brief Resets the preintegrator state.
-   */
   void reset() {
     measured_translation_ = gtsam::Vector3::Zero();
     covariance_ = gtsam::Matrix3::Zero();
@@ -49,16 +32,6 @@ class DvlTightPreintegrator {
     prev_delta_R_ik_ = gtsam::Rot3();
   }
 
-  /**
-   * @brief Integrates a DVL measurement with joint covariance propagation.
-   * @param measured_vel The velocity measurement in the DVL sensor frame.
-   * @param delta_R_ik Relative target-frame rotation from interval start (i) to measurement (k).
-   * @param target_R_dvl Static extrinsic rotation from the DVL to the target frame.
-   * @param dt The time delta since the last measurement.
-   * @param measured_cov The measurement noise covariance.
-   * @param rot_cov_k Right-perturbation covariance of delta_R_ik from the IMU preintegrator.
-   * @param J_bg_k Gyro-bias Jacobian of delta_R_ik: delta_R(b+db) ~= delta_R(b)*Exp(J_bg_k*db).
-   */
   void integrateMeasurement(const gtsam::Vector3& measured_vel, const gtsam::Rot3& delta_R_ik,
                             const gtsam::Rot3& target_R_dvl, double dt,
                             const gtsam::Matrix3& measured_cov, const gtsam::Matrix3& rot_cov_k,
@@ -84,22 +57,10 @@ class DvlTightPreintegrator {
     prev_delta_R_ik_ = delta_R_ik;
   }
 
-  /**
-   * @brief Gets the preintegrated translation delta.
-   * @return The translation delta in the target frame at the start of the interval (i).
-   */
   gtsam::Vector3 delta() const { return measured_translation_; }
 
-  /**
-   * @brief Gets the accumulated translation covariance.
-   * @return The 3x3 covariance matrix.
-   */
   gtsam::Matrix3 covariance() const { return covariance_; }
 
-  /**
-   * @brief Gets the first-order derivative of the preintegrated measurement w.r.t gyro bias.
-   * @return The 3x3 Jacobian matrix.
-   */
   gtsam::Matrix3 preintMeasDerivativeWrtBias() const { return J_p_bg_; }
 
  private:

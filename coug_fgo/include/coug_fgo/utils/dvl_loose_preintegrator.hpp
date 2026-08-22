@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_loose_preintegrator.hpp
- * @brief Preintegrator that accumulates loosely-coupled DVL velocities into relative translation.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -27,24 +20,10 @@
 
 namespace coug_fgo::utils {
 
-/**
- * @class DvlLoosePreintegrator
- * @brief Preintegrator that accumulates loosely-coupled DVL velocities into relative translation.
- */
 class DvlLoosePreintegrator {
  public:
-  /**
-   * @brief Constructs the preintegrator in a reset state with identity extrinsics.
-   */
   DvlLoosePreintegrator() { reset(gtsam::Rot3()); }
 
-  /**
-   * @brief Resets the preintegrator state.
-   * @param initial_orientation The orientation at the start of the integration period.
-   * @param target_R_ahrs Static extrinsic rotation from the AHRS to the target frame.
-   * @param target_R_dvl Static extrinsic rotation from the DVL to the target frame.
-   * @param ahrs_cov Constant AHRS attitude error covariance in the AHRS-frame tangent space.
-   */
   void reset(const gtsam::Rot3& initial_orientation,
              const gtsam::Rot3& target_R_ahrs = gtsam::Rot3(),
              const gtsam::Rot3& target_R_dvl = gtsam::Rot3(),
@@ -58,13 +37,6 @@ class DvlLoosePreintegrator {
     J_ahrs_ = gtsam::Matrix3::Zero();
   }
 
-  /**
-   * @brief Integrates a new DVL velocity measurement.
-   * @param measured_vel The velocity measurement in the DVL sensor frame.
-   * @param measured_orientation The current DVL orientation estimate (map_R_dvl).
-   * @param dt The time delta since the last measurement.
-   * @param measured_cov The measurement noise covariance.
-   */
   void integrateMeasurement(const gtsam::Vector3& measured_vel,
                             const gtsam::Rot3& measured_orientation, double dt,
                             const gtsam::Matrix3& measured_cov) {
@@ -83,16 +55,8 @@ class DvlLoosePreintegrator {
                      i_R_k.matrix() * gtsam::skewSymmetric(measured_vel) * dvl_R_ahrs_);
   }
 
-  /**
-   * @brief Gets the preintegrated translation delta.
-   * @return The translation delta in the target frame at the start of the interval (i).
-   */
   gtsam::Vector3 delta() const { return measured_translation_; }
 
-  /**
-   * @brief Gets the accumulated translation covariance (DVL noise + AHRS attitude error).
-   * @return The 3x3 covariance matrix.
-   */
   gtsam::Matrix3 covariance() const {
     return covariance_ + J_ahrs_ * ahrs_cov_ * J_ahrs_.transpose();
   }

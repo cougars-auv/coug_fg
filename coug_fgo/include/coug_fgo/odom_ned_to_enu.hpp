@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file odom_ned_to_enu.hpp
- * @brief ROS 2 node that converts an odometry pose from the NED to the ENU world convention.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <memory>
@@ -29,33 +22,15 @@
 
 namespace coug_fgo {
 
-/**
- * @class OdomNedToEnuNode
- * @brief ROS 2 node that converts an odometry pose from the NED to the ENU world convention.
- *
- * IMPORTANT! Only the world reference is rotated. Sensor axes pass through untouched, so an FRD
- * sensor has to be converted to FLU by its driver node or the URDF first.
- */
 class OdomNedToEnuNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the NED to ENU odometry conversion.
-   * @param options The node options.
-   */
   explicit OdomNedToEnuNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Publishes the ENU-converted copy of an incoming odometry message.
-   * @param msg The incoming NED-referenced Odometry message.
-   */
+  // --- Callbacks ---
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-  /**
-   * @brief Rotates the position, orientation, and pose covariance from NED to ENU.
-   * @param msg The incoming NED-referenced Odometry message.
-   * @return The converted Odometry message; twist fields pass through untouched.
-   */
+  // --- Helpers ---
   nav_msgs::msg::Odometry convertToEnu(const nav_msgs::msg::Odometry::SharedPtr msg);
 
   // --- ROS Interfaces ---

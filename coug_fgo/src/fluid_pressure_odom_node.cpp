@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file fluid_pressure_odom_node.cpp
- * @brief Standalone executable for the FluidPressureOdomNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 

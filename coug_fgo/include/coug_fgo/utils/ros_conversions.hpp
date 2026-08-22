@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file ros_conversions.hpp
- * @brief Conversion functions between ROS 2 and GTSAM data types.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -35,11 +28,6 @@
 
 namespace coug_fgo::utils {
 
-/**
- * @brief Swaps a 6x6 covariance between ROS and GTSAM block order.
- * @param cov The input Matrix66 in either block order.
- * @return The resulting Matrix66 in the other block order.
- */
 inline gtsam::Matrix66 swapCovarianceBlocks(const gtsam::Matrix66& cov) {
   gtsam::Matrix66 swapped;
   swapped.topLeftCorner<3, 3>() = cov.bottomRightCorner<3, 3>();
@@ -49,64 +37,29 @@ inline gtsam::Matrix66 swapCovarianceBlocks(const gtsam::Matrix66& cov) {
   return swapped;
 }
 
-/**
- * @brief Converts a geometry_msgs Point to a GTSAM Point3.
- * @param msg The input Point message.
- * @return The resulting gtsam::Point3.
- */
 inline gtsam::Point3 toGtsam(const geometry_msgs::msg::Point& msg) { return {msg.x, msg.y, msg.z}; }
 
-/**
- * @brief Converts a geometry_msgs Vector3 to a GTSAM Vector3.
- * @param msg The input Vector3 message.
- * @return The resulting gtsam::Vector3.
- */
 inline gtsam::Vector3 toGtsam(const geometry_msgs::msg::Vector3& msg) {
   return {msg.x, msg.y, msg.z};
 }
 
-/**
- * @brief Converts a geometry_msgs Quaternion to a GTSAM Rot3.
- * @param msg The input Quaternion message.
- * @return The resulting gtsam::Rot3.
- */
 inline gtsam::Rot3 toGtsam(const geometry_msgs::msg::Quaternion& msg) {
   return gtsam::Rot3::Quaternion(msg.w, msg.x, msg.y, msg.z);
 }
 
-/**
- * @brief Converts a geometry_msgs Pose to a GTSAM Pose3.
- * @param msg The input Pose message.
- * @return The resulting gtsam::Pose3.
- */
 inline gtsam::Pose3 toGtsam(const geometry_msgs::msg::Pose& msg) {
   return {toGtsam(msg.orientation), toGtsam(msg.position)};
 }
 
-/**
- * @brief Converts a geometry_msgs Transform to a GTSAM Pose3.
- * @param msg The input Transform message.
- * @return The resulting gtsam::Pose3.
- */
 inline gtsam::Pose3 toGtsam(const geometry_msgs::msg::Transform& msg) {
   return {toGtsam(msg.rotation), toGtsam(msg.translation)};
 }
 
-/**
- * @brief Converts a ROS 6x6 covariance array to GTSAM block order.
- * @param msg The input 36-element row-major covariance array in ROS block order.
- * @return The resulting gtsam::Matrix66 in GTSAM block order.
- */
 inline gtsam::Matrix66 toGtsam(const std::array<double, 36>& msg) {
   return swapCovarianceBlocks(
       Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(msg.data()));
 }
 
-/**
- * @brief Converts a GTSAM Point3 to a geometry_msgs Point.
- * @param gtsam_obj The input GTSAM Point3.
- * @return The resulting geometry_msgs::msg::Point.
- */
 inline geometry_msgs::msg::Point toPointMsg(const gtsam::Point3& gtsam_obj) {
   geometry_msgs::msg::Point msg;
   msg.x = gtsam_obj.x();
@@ -115,11 +68,6 @@ inline geometry_msgs::msg::Point toPointMsg(const gtsam::Point3& gtsam_obj) {
   return msg;
 }
 
-/**
- * @brief Converts a GTSAM Vector3 to a geometry_msgs Vector3.
- * @param gtsam_obj The input GTSAM Vector3.
- * @return The resulting geometry_msgs::msg::Vector3.
- */
 inline geometry_msgs::msg::Vector3 toVectorMsg(const gtsam::Vector3& gtsam_obj) {
   geometry_msgs::msg::Vector3 msg;
   msg.x = gtsam_obj.x();
@@ -128,11 +76,6 @@ inline geometry_msgs::msg::Vector3 toVectorMsg(const gtsam::Vector3& gtsam_obj) 
   return msg;
 }
 
-/**
- * @brief Converts a GTSAM Rot3 to a geometry_msgs Quaternion.
- * @param gtsam_obj The input GTSAM Rot3.
- * @return The resulting geometry_msgs::msg::Quaternion.
- */
 inline geometry_msgs::msg::Quaternion toQuatMsg(const gtsam::Rot3& gtsam_obj) {
   gtsam::Quaternion q = gtsam_obj.toQuaternion();
   geometry_msgs::msg::Quaternion msg;
@@ -143,11 +86,6 @@ inline geometry_msgs::msg::Quaternion toQuatMsg(const gtsam::Rot3& gtsam_obj) {
   return msg;
 }
 
-/**
- * @brief Converts a GTSAM Pose3 to a geometry_msgs Pose.
- * @param gtsam_obj The input GTSAM Pose3.
- * @return The resulting geometry_msgs::msg::Pose.
- */
 inline geometry_msgs::msg::Pose toPoseMsg(const gtsam::Pose3& gtsam_obj) {
   geometry_msgs::msg::Pose msg;
   msg.position = toPointMsg(gtsam_obj.translation());
@@ -155,11 +93,6 @@ inline geometry_msgs::msg::Pose toPoseMsg(const gtsam::Pose3& gtsam_obj) {
   return msg;
 }
 
-/**
- * @brief Converts a GTSAM Matrix33 to a 36-element covariance array (upper-left block).
- * @param cov The input GTSAM Matrix33.
- * @return The resulting std::array<double, 36>, with the remaining entries zeroed.
- */
 inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix33& cov) {
   std::array<double, 36> msg;
   msg.fill(0.0);
@@ -171,11 +104,6 @@ inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix33& cov) {
   return msg;
 }
 
-/**
- * @brief Converts a GTSAM Matrix33 to a 9-element covariance array.
- * @param cov The input GTSAM Matrix33.
- * @return The resulting std::array<double, 9>.
- */
 inline std::array<double, 9> toCovariance9Msg(const gtsam::Matrix33& cov) {
   std::array<double, 9> msg;
   for (int i = 0; i < 3; ++i) {
@@ -186,11 +114,6 @@ inline std::array<double, 9> toCovariance9Msg(const gtsam::Matrix33& cov) {
   return msg;
 }
 
-/**
- * @brief Converts a GTSAM Matrix66 to a 36-element covariance array.
- * @param cov The input GTSAM Matrix66.
- * @return The resulting std::array<double, 36>.
- */
 inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix66& cov) {
   std::array<double, 36> msg;
   for (int i = 0; i < 6; ++i) {
@@ -201,11 +124,6 @@ inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix66& cov) {
   return msg;
 }
 
-/**
- * @brief Converts a GTSAM Pose3 covariance (rot, pos) to a ROS Pose covariance (pos, rot).
- * @param cov The input GTSAM Matrix66 (rot, pos order).
- * @return The resulting std::array<double, 36> (pos, rot order).
- */
 inline std::array<double, 36> toPoseCovarianceMsg(const gtsam::Matrix66& cov) {
   return toCovariance36Msg(swapCovarianceBlocks(cov));
 }

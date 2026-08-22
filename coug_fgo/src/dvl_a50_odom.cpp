@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_a50_odom.cpp
- * @brief Implementation of the DvlA50OdomNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/dvl_a50_odom.hpp"
 
 #include <cmath>
@@ -66,7 +59,7 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
 nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
     const dvl_msgs::msg::DVLDR::SharedPtr msg, const std::string& dvl_frame,
     const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) {
-  // Transform from DVL-frame to base-frame pose in the odom frame
+  // Transform the DVL pose to the base pose, both in the odom frame
   geometry_msgs::msg::Pose dvl_T_base;
   dvl_T_base.position.x = dvl_T_base_tf.transform.translation.x;
   dvl_T_base.position.y = dvl_T_base_tf.transform.translation.y;

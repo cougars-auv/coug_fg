@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file ahrs_yaw_factor.hpp
- * @brief GTSAM factor for AHRS heading (yaw) measurements with extrinsic rotation compensation.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -33,23 +26,11 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class AhrsYawFactorArm
- * @brief GTSAM factor for AHRS heading (yaw) measurements with extrinsic rotation compensation.
- */
 class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   double measured_yaw_;
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key GTSAM key for the AUV pose.
-   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @param noise_model The noise model for the measurement.
-   */
   AhrsYawFactorArm(gtsam::Key pose_key, const gtsam::Rot3& measured_orientation,
                    const gtsam::Pose3& target_T_sensor, double mag_declination,
                    const gtsam::SharedNoiseModel& noise_model)
@@ -58,12 +39,6 @@ class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
             AhrsFactorArm::trueNorthOrientation(measured_orientation, mag_declination).yaw()),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose The AUV pose estimate.
-   * @param H Optional Jacobian matrix.
-   * @return The 1D heading residual [rad].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();

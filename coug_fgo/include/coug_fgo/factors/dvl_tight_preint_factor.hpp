@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_tight_preint_factor.hpp
- * @brief GTSAM factor for tightly-coupled preintegrated DVL translations with a lever arm.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,10 +22,6 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class DvlTightPreintFactorArm
- * @brief GTSAM factor for tightly-coupled preintegrated DVL translations with a lever arm.
- */
 class DvlTightPreintFactorArm
     : public gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::imuBias::ConstantBias> {
   gtsam::Point3 target_p_sensor_;
@@ -41,17 +30,6 @@ class DvlTightPreintFactorArm
   gtsam::Vector3 gyro_bias_hat_;
 
  public:
-  /**
-   * @brief Constructs the factor from a preintegrated translation delta and its bias Jacobian.
-   * @param pose_key_i GTSAM key for the starting AUV pose.
-   * @param pose_key_j GTSAM key for the ending AUV pose.
-   * @param bias_key_i GTSAM key for the IMU bias at the start of the interval.
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param measured_translation The preintegrated translation measurement (target frame at i) [m].
-   * @param J_p_bg Jacobian mapping gyro bias changes to measurement changes.
-   * @param gyro_bias_hat The gyro bias estimate used during preintegration [rad/s].
-   * @param noise_model The noise model for the constraint.
-   */
   DvlTightPreintFactorArm(gtsam::Key pose_key_i, gtsam::Key pose_key_j, gtsam::Key bias_key_i,
                           const gtsam::Pose3& target_T_sensor,
                           const gtsam::Vector3& measured_translation, const gtsam::Matrix3& J_p_bg,
@@ -64,16 +42,6 @@ class DvlTightPreintFactorArm
         J_p_bg_(J_p_bg),
         gyro_bias_hat_(gyro_bias_hat) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_i Starting AUV pose estimate.
-   * @param pose_j Ending AUV pose estimate.
-   * @param bias_i Starting IMU bias estimate.
-   * @param H_pose_i Optional Jacobian matrix with respect to pose_i.
-   * @param H_pose_j Optional Jacobian matrix with respect to pose_j.
-   * @param H_bias_i Optional Jacobian matrix with respect to bias_i.
-   * @return The 3D translation residual [m].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Pose3& pose_j,
                               const gtsam::imuBias::ConstantBias& bias_i,
                               gtsam::OptionalMatrixType H_pose_i = nullptr,

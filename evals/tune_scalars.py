@@ -56,11 +56,6 @@ QUIET_LOGGERS = (
 
 @contextmanager
 def _quiet_loggers(level: int = logging.ERROR) -> Generator[None]:
-    """
-    Temporarily raise the level of the noisy per-run loggers.
-
-    :param level: Level to hold the loggers at while the context is active.
-    """
     loggers = [logging.getLogger(name) for name in QUIET_LOGGERS]
     previous = [lg.level for lg in loggers]
     for lg in loggers:
@@ -74,11 +69,6 @@ def _quiet_loggers(level: int = logging.ERROR) -> Generator[None]:
 
 @contextmanager
 def covariance_override_file(scalars: dict[str, float]) -> Generator[str]:
-    """
-    Yield a temporary params file overriding sensor covariance scalars.
-
-    :param scalars: Mapping of sensor name to covariance scalar value.
-    """
     override = {
         "/**": {
             "ros__parameters": {s: {"covariance_scalar": v} for s, v in scalars.items()}
@@ -94,13 +84,6 @@ def covariance_override_file(scalars: dict[str, float]) -> Generator[str]:
 
 
 def _objective(trial: optuna.Trial, ground_truths: list[dict]) -> float:
-    """
-    Score one set of covariance scalars across all configured bags.
-
-    :param trial: Optuna trial used to suggest the scalar values.
-    :param ground_truths: Ground truth arrays for each bag in BAG_PATHS.
-    :return: Root mean square of the per-bag APE RMSE values.
-    """
     scalars = {
         s: trial.suggest_float(s, MIN_SCALAR, MAX_SCALAR, log=True)
         for s in SCALARS_TO_TUNE

@@ -33,13 +33,6 @@ FGO_TOPIC = f"{estimators.timed_estimators()[0].node}/metrics"
 
 
 def _get_smoother_lag(bag_dir: Path, agent_name: str) -> float | None:
-    """
-    Read the smoother lag parameter from a bag's saved config files.
-
-    :param bag_dir: Path to the ROS 2 bag directory.
-    :param agent_name: Agent namespace used to select namespaced parameters.
-    :return: The smoother lag in seconds, or None if it was not found.
-    """
     config_paths = [
         bag_dir / "config" / "fleet" / "coug_fgo_params.yaml",
         bag_dir / "config" / f"{agent_name}_params.yaml",
@@ -67,13 +60,6 @@ def _get_smoother_lag(bag_dir: Path, agent_name: str) -> float | None:
 
 
 def _read_bag_durations(bag_dir: Path, agent_name: str) -> list[float]:
-    """
-    Read the total solver durations from a bag's metrics topic.
-
-    :param bag_dir: Path to the ROS 2 bag directory.
-    :param agent_name: Agent namespace to read the metrics topic for.
-    :return: Total optimization durations in seconds.
-    """
     topic = f"/{agent_name}/{FGO_TOPIC}"
     try:
         with AnyReader([bag_dir]) as reader:
@@ -90,12 +76,6 @@ def _read_bag_durations(bag_dir: Path, agent_name: str) -> list[float]:
 
 
 def _collect_durations_by_lag(target_dir: Path) -> pd.DataFrame:
-    """
-    Collect solver durations and smoother lags from all evaluated bags.
-
-    :param target_dir: Directory tree containing evaluated bags.
-    :return: DataFrame pairing each duration with its configured lag.
-    """
     timing_data = []
 
     for bag_dir, agent_dir in tum.iter_evaluated_agents(target_dir):
@@ -118,11 +98,6 @@ def _collect_durations_by_lag(target_dir: Path) -> pd.DataFrame:
 
 
 def render(target_dir: Path) -> None:
-    """
-    Save violin and box plots of solver duration by smoother lag.
-
-    :param target_dir: A bag or directory of bags that has been evaluated.
-    """
     logger.info("Rendering lag plots...")
     df = _collect_durations_by_lag(target_dir)
     if df.empty:

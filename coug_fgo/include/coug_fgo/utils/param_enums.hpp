@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file param_enums.hpp
- * @brief Strongly-typed enums for string-valued node parameters.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <stdexcept>
@@ -26,30 +19,12 @@
 
 namespace coug_fgo::utils {
 
-/**
- * @enum SolverType
- * @brief Supported optimization solvers.
- */
 enum class SolverType { kIncrementalFixedLagSmoother, kIsam2, kLevenbergMarquardt };
 
-/**
- * @enum RobustKernel
- * @brief Robust cost kernels for noise models.
- */
 enum class RobustKernel { kNone, kHuber, kTukey };
 
-/**
- * @enum KeyframeSource
- * @brief Available keyframe trigger sources.
- */
 enum class KeyframeSource { kNone, kDvl, kDepth, kTimer };
 
-/**
- * @brief Parses a string into a SolverType enum.
- * @param s The string to parse.
- * @return The parsed SolverType.
- * @throws std::invalid_argument If the string does not match a valid solver type.
- */
 inline SolverType parseSolverType(const std::string& s) {
   if (s == "IncrementalFixedLagSmoother") return SolverType::kIncrementalFixedLagSmoother;
   if (s == "ISAM2") return SolverType::kIsam2;
@@ -57,12 +32,6 @@ inline SolverType parseSolverType(const std::string& s) {
   throw std::invalid_argument("Unknown solver_type: " + s);
 }
 
-/**
- * @brief Parses a string into a RobustKernel enum.
- * @param s The string to parse.
- * @return The parsed RobustKernel.
- * @throws std::invalid_argument If the string does not match a valid robust kernel type.
- */
 inline RobustKernel parseRobustKernel(const std::string& s) {
   if (s == "None") return RobustKernel::kNone;
   if (s == "Huber") return RobustKernel::kHuber;
@@ -70,12 +39,6 @@ inline RobustKernel parseRobustKernel(const std::string& s) {
   throw std::invalid_argument("Unknown robust_kernel: " + s);
 }
 
-/**
- * @brief Parses a string into a KeyframeSource enum.
- * @param s The string to parse.
- * @return The parsed KeyframeSource.
- * @throws std::invalid_argument If the string does not match a valid keyframe source.
- */
 inline KeyframeSource parseKeyframeSource(const std::string& s) {
   if (s == "None") return KeyframeSource::kNone;
   if (s == "DVL") return KeyframeSource::kDvl;

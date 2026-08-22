@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file test_mag_factor.cpp
- * @brief Unit tests for mag_factor.hpp.
- * @author Nelson Durrant (w Claude Opus 5)
- * @date May 2026
- */
-
 #include <gtest/gtest.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Values.h>
@@ -34,9 +27,6 @@ constexpr double kResidualTol = 1e-15;
 
 }  // namespace
 
-/**
- * @brief Verify Jacobians against numerical differentiation.
- */
 TEST(MagFactorArmTest, Jacobians) {
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
@@ -55,9 +45,6 @@ TEST(MagFactorArmTest, Jacobians) {
       gtsam::internal::testFactorJacobians("MagFactorArm", factor, values, kStep, kJacobianTol));
 }
 
-/**
- * @brief Verify the residual against an independently predicted measurement.
- */
 TEST(MagFactorArmTest, Residual) {
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);

@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file logging.hpp
- * @brief Log sink types for the ROS-independent core.
- * @author Nelson Durrant
- * @date July 2026
- */
-
 #pragma once
 
 #include <functional>
@@ -26,15 +19,8 @@
 
 namespace coug_fgo::utils {
 
-/**
- * @enum LogLevel
- * @brief Severity levels for core log messages.
- */
 enum class LogLevel { kDebug, kInfo, kWarn, kError };
 
-/**
- * @brief Log message sink, injected by the ROS node or the Python bindings.
- */
 using LogCallback = std::function<void(LogLevel, const std::string&)>;
 
 }  // namespace coug_fgo::utils

@@ -19,43 +19,18 @@ import numpy as np
 
 
 def _stamp(m: Any) -> float:
-    """
-    Return a message header stamp as seconds since the epoch.
-
-    :param m: Message with a std_msgs/Header field.
-    :return: Timestamp in seconds.
-    """
     return m.header.stamp.sec + m.header.stamp.nanosec * 1e-9
 
 
 def _vec3(v: Any) -> np.ndarray:
-    """
-    Return a Vector3-like message as a numpy array.
-
-    :param v: Message with x, y, and z fields.
-    :return: The values as a length-3 numpy array.
-    """
     return np.array([v.x, v.y, v.z])
 
 
 def _quat(q: Any) -> np.ndarray:
-    """
-    Return a Quaternion message as an xyzw numpy array.
-
-    :param q: Message with x, y, z, and w fields.
-    :return: The values as an xyzw numpy array.
-    """
     return np.array([q.x, q.y, q.z, q.w])
 
 
 def _cov(arr: Any, n: int) -> np.ndarray:
-    """
-    Return a flat covariance field as an n-by-n numpy array.
-
-    :param arr: Flat row-major covariance values.
-    :param n: Side length of the square covariance matrix.
-    :return: The values reshaped to an n-by-n numpy array.
-    """
     return np.array(arr).reshape(n, n)
 
 

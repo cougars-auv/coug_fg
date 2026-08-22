@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file fluid_pressure_odom.hpp
- * @brief ROS 2 node that converts fluid pressure data to a depth odometry message.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <memory>
@@ -32,42 +25,20 @@
 
 namespace coug_fgo {
 
-/**
- * @class FluidPressureOdomNode
- * @brief ROS 2 node that converts fluid pressure data to a depth odometry message.
- */
 class FluidPressureOdomNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the fluid pressure conversion.
-   * @param options The node options.
-   */
   explicit FluidPressureOdomNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Gates pressure samples on spike rejection, then publishes the depth odometry.
-   * @param msg The incoming FluidPressure message (Pascals after pressure_scale).
-   */
+  // --- Callbacks ---
   void pressureCallback(const sensor_msgs::msg::FluidPressure::SharedPtr msg);
 
-  /**
-   * @brief Converts gauge pressure to Z-depth odometry with a propagated depth variance.
-   * @param msg The incoming FluidPressure message.
-   * @param pressure The scaled pressure reading [Pa].
-   * @param reference_pressure The zero-depth reference pressure [Pa].
-   * @return The converted Odometry message; only the Z position and its variance are populated.
-   */
-  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::FluidPressure::SharedPtr msg,
-                                        double pressure, double reference_pressure);
-
-  /**
-   * @brief Captures the most recent pressure reading as the zero-depth reference.
-   * @param request Unused Trigger request.
-   * @param response Trigger response reporting whether the calibration was applied.
-   */
   void calibrateCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
                          std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
+  // --- Helpers ---
+  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::FluidPressure::SharedPtr msg,
+                                        double pressure, double reference_pressure);
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::FluidPressure>::SharedPtr pressure_sub_;

@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_a50_twist_beams.hpp
- * @brief ROS 2 node that converts DVL A50 velocity data to twist and beam messages.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <array>
@@ -35,54 +28,22 @@
 
 namespace coug_fgo {
 
-/**
- * @class DvlA50TwistBeamsNode
- * @brief ROS 2 node that converts DVL A50 velocity data to twist and beam messages.
- */
 class DvlA50TwistBeamsNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the DVL velocity and beam conversions.
-   * @param options The node options.
-   */
   explicit DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Gates DVL samples on simulated dropout, then publishes the twist and/or beam outputs.
-   * @param msg The incoming DVL message.
-   */
+  // --- Callbacks ---
   void dvlCallback(const dvl_msgs::msg::DVL::SharedPtr msg);
 
-  /**
-   * @brief Resolves the output stamp from the A50 time-of-validity or the message header.
-   * @param msg The incoming DVL message.
-   * @return The time-of-validity stamp, or the header stamp if override_timestamp is set.
-   */
+  // --- Helpers ---
   rclcpp::Time resolveStamp(const dvl_msgs::msg::DVL::SharedPtr msg);
 
-  /**
-   * @brief Converts a DVL report to a stamped twist with FOM- or message-derived covariance.
-   * @param msg The incoming DVL message.
-   * @return The converted TwistWithCovarianceStamped message (time-of-validity or header stamp).
-   */
   geometry_msgs::msg::TwistWithCovarianceStamped convertToTwist(
       const dvl_msgs::msg::DVL::SharedPtr msg);
 
-  /**
-   * @brief Converts the per-transducer returns of a DVL report to a beam list.
-   * @param msg The incoming DVL message.
-   * @return The converted DvlBeamList message; each beam is stamped with its parameter frame.
-   */
   coug_interfaces::msg::DvlBeamList convertToBeams(const dvl_msgs::msg::DVL::SharedPtr msg);
 
-  /**
-   * @brief Converts a single transducer return of a DVL report to a beam-frame range.
-   * @param beam The incoming DVL beam (distance in meters).
-   * @param frame_id The beam frame, oriented +x down the beam.
-   * @param stamp The resolved output stamp, shared by every beam of the report.
-   * @return The converted Range message; a lost beam reports an infinite range.
-   */
   sensor_msgs::msg::Range convertToRange(const dvl_msgs::msg::DVLBeam& beam,
                                          const std::string& frame_id, const rclcpp::Time& stamp);
 

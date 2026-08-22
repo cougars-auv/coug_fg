@@ -24,12 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 def dict_to_trajectory(pose: dict) -> PoseTrajectory3D:
-    """
-    Convert pose arrays into an evo PoseTrajectory3D.
-
-    :param pose: Dictionary of pose arrays keyed by state name.
-    :return: An evo PoseTrajectory3D object.
-    """
     return PoseTrajectory3D(
         positions_xyz=np.column_stack([pose["x"], pose["y"], pose["z"]]),
         orientations_quat_wxyz=np.column_stack(
@@ -42,15 +36,6 @@ def dict_to_trajectory(pose: dict) -> PoseTrajectory3D:
 def compute_ape_rmse(
     gt: dict | None, est: dict | None, crashed: bool = False, max_diff: float = 0.05
 ) -> float:
-    """
-    Compute the aligned translational APE RMSE between two trajectories.
-
-    :param gt: Ground truth arrays keyed by state name.
-    :param est: Estimated arrays keyed by state name.
-    :param crashed: Whether the factor graph crashed while producing the estimate.
-    :param max_diff: Maximum timestamp difference for pose association.
-    :return: RMSE in meters, or infinity if the inputs are unusable.
-    """
     if not gt or not est or crashed:
         return float("inf")
 
@@ -69,12 +54,6 @@ def compute_ape_rmse(
 
 
 def umeyama_align(est: PoseTrajectory3D, ref: PoseTrajectory3D) -> None:
-    """
-    Umeyama-align an estimated trajectory to the reference in place.
-
-    :param est: Estimated trajectory to modify.
-    :param ref: Reference (ground truth) trajectory.
-    """
     ref_sync, est_sync = sync.associate_trajectories(ref, est, max_diff=0.05)
     if est_sync.num_poses < 2:
         return
@@ -84,12 +63,6 @@ def umeyama_align(est: PoseTrajectory3D, ref: PoseTrajectory3D) -> None:
 
 
 def align_dicts(est: dict, ref: dict) -> None:
-    """
-    Umeyama-align the estimated state dictionary to the reference in place.
-
-    :param est: Estimated arrays keyed by state name.
-    :param ref: Reference ground truth arrays keyed by state name.
-    """
     est_traj = dict_to_trajectory(est)
     umeyama_align(est_traj, dict_to_trajectory(ref))
 

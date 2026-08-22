@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file range_factor.hpp
- * @brief GTSAM factor for acoustic range measurements between two AUVs with lever arms.
- * @author Kalliyan Velasco & Nelson Durrant
- * @date July 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,25 +22,12 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class RangeFactorArm
- * @brief GTSAM factor for acoustic range measurements between two AUVs with lever arms.
- */
 class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
   double measured_range_;
   gtsam::Point3 target_p_sensor_l_;
   gtsam::Point3 target_p_sensor_n_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key_l GTSAM key for the local AUV pose.
-   * @param pose_key_n GTSAM key for the neighbor AUV pose.
-   * @param measured_range The measured range between both modem sensors [m].
-   * @param target_T_sensor_l The static transformation from local target to local sensor.
-   * @param target_T_sensor_n The static transformation from neighbor target to neighbor sensor.
-   * @param noise_model The noise model for the measurement.
-   */
   RangeFactorArm(gtsam::Key pose_key_l, gtsam::Key pose_key_n, const double measured_range,
                  const gtsam::Pose3& target_T_sensor_l, const gtsam::Pose3& target_T_sensor_n,
                  const gtsam::SharedNoiseModel& noise_model)
@@ -56,14 +36,6 @@ class RangeFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose
         target_p_sensor_l_(target_T_sensor_l.translation()),
         target_p_sensor_n_(target_T_sensor_n.translation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_l The local AUV pose estimate.
-   * @param pose_n The neighbor AUV pose estimate.
-   * @param H_pose_l Optional Jacobian matrix with respect to pose_l.
-   * @param H_pose_n Optional Jacobian matrix with respect to pose_n.
-   * @return The 1D range residual [m].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& pose_n,
                               gtsam::OptionalMatrixType H_pose_l = nullptr,
                               gtsam::OptionalMatrixType H_pose_n = nullptr) const override {

@@ -18,7 +18,6 @@ import colorlog
 
 
 def setup_logging() -> None:
-    """Configure colored console logging for the script."""
     handler = colorlog.StreamHandler()
     handler.setFormatter(
         colorlog.ColoredFormatter(

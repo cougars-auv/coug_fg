@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file auv_dynamics_factor.hpp
- * @brief GTSAM factor for simplified Fossen dynamics with thrust-frame rotation compensation.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,10 +22,6 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class AuvDynamicsFactorArm
- * @brief GTSAM factor for simplified Fossen dynamics with thrust-frame rotation compensation.
- */
 class AuvDynamicsFactorArm
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3> {
   double dt_;
@@ -43,20 +32,6 @@ class AuvDynamicsFactorArm
   gtsam::Matrix33 mass_inv_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key_i GTSAM key for the starting AUV pose.
-   * @param vel_key_i GTSAM key for the starting AUV velocity.
-   * @param pose_key_j GTSAM key for the ending AUV pose.
-   * @param vel_key_j GTSAM key for the ending AUV velocity.
-   * @param dt The time interval between the two states [s].
-   * @param control_force The sensor-frame force vector from thrusters [N].
-   * @param target_T_sensor The static transformation from target to sensor (rotation only).
-   * @param mass Combined mass (Rigid body + Added mass) [kg].
-   * @param linear_drag Linear damping coefficient [N*s/m].
-   * @param quad_drag Quadratic damping coefficient [N*s^2/m^2].
-   * @param noise_model The noise model for the constraint.
-   */
   AuvDynamicsFactorArm(gtsam::Key pose_key_i, gtsam::Key vel_key_i, gtsam::Key pose_key_j,
                        gtsam::Key vel_key_j, double dt, const gtsam::Vector3& control_force,
                        const gtsam::Pose3& target_T_sensor, const gtsam::Matrix33& mass,
@@ -71,18 +46,6 @@ class AuvDynamicsFactorArm
         quad_drag_(quad_drag),
         mass_inv_(mass.inverse()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_i Starting AUV pose estimate.
-   * @param vel_i Starting AUV map-frame velocity estimate.
-   * @param pose_j Ending AUV pose estimate.
-   * @param vel_j Ending AUV map-frame velocity estimate.
-   * @param H_pose_i Optional Jacobian matrix with respect to pose_i.
-   * @param H_vel_i Optional Jacobian matrix with respect to vel_i.
-   * @param H_pose_j Optional Jacobian matrix with respect to pose_j.
-   * @param H_vel_j Optional Jacobian matrix with respect to vel_j.
-   * @return The 3D velocity difference residual [m/s].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Vector3& vel_i,
                               const gtsam::Pose3& pose_j, const gtsam::Vector3& vel_j,
                               gtsam::OptionalMatrixType H_pose_i = nullptr,

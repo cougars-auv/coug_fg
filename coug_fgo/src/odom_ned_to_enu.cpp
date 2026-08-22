@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file odom_ned_to_enu.cpp
- * @brief Implementation of the OdomNedToEnuNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/odom_ned_to_enu.hpp"
 
 #include <tf2/LinearMath/Quaternion.h>

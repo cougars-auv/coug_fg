@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file range_origin_delta_factor.hpp
- * @brief GTSAM factor for acoustic range measurements between two AUVs with an origin delta.
- * @author Kalliyan Velasco & Nelson Durrant
- * @date August 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,10 +22,6 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class RangeOriginDeltaFactorArm
- * @brief GTSAM factor for acoustic range measurements between two AUVs with an origin delta.
- */
 class RangeOriginDeltaFactorArm
     : public gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3> {
   double measured_range_;
@@ -40,16 +29,6 @@ class RangeOriginDeltaFactorArm
   gtsam::Point3 target_p_sensor_n_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key_l GTSAM key for the local AUV pose.
-   * @param delta_key_n GTSAM key for the neighbor's origin delta (neighbor frame to map frame).
-   * @param pose_key_n GTSAM key for the neighbor AUV pose, in the neighbor's own frame.
-   * @param measured_range The measured range between both modem sensors [m].
-   * @param target_T_sensor_l The static transformation from local target to local sensor.
-   * @param target_T_sensor_n The static transformation from neighbor target to neighbor sensor.
-   * @param noise_model The noise model for the measurement.
-   */
   RangeOriginDeltaFactorArm(gtsam::Key pose_key_l, gtsam::Key delta_key_n, gtsam::Key pose_key_n,
                             const double measured_range, const gtsam::Pose3& target_T_sensor_l,
                             const gtsam::Pose3& target_T_sensor_n,
@@ -60,16 +39,6 @@ class RangeOriginDeltaFactorArm
         target_p_sensor_l_(target_T_sensor_l.translation()),
         target_p_sensor_n_(target_T_sensor_n.translation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_l The local AUV pose estimate.
-   * @param delta_n The neighbor's origin delta estimate.
-   * @param pose_n The neighbor AUV pose estimate, in the neighbor's own frame.
-   * @param H_pose_l Optional Jacobian matrix with respect to pose_l.
-   * @param H_delta_n Optional Jacobian matrix with respect to delta_n.
-   * @param H_pose_n Optional Jacobian matrix with respect to pose_n.
-   * @return The 1D range residual [m].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& delta_n,
                               const gtsam::Pose3& pose_n,
                               gtsam::OptionalMatrixType H_pose_l = nullptr,

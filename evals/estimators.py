@@ -18,16 +18,6 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Estimator:
-    """
-    Registry entry linking one estimator's folder, label, color, and topics.
-
-    :param key: Evo output folder name, and the key plots look estimates up by.
-    :param label: Short algorithm name shown in plot legends and tables.
-    :param color: Hex color used for this estimator in every plot.
-    :param topic: Odometry topic suffix exported by ``eval_bags.py``, or None.
-    :param node: Metrics node base name for solver timing/lag, or None if not published.
-    """
-
     key: str
     label: str
     color: str
@@ -73,17 +63,14 @@ ESTIMATORS: list[Estimator] = [
 
 
 def timed_estimators() -> list[Estimator]:
-    """Return the estimators that publish solver timing metrics (have a node)."""
     return [e for e in ESTIMATORS if e.node is not None]
 
 
 def label_for_folder(folder: str) -> str | None:
-    """Return the algorithm label for an evo output folder name, or None."""
     return next((e.label for e in ESTIMATORS if e.key == folder), None)
 
 
 def label_for_row(row_key: str) -> str | None:
-    """Return the label for a benchmark CSV row key, or None if unregistered."""
     stem = Path(str(row_key)).stem
     tokens = [
         (e.topic.replace("/", "_") if e.topic else e.key, e.label) for e in ESTIMATORS
@@ -95,10 +82,8 @@ def label_for_row(row_key: str) -> str | None:
 
 
 def color_map() -> dict[str, str]:
-    """Map each algorithm label (plus ``GT``) to its plot color."""
     return {e.label: e.color for e in ESTIMATORS} | {"GT": GROUND_TRUTH_COLOR}
 
 
 def labels() -> list[str]:
-    """Return the algorithm labels in plot order."""
     return [e.label for e in ESTIMATORS]

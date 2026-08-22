@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file ahrs_factor.hpp
- * @brief GTSAM factor for AHRS attitude measurements with extrinsic rotation compensation.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,32 +22,16 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class AhrsFactorArm
- * @brief GTSAM factor for AHRS attitude measurements with extrinsic rotation compensation.
- */
 class AhrsFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Rot3 measured_orientation_;
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  /**
-   * @brief References a measured map-frame orientation to true north.
-   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
-   * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @return The measured orientation referenced to true north [rad].
-   */
   static gtsam::Rot3 trueNorthOrientation(const gtsam::Rot3& measured_orientation,
                                           double mag_declination) {
     return gtsam::Rot3::Yaw(-mag_declination) * measured_orientation;
   }
 
-  /**
-   * @brief Conjugates a map-frame orientation covariance into the sensor-frame tangent space.
-   * @param map_covariance The orientation covariance about the map-frame axes [rad^2].
-   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
-   * @return The equivalent covariance in the sensor-frame tangent space [rad^2].
-   */
   static gtsam::Matrix3 sensorTangentCovariance(const gtsam::Matrix3& map_covariance,
                                                 const gtsam::Rot3& measured_orientation) {
     const gtsam::Matrix3 map_R_sensor = measured_orientation.matrix();
@@ -62,14 +39,6 @@ class AhrsFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
     return map_R_sensor.transpose() * map_covariance * map_R_sensor;
   }
 
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key GTSAM key for the AUV pose.
-   * @param measured_orientation The measured orientation of the sensor in the map frame [rad].
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param mag_declination East-positive magnetic declination (NOAA convention) [rad].
-   * @param noise_model The noise model for the measurement (sensor-frame tangent space).
-   */
   AhrsFactorArm(gtsam::Key pose_key, const gtsam::Rot3& measured_orientation,
                 const gtsam::Pose3& target_T_sensor, double mag_declination,
                 const gtsam::SharedNoiseModel& noise_model)
@@ -77,19 +46,13 @@ class AhrsFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
         measured_orientation_(trueNorthOrientation(measured_orientation, mag_declination)),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose The AUV pose estimate.
-   * @param H Optional Jacobian matrix.
-   * @return The 3D orientation residual (sensor-frame tangent space) [rad].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
     gtsam::Rot3 predicted_orientation =
         pose.rotation().compose(target_R_sensor_, H ? &H_compose : nullptr);
 
-    // 3D orientation residual (Lie algebra)
+    // 3D orientation residual (Lie algebra), anchored at the measurement to match the noise basis
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
     gtsam::Rot3 orientation_error =
         measured_orientation_.between(predicted_orientation, nullptr, H ? &H_between : nullptr);

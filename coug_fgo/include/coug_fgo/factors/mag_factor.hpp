@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file mag_factor.hpp
- * @brief GTSAM factor for magnetometer measurements with extrinsic rotation compensation.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -30,24 +23,12 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class MagFactorArm
- * @brief GTSAM factor for magnetometer measurements with extrinsic rotation compensation.
- */
 class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Point3 measured_field_;
   gtsam::Point3 field_ref_map_;
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key GTSAM key for the AUV pose.
-   * @param measured_field The measured magnetic field vector in the sensor frame [T].
-   * @param reference_field The reference magnetic field vector (map frame) [T].
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param noise_model The noise model for the measurement.
-   */
   MagFactorArm(gtsam::Key pose_key, const gtsam::Point3& measured_field,
                const gtsam::Point3& reference_field, const gtsam::Pose3& target_T_sensor,
                const gtsam::SharedNoiseModel& noise_model)
@@ -56,12 +37,6 @@ class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
         field_ref_map_(reference_field),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose The AUV pose estimate.
-   * @param H Optional Jacobian matrix.
-   * @return The 3D magnetic field residual [T].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();

@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file dvl_factor.hpp
- * @brief GTSAM factor for DVL velocity measurements with a lever arm.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,10 +22,6 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class DvlFactorArm
- * @brief GTSAM factor for DVL velocity measurements with a lever arm.
- */
 class DvlFactorArm
     : public gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Vector3, gtsam::imuBias::ConstantBias> {
   gtsam::Vector3 measured_velocity_;
@@ -42,17 +31,6 @@ class DvlFactorArm
   gtsam::Rot3 target_R_imu_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key GTSAM key for the AUV pose.
-   * @param vel_key GTSAM key for the AUV map-frame velocity.
-   * @param bias_key GTSAM key for the IMU bias.
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param target_T_imu The static transformation from target to IMU.
-   * @param measured_velocity The measured velocity in the sensor frame [m/s].
-   * @param measured_gyro The raw gyro measurement (IMU frame) at the keyframe time [rad/s].
-   * @param noise_model The noise model for the measurement.
-   */
   DvlFactorArm(gtsam::Key pose_key, gtsam::Key vel_key, gtsam::Key bias_key,
                const gtsam::Pose3& target_T_sensor, const gtsam::Pose3& target_T_imu,
                const gtsam::Vector3& measured_velocity, const gtsam::Vector3& measured_gyro,
@@ -65,16 +43,6 @@ class DvlFactorArm
         target_p_sensor_(target_T_sensor.translation()),
         target_R_imu_(target_T_imu.rotation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose The AUV pose estimate.
-   * @param vel_map The AUV map-frame velocity estimate.
-   * @param bias The IMU bias estimate.
-   * @param H_pose Optional Jacobian matrix with respect to pose.
-   * @param H_vel Optional Jacobian matrix with respect to velocity.
-   * @param H_bias Optional Jacobian matrix with respect to bias.
-   * @return The 3D velocity residual [m/s].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose, const gtsam::Vector3& vel_map,
                               const gtsam::imuBias::ConstantBias& bias,
                               gtsam::OptionalMatrixType H_pose = nullptr,

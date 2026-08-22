@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file gps_factor.hpp
- * @brief GTSAM factor for 2D GPS position measurements with a lever arm.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -29,34 +22,17 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class Gps2dFactorArm
- * @brief GTSAM factor for 2D GPS position measurements with a lever arm.
- */
 class Gps2dFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Point3 measured_position_;
   gtsam::Point3 target_p_sensor_;
 
  public:
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key GTSAM key for the AUV pose.
-   * @param measured_position The measured 3D position of the sensor in the map frame [m].
-   * @param target_T_sensor The static transformation from target to sensor.
-   * @param noise_model The noise model for the measurement.
-   */
   Gps2dFactorArm(gtsam::Key pose_key, const gtsam::Point3& measured_position,
                  const gtsam::Pose3& target_T_sensor, const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
         measured_position_(measured_position),
         target_p_sensor_(target_T_sensor.translation()) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose The AUV pose estimate.
-   * @param H Optional Jacobian matrix.
-   * @return The 2D position residual [m].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H = nullptr) const override {
     gtsam::Matrix36 H_transform = gtsam::Matrix36::Zero();

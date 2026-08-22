@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file imu_ned_to_enu.hpp
- * @brief ROS 2 node that converts AHRS IMU orientation from the NED to the ENU world convention.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <memory>
@@ -29,33 +22,15 @@
 
 namespace coug_fgo {
 
-/**
- * @class ImuNedToEnuNode
- * @brief ROS 2 node that converts AHRS IMU orientation from the NED to the ENU world convention.
- *
- * IMPORTANT! Only the world reference is rotated. Sensor axes pass through untouched, so an FRD
- * sensor has to be converted to FLU by its driver node or the URDF first.
- */
 class ImuNedToEnuNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the NED to ENU orientation conversion.
-   * @param options The node options.
-   */
   explicit ImuNedToEnuNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Publishes the ENU-converted copy of an incoming IMU message.
-   * @param msg The incoming NED-referenced Imu message.
-   */
+  // --- Callbacks ---
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
-  /**
-   * @brief Re-references the orientation and its covariance from NED to ENU (body axes unchanged).
-   * @param msg The incoming NED-referenced Imu message.
-   * @return The converted Imu message; rates and accelerations pass through untouched.
-   */
+  // --- Helpers ---
   sensor_msgs::msg::Imu convertToEnu(const sensor_msgs::msg::Imu::SharedPtr msg);
 
   // --- ROS Interfaces ---

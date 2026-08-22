@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file odom_to_tf.cpp
- * @brief Implementation of the OdomToTfNode.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/odom_to_tf.hpp"
 
 #include <geometry_msgs/msg/transform_stamped.hpp>

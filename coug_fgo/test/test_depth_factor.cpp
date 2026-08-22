@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file test_depth_factor.cpp
- * @brief Unit tests for depth_factor.hpp.
- * @author Nelson Durrant (w Claude Opus 5)
- * @date May 2026
- */
-
 #include <gtest/gtest.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Values.h>
@@ -34,9 +27,6 @@ constexpr double kResidualTol = 1e-9;
 
 }  // namespace
 
-/**
- * @brief Verify Jacobians against numerical differentiation.
- */
 TEST(DepthFactorArmTest, Jacobians) {
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
@@ -53,9 +43,6 @@ TEST(DepthFactorArmTest, Jacobians) {
       gtsam::internal::testFactorJacobians("DepthFactorArm", factor, values, kStep, kJacobianTol));
 }
 
-/**
- * @brief Verify the residual against an independently predicted measurement.
- */
 TEST(DepthFactorArmTest, Residual) {
   gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);

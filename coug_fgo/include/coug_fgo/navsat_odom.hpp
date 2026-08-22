@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file navsat_odom.hpp
- * @brief ROS 2 node that converts GPS NavSatFix data to an ENU odometry message.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #pragma once
 
 #include <GeographicLib/LocalCartesian.hpp>
@@ -33,48 +26,22 @@
 
 namespace coug_fgo {
 
-/**
- * @class NavsatOdomNode
- * @brief ROS 2 node that converts GPS NavSatFix data to an ENU odometry message.
- */
 class NavsatOdomNode : public rclcpp::Node {
  public:
-  /**
-   * @brief Constructs the node and sets up the GPS to ENU odometry conversion.
-   * @param options The node options.
-   */
   explicit NavsatOdomNode(const rclcpp::NodeOptions& options);
 
  private:
-  /**
-   * @brief Sets the ENU origin and seeds the LocalCartesian projection.
-   * @param msg The NavSatFix to use as the origin.
-   */
-  void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
-
-  /**
-   * @brief Latches the first valid externally-published origin fix.
-   * @param msg The incoming origin NavSatFix message.
-   */
+  // --- Callbacks ---
   void originCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
-  /**
-   * @brief Sets or awaits the origin, gates degraded fixes, then publishes the ENU odometry.
-   * @param msg The incoming NavSatFix message (dropped if no fix or unknown covariance).
-   */
   void navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
-  /**
-   * @brief Converts a geodetic fix to local ENU odometry relative to the stored origin.
-   * @param msg The incoming NavSatFix message.
-   * @return The converted Odometry message; orientation is identity and flagged unmeasured.
-   */
+  // --- Helpers ---
+  void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
+
   nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
-  /**
-   * @brief Diagnostic task reporting whether the ENU origin is set and its coordinates.
-   * @param stat The diagnostic status wrapper.
-   */
+  // --- Diagnostics ---
   void checkOriginStatus(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
   // --- ROS Interfaces ---

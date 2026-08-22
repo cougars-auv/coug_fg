@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file test_range_factor.cpp
- * @brief Unit tests for range_factor.hpp.
- * @author Nelson Durrant (w Claude Opus 5)
- * @date August 2026
- */
-
 #include <gtest/gtest.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Values.h>
@@ -34,9 +27,6 @@ constexpr double kResidualTol = 1e-9;
 
 }  // namespace
 
-/**
- * @brief Verify Jacobians against numerical differentiation.
- */
 TEST(RangeFactorArmTest, Jacobians) {
   gtsam::Key pose_key_l = gtsam::symbol_shorthand::X(1);
   gtsam::Key pose_key_n = gtsam::symbol_shorthand::X(2);
@@ -58,9 +48,6 @@ TEST(RangeFactorArmTest, Jacobians) {
       gtsam::internal::testFactorJacobians("RangeFactorArm", factor, values, kStep, kJacobianTol));
 }
 
-/**
- * @brief Verify the residual against an independently predicted measurement.
- */
 TEST(RangeFactorArmTest, Residual) {
   gtsam::Key pose_key_l = gtsam::symbol_shorthand::X(1);
   gtsam::Key pose_key_n = gtsam::symbol_shorthand::X(2);

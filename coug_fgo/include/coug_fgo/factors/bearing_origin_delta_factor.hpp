@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file bearing_origin_delta_factor.hpp
- * @brief GTSAM factor for acoustic bearing measurements between two AUVs with an origin delta.
- * @author Kalliyan Velasco & Nelson Durrant
- * @date August 2026
- */
-
 #pragma once
 
 #include <gtsam/base/Matrix.h>
@@ -33,13 +26,8 @@
 
 namespace coug_fgo::factors {
 
-/**
- * @class BearingOriginDeltaFactorArm
- * @brief GTSAM factor for acoustic bearing measurements between two AUVs with an origin delta.
- *
- * Two-pose generalization of the single-landmark 3D bearing factor in Real et al. 2025, "Modular
- * Acoustic Graph SLAM for Underwater Monitoring With Autonomous Underwater Vehicles", Sec. III-E
- */
+// Two-pose generalization of the single-landmark 3D bearing factor in Real et al. 2025, "Modular
+// Acoustic Graph SLAM for Underwater Monitoring With Autonomous Underwater Vehicles", Sec. III-E
 class BearingOriginDeltaFactorArm
     : public gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3> {
   gtsam::Point2 measured_azi_el_;
@@ -47,11 +35,6 @@ class BearingOriginDeltaFactorArm
   gtsam::Pose3 target_T_sensor_n_;
 
  public:
-  /**
-   * @brief Converts an azimuth and elevation pair into a sensor-frame line-of-sight direction.
-   * @param azi_el The measured [azimuth, elevation] pair, azimuth about +z from +x [rad].
-   * @return The corresponding unit direction.
-   */
   static gtsam::Unit3 losDirection(const gtsam::Point2& azi_el) {
     const double azimuth = azi_el(0);
     const double elevation = azi_el(1);
@@ -61,12 +44,6 @@ class BearingOriginDeltaFactorArm
                                       std::sin(elevation)));
   }
 
-  /**
-   * @brief Conjugates an azimuth and elevation covariance into the Unit3 tangent space.
-   * @param azi_el_covariance The measurement covariance in [azimuth, elevation] [rad^2].
-   * @param azi_el The measured [azimuth, elevation] pair, the linearization point [rad].
-   * @return The equivalent covariance in the Unit3 tangent space at the measured direction [rad^2].
-   */
   static gtsam::Matrix22 unit3TangentCovariance(const gtsam::Matrix22& azi_el_covariance,
                                                 const gtsam::Point2& azi_el) {
     const double azimuth = azi_el(0);
@@ -83,6 +60,7 @@ class BearingOriginDeltaFactorArm
     const gtsam::Matrix22 J_basis_azi_el =
         measured_direction.basis().transpose() * J_direction_azi_el;
 
+    // Conjugate azimuth/elevation covariance into the Unit3 tangent space
     gtsam::Matrix22 tangent_covariance =
         J_basis_azi_el * azi_el_covariance * J_basis_azi_el.transpose();
 
@@ -93,16 +71,6 @@ class BearingOriginDeltaFactorArm
     return tangent_covariance;
   }
 
-  /**
-   * @brief Constructs the factor.
-   * @param pose_key_l GTSAM key for the local AUV pose.
-   * @param delta_key_n GTSAM key for the neighbor's origin delta (neighbor frame to map frame).
-   * @param pose_key_n GTSAM key for the neighbor AUV pose, in the neighbor's own frame.
-   * @param measured_azi_el The measured [azimuth, elevation] between both modem sensors [rad].
-   * @param target_T_sensor_l The static transformation from local target to local sensor.
-   * @param target_T_sensor_n The static transformation from neighbor target to neighbor sensor.
-   * @param noise_model The noise model for the measurement (Unit3 tangent space).
-   */
   BearingOriginDeltaFactorArm(gtsam::Key pose_key_l, gtsam::Key delta_key_n, gtsam::Key pose_key_n,
                               const gtsam::Point2& measured_azi_el,
                               const gtsam::Pose3& target_T_sensor_l,
@@ -114,16 +82,6 @@ class BearingOriginDeltaFactorArm
         target_T_sensor_l_(target_T_sensor_l),
         target_T_sensor_n_(target_T_sensor_n) {}
 
-  /**
-   * @brief Evaluates the error and Jacobians for the factor.
-   * @param pose_l The local AUV pose estimate.
-   * @param delta_n The neighbor's origin delta estimate.
-   * @param pose_n The neighbor AUV pose estimate, in the neighbor's own frame.
-   * @param H_pose_l Optional Jacobian matrix with respect to pose_l.
-   * @param H_delta_n Optional Jacobian matrix with respect to delta_n.
-   * @param H_pose_n Optional Jacobian matrix with respect to pose_n.
-   * @return The 2D bearing residual (Unit3 tangent space) [rad].
-   */
   gtsam::Vector evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& delta_n,
                               const gtsam::Pose3& pose_n,
                               gtsam::OptionalMatrixType H_pose_l = nullptr,

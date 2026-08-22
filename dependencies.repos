@@ -3,10 +3,6 @@ repositories:
     type: git
     url: https://github.com/cougars-auv/coug_interfaces.git
     version: main
-  coug_description:
-    type: git
-    url: https://github.com/cougars-auv/coug_description.git
-    version: main
   seatrac_interfaces:
     type: zip
     url: https://github.com/BYU-FROST-Lab/seatrac-ros2/archive/refs/heads/main.zip

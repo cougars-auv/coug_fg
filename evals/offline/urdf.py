@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import logging
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
+import xacro
 import yaml
 from scipy.spatial.transform import Rotation
 
@@ -25,25 +27,13 @@ logger = logging.getLogger(__name__)
 
 class UrdfTree:
     def __init__(self, urdf_path: str) -> None:
-        path = Path(urdf_path)
-        if path.suffix == ".xacro":
-            import xacro
-
-            xml_text = xacro.process_file(str(path)).toxml()
-        else:
-            xml_text = path.read_text()
+        xml_text = xacro.process_file(urdf_path).toxml()
 
         self._joints: dict[str, tuple[str, np.ndarray, Rotation]] = {}
         self._links: set[str] = set()
         for joint in ET.fromstring(xml_text).findall("joint"):
-            parent_el, child_el = joint.find("parent"), joint.find("child")
-            if parent_el is None or child_el is None:
-                raise ValueError(
-                    f"URDF joint '{joint.attrib.get('name', '?')}' is missing a "
-                    "parent or child link."
-                )
-            parent = parent_el.attrib["link"]
-            child = child_el.attrib["link"]
+            parent = joint.find("parent").attrib["link"]
+            child = joint.find("child").attrib["link"]
             origin = joint.find("origin")
             attrib = origin.attrib if origin is not None else {}
             pos = np.array([float(v) for v in attrib.get("xyz", "0 0 0").split()])
@@ -104,18 +94,11 @@ def _read_fleet_urdf_param(config_paths: list[str]) -> str | None:
 
 
 def _urdf_search_dirs() -> list[Path]:
-    dirs = []
-    try:
-        from ament_index_python.packages import get_package_share_directory
-
-        dirs.append(Path(get_package_share_directory("coug_description")) / "urdf")
-    except Exception:  # noqa: S110, BLE001
-        pass
-
-    workspace = Path.home() / "cougars-dev/ros2_ws"
-    dirs.append(workspace / "src/coug_description/coug_description/urdf")
-    dirs.append(workspace / "install/coug_description/share/coug_description/urdf")
-    return dirs
+    workspace = Path(os.environ["OVERLAY_WS"])
+    return [
+        workspace / "install/coug_description/share/coug_description/urdf",
+        workspace / "src/coug_description/coug_description/urdf",
+    ]
 
 
 def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
@@ -125,13 +108,14 @@ def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
 
     urdf_file = urdf_file or _read_fleet_urdf_param(config_paths)
     if urdf_file is None:
-        logger.error("No urdf_file parameter found in any config.")
+        logger.warning("No urdf_file in any config; sensor TFs must come from params.")
         return None
 
     for urdf_dir in _urdf_search_dirs():
         candidate = urdf_dir / urdf_file
         if candidate.is_file():
+            logger.info(f"Loaded URDF: {candidate}")
             return str(candidate)
 
-    logger.error(f"Could not locate urdf_file '{urdf_file}' in any URDF directory.")
+    logger.warning(f"URDF '{urdf_file}' not found; sensor TFs must come from params.")
     return None

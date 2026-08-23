@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import sys
 from enum import StrEnum
 from pathlib import Path
@@ -23,8 +24,8 @@ from scipy.spatial.transform import Rotation
 from offline.urdf import UrdfTree
 
 FGO_LIB_PATH = str(
-    Path.home()
-    / "cougars-dev/ros2_ws/install/coug_fgo/lib"
+    Path(os.environ["OVERLAY_WS"])
+    / "install/coug_fgo/lib"
     / f"python{sys.version_info.major}.{sys.version_info.minor}"
     / "site-packages"
 )
@@ -218,32 +219,6 @@ class OfflineFactorGraph:
 
         return results
 
-    def _tick_keyframe_timer(self) -> None:
-        period = 1.0 / self.params["keyframe_timer_hz"]
-        if self._last_timer_time is None:
-            self._last_timer_time = self._stream_time
-        elif self._stream_time - self._last_timer_time >= period:
-            self._last_timer_time = self._stream_time
-            self._notify_frontend()
-
-    def _notify_frontend(self) -> None:
-        if not self.is_initialized:
-            self._initialize_graph()
-        elif self._check_and_update_rate_limit(
-            "update", self.params["max_update_rate_hz"]
-        ):
-            self._update_graph()
-            self._notify_backend()
-
-    def _notify_backend(self) -> None:
-        # Offline, LevenbergMarquardt batch optimizes once in finalize()
-        if self.is_lm:
-            return
-        if self.is_initialized and self._check_and_update_rate_limit(
-            "optimize", self.params["max_opt_rate_hz"]
-        ):
-            self._optimize_graph()
-
     def _check_and_update_rate_limit(self, key: str, max_rate_hz: float) -> bool:
         if max_rate_hz <= 0.0:
             return True
@@ -367,6 +342,23 @@ class OfflineFactorGraph:
         leftover = self.core.update(target_time, **queues, tfs=self.tfs)
         self._restore_all_queues(queues if leftover is None else leftover)
 
+    def _notify_frontend(self) -> None:
+        if not self.is_initialized:
+            self._initialize_graph()
+        elif self._check_and_update_rate_limit(
+            "update", self.params["max_update_rate_hz"]
+        ):
+            self._update_graph()
+            self._notify_backend()
+
+    def _tick_keyframe_timer(self) -> None:
+        period = 1.0 / self.params["keyframe_timer_hz"]
+        if self._last_timer_time is None:
+            self._last_timer_time = self._stream_time
+        elif self._stream_time - self._last_timer_time >= period:
+            self._last_timer_time = self._stream_time
+            self._notify_frontend()
+
     def _optimize_graph(self) -> None:
         # --- Optimization Request ---
         if result := self.core.optimize():
@@ -376,3 +368,12 @@ class OfflineFactorGraph:
                     f"Processing overflow. Batching {num_keyframes} keyframes."
                 )
             self.results.append(result)
+
+    def _notify_backend(self) -> None:
+        # Offline, LevenbergMarquardt batch optimizes once in finalize()
+        if self.is_lm:
+            return
+        if self.is_initialized and self._check_and_update_rate_limit(
+            "optimize", self.params["max_opt_rate_hz"]
+        ):
+            self._optimize_graph()

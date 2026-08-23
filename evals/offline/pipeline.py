@@ -39,12 +39,11 @@ def _replay_messages(
     )
     logger.info(f"Matched sensor topics:\n{conn_str}")
 
-    pbar = tqdm(
+    for conn, _, rawdata in tqdm(
         reader.messages(connections=matched_conns),
         total=sum(c.msgcount for c in matched_conns),
         disable=not logger.isEnabledFor(logging.INFO),
-    )
-    for conn, _, rawdata in pbar:
+    ):
         msg = reader.deserialize(rawdata, conn.msgtype)
         try:
             for sensor in topic_to_sensors[conn.topic]:
@@ -52,40 +51,18 @@ def _replay_messages(
                 frame_id, measurement = EXTRACTORS[key](msg)
                 graph.add_message(sensor, frame_id, measurement)
         except Exception as e:  # noqa: BLE001
-            logger.error(f"Factor graph optimization failed: {e}")
-            return True
-    return False
-
-
-def _log_missing_results(graph: OfflineFactorGraph) -> None:
-    if graph.is_initialized:
-        logger.error("Graph initialized but produced no results.")
-        return
-
-    missing = graph.pending_init_sensors()
-    if missing:
-        logger.error(
-            f"Graph never initialized. No data received for: {', '.join(missing)}."
-        )
-    else:
-        logger.error("Graph never initialized. Not enough sensor data in the bag.")
+            logger.error(f"Failed replaying {conn.topic}: {e}")
+            return False
+    return True
 
 
 def process_bag_offline(
-    bag_path: str,
-    config_paths: list[str],
-    namespace: str,
-    urdf_path: str | None = None,
-) -> tuple[dict | None, bool]:
-    if urdf_path is None:
-        urdf_path = resolve_urdf_path(namespace, config_paths)
+    bag_path: str, config_paths: list[str], namespace: str
+) -> dict | None:
+    urdf_path = resolve_urdf_path(namespace, config_paths)
 
     cfg_str = "\n".join(f"  - {p}" for p in config_paths)
     logger.info(f"Loaded config files:\n{cfg_str}")
-    if urdf_path:
-        logger.info(f"Loaded URDF: {urdf_path}")
-    else:
-        logger.warning("No URDF found. Sensor TFs must come from parameters.")
 
     urdf = UrdfTree(urdf_path) if urdf_path else None
     graph = OfflineFactorGraph(config_paths, namespace, urdf)
@@ -93,17 +70,20 @@ def process_bag_offline(
     with AnyReader(
         [Path(bag_path)], default_typestore=get_typestore(Stores.ROS2_JAZZY)
     ) as reader:
-        crashed = _replay_messages(reader, graph, graph.topic_map)
+        replayed = _replay_messages(reader, graph, graph.topic_map)
 
-    if not crashed:
+    if replayed:
         try:
             graph.finalize()
         except Exception as e:  # noqa: BLE001
             logger.error(f"Final optimization failed: {e}")
-            crashed = True
 
     results = graph.get_results()
     if results is None:
-        _log_missing_results(graph)
+        logger.error(
+            "Graph initialized but produced no results."
+            if graph.is_initialized
+            else "Graph never initialized."
+        )
 
-    return results, crashed
+    return results

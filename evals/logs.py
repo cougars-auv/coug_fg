@@ -32,5 +32,3 @@ def setup_logging() -> None:
         )
     )
     logging.basicConfig(level=logging.INFO, handlers=[handler])
-    logging.getLogger("numexpr").setLevel(logging.WARNING)
-    logging.getLogger("matplotlib.category").setLevel(logging.WARNING)

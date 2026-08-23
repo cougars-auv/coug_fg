@@ -2,13 +2,8 @@ colorlog
 evo
 matplotlib
 numpy
-optuna
-optuna-dashboard
-pandas
 PyYAML
 rosbags
-scienceplots
 scipy
-seaborn
 tqdm
 xacro

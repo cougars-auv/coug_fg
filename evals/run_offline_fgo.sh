@@ -27,4 +27,4 @@ for b in ${bags}; do
 done
 
 # --- Process ---
-python3 "$(dirname "$0")/run_offline_fgo.py" --namespace "${namespace}" --tag "${tag}" --bags "${bag_paths[@]}" --evo-flags="${evo_flags}"
+python3 "$(dirname "$0")/run_offline_fgo.py" --bags "${bag_paths[@]}" --namespace "${namespace}" --tag "${tag}" --evo-flags="${evo_flags}"

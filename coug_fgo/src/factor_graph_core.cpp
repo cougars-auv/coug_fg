@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file factor_graph_core.cpp
- * @brief Implementation of the FactorGraphCore.
- * @author Nelson Durrant
- * @date May 2026
- */
-
 #include "coug_fgo/factor_graph_core.hpp"
 
 #include <gtsam/inference/Symbol.h>
@@ -102,11 +95,6 @@ constexpr double kMinInterpDt = 1.0e-9;
 constexpr double kMinRandomWalkDt = 0.001;
 constexpr double kSecondsToNanoseconds = 1e9;
 
-/**
- * @brief Builds a diagonal covariance matrix from a vector of standard deviations.
- * @param sigmas Per-axis standard deviations (at least N entries).
- * @return The N x N diagonal matrix with sigmas^2 on the diagonal.
- */
 template <int N = 3>
 Eigen::Matrix<double, N, N> sigmasSquaredDiag(const std::vector<double>& sigmas) {
   return Eigen::Matrix<double, N, N>(Eigen::Map<const Eigen::Matrix<double, N, 1>>(sigmas.data())
@@ -116,16 +104,6 @@ Eigen::Matrix<double, N, N> sigmasSquaredDiag(const std::vector<double>& sigmas)
                                          .asDiagonal());
 }
 
-/**
- * @brief Resolves a sensor covariance from parameters or a message.
- * @param use_param Prefer the parameter-derived covariance regardless of message validity.
- * @param sigmas Parameter standard deviations (at least N entries).
- * @param scalar Covariance scaling factor (applied to either source).
- * @param msg_cov The covariance reported by the sensor message.
- * @param warn_fallback Invoked when an invalid msg_cov forces the parameter fallback.
- * @param sensor_unit_scale Extra scaling applied only to a message-sourced covariance.
- * @return param_cov if use_param or invalid msg_cov, else msg_cov*scalar*sensor_unit_scale.
- */
 template <int N>
 Eigen::Matrix<double, N, N> resolveCov(bool use_param, const std::vector<double>& sigmas,
                                        double scalar, const Eigen::Matrix<double, N, N>& msg_cov,
@@ -143,10 +121,6 @@ Eigen::Matrix<double, N, N> resolveCov(bool use_param, const std::vector<double>
   return msg_cov * scalar * sensor_unit_scale;
 }
 
-/**
- * @brief Scalar-variance version of resolveCov.
- * @return param_var if use_param or invalid msg_var, else msg_var*scalar.
- */
 double resolveVar(bool use_param, double sigma, double scalar, double msg_var,
                   const std::function<void()>& warn_fallback = {}) {
   if (use_param) {
@@ -161,13 +135,6 @@ double resolveVar(bool use_param, double sigma, double scalar, double msg_var,
   return msg_var * scalar;
 }
 
-/**
- * @brief Wraps a noise model in the configured robust M-estimator kernel.
- * @param noise The base noise model.
- * @param kernel The robust kernel name ("None", "Huber", or "Tukey").
- * @param k The kernel tuning constant.
- * @return The wrapped noise model, or the base model if no kernel is configured.
- */
 gtsam::SharedNoiseModel applyRobustKernel(const gtsam::SharedNoiseModel& noise,
                                           const std::string& kernel, double k) {
   switch (parseRobustKernel(kernel)) {
@@ -183,12 +150,6 @@ gtsam::SharedNoiseModel applyRobustKernel(const gtsam::SharedNoiseModel& noise,
   return noise;
 }
 
-/**
- * @brief Interpolates AHRS-derived orientation at a target timestamp via SLERP.
- * @param ahrs_msgs Time-sorted AHRS structs bracketing the target time.
- * @param target_time The desired interpolation timestamp.
- * @return The interpolated rotation, or identity if there are no samples.
- */
 gtsam::Rot3 getInterpolatedOrientation(
     const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs, double target_time) {
   if (ahrs_msgs.empty()) {

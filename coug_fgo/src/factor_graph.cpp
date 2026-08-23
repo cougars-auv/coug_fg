@@ -709,60 +709,6 @@ void FactorGraphNode::publishGraphMetrics(const rclcpp::Time& timestamp) {
   graph_metrics_pub_->publish(metrics_msg);
 }
 
-void FactorGraphNode::frontendThreadLoop() {
-  while (is_running_.load()) {
-    std::unique_lock<std::mutex> lock(frontend_trigger_mutex_);
-    frontend_cv_.wait(lock, [this] { return frontend_trigger_ || !is_running_.load(); });
-    frontend_trigger_ = false;
-
-    if (!is_running_.load()) {
-      break;
-    }
-
-    lock.unlock();
-    {
-      std::shared_lock reset_lock(reset_mutex_);
-
-      if (has_crashed_.load()) {
-        drainAllQueues();
-        continue;
-      }
-
-      if (!is_initialized_.load()) {
-        initializeGraph();
-      } else if (checkAndUpdateRateLimit(last_update_time_, params_.max_update_rate_hz)) {
-        updateGraph();
-        notifyBackend();
-      }
-    }
-  }
-}
-
-void FactorGraphNode::backendThreadLoop() {
-  while (is_running_.load()) {
-    std::unique_lock<std::mutex> lock(backend_trigger_mutex_);
-    backend_cv_.wait(lock, [this] { return backend_trigger_ || !is_running_.load(); });
-    backend_trigger_ = false;
-
-    if (!is_running_.load()) {
-      break;
-    }
-
-    if (is_initialized_.load() && !has_crashed_.load()) {
-      lock.unlock();
-
-      std::shared_lock reset_lock(reset_mutex_);
-      if (!is_initialized_.load() || has_crashed_.load()) {
-        continue;
-      }
-
-      if (checkAndUpdateRateLimit(last_opt_time_, params_.max_opt_rate_hz)) {
-        optimizeGraph();
-      }
-    }
-  }
-}
-
 void FactorGraphNode::initializeGraph() {
   // --- Wait for Required Sensor Data ---
   if (!init_data_ready_) {
@@ -861,6 +807,35 @@ void FactorGraphNode::updateGraph() {
   restoreAllQueues(leftover ? *leftover : queues);
 }
 
+void FactorGraphNode::frontendThreadLoop() {
+  while (is_running_.load()) {
+    std::unique_lock<std::mutex> lock(frontend_trigger_mutex_);
+    frontend_cv_.wait(lock, [this] { return frontend_trigger_ || !is_running_.load(); });
+    frontend_trigger_ = false;
+
+    if (!is_running_.load()) {
+      break;
+    }
+
+    lock.unlock();
+    {
+      std::shared_lock reset_lock(reset_mutex_);
+
+      if (has_crashed_.load()) {
+        drainAllQueues();
+        continue;
+      }
+
+      if (!is_initialized_.load()) {
+        initializeGraph();
+      } else if (checkAndUpdateRateLimit(last_update_time_, params_.max_update_rate_hz)) {
+        updateGraph();
+        notifyBackend();
+      }
+    }
+  }
+}
+
 void FactorGraphNode::optimizeGraph() {
   // --- Optimization Request ---
   try {
@@ -924,6 +899,31 @@ void FactorGraphNode::optimizeGraph() {
   } catch (const std::exception& e) {
     RCLCPP_FATAL(get_logger(), "%s", e.what());
     has_crashed_.store(true);
+  }
+}
+
+void FactorGraphNode::backendThreadLoop() {
+  while (is_running_.load()) {
+    std::unique_lock<std::mutex> lock(backend_trigger_mutex_);
+    backend_cv_.wait(lock, [this] { return backend_trigger_ || !is_running_.load(); });
+    backend_trigger_ = false;
+
+    if (!is_running_.load()) {
+      break;
+    }
+
+    if (is_initialized_.load() && !has_crashed_.load()) {
+      lock.unlock();
+
+      std::shared_lock reset_lock(reset_mutex_);
+      if (!is_initialized_.load() || has_crashed_.load()) {
+        continue;
+      }
+
+      if (checkAndUpdateRateLimit(last_opt_time_, params_.max_opt_rate_hz)) {
+        optimizeGraph();
+      }
+    }
   }
 }
 

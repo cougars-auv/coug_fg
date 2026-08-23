@@ -18,22 +18,31 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any
 
+import evo_cli
 import matplotlib.pyplot as plt
-from config import BAG_PATHS, EVO_FLAGS, NAMESPACE, config_paths
+import state_plot
 from logs import setup_logging
-from metrics import evo_cli, trajectories, tum
 from offline import pipeline
-from plots import state
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 logger = logging.getLogger(__name__)
 
+NAMESPACE = "turtlmap"
+EVO_FLAGS = ["--align"]  # , "--project_to_plane", "xy"]
 
-def save_config(dest_dir: Path) -> None:
+
+def _config_paths(namespace: str) -> list[str]:
+    config_dir = Path(os.environ["CONFIG_DIR"])
+    return [
+        str(config_dir / "fleet" / "coug_fgo_params.yaml"),
+        str(config_dir / f"{namespace}_params.yaml"),
+    ]
+
+
+def _save_config(dest_dir: Path) -> None:
     config_dir = os.environ.get("CONFIG_DIR", "")
-    if not config_dir or not os.path.isdir(config_dir):
+    if not config_dir or not Path(config_dir).is_dir():
         return
 
     dest = dest_dir / "config"
@@ -41,78 +50,40 @@ def save_config(dest_dir: Path) -> None:
     logger.info(f"Config saved: {dest}")
 
 
-def process_and_evaluate(
-    bag_path: str,
-    cfg_paths: list[str],
-    namespace: str,
-    tag: str,
-    evo_flags: list[str],
-    **kwargs: Any,
-) -> tuple[dict, dict, str] | None:
-    logger.info(f"Processing bag: {bag_path}")
-    pose_gt, gt_path = evo_cli.load_ground_truth(bag_path, namespace)
-    results, _ = pipeline.process_bag_offline(bag_path, cfg_paths, namespace, **kwargs)
-    if not results:
-        return None
-
-    evo_dir = tum.evo_agent_dir(bag_path, namespace) / tag
-    evo_dir.mkdir(parents=True, exist_ok=True)
-    save_config(evo_dir)
-    est_path = evo_dir / f"{namespace}_{tag}.tum"
-    tum.save_tum(est_path, results)
-
-    if pose_gt and gt_path is not None:
-        evo_cli.run_evo_evaluations(gt_path, est_path, evo_dir, evo_flags)
-        if "--align" in evo_flags:
-            trajectories.align_dicts(results, pose_gt)
-
-    return results, pose_gt, Path(bag_path).name
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--namespace",
-        default=NAMESPACE,
-        help="AUV namespace to process the bags under",
-    )
-    parser.add_argument(
-        "--bags",
-        nargs="+",
-        default=BAG_PATHS,
-        help="Bag directories to process offline",
-    )
-    parser.add_argument(
-        "--tag",
-        default="offline",
-        help="Subdirectory and file suffix to save this run's outputs under",
-    )
-    parser.add_argument(
-        "--evo-flags",
-        default=" ".join(EVO_FLAGS),
-        help="Extra evo flags forwarded to APE and RPE runs, e.g. "
-        "--evo-flags='--align --project_to_plane xy'",
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bags", nargs="+", required=True)
+    parser.add_argument("--namespace", default=NAMESPACE)
+    parser.add_argument("--tag", default="offline")
+    parser.add_argument("--evo-flags", default=" ".join(EVO_FLAGS))
     args = parser.parse_args()
 
     setup_logging()
-
+    evo_flags = args.evo_flags.split()
+    cfg_paths = _config_paths(args.namespace)
     plot_args = []
-    cfg_paths = config_paths(args.namespace)
+
     with logging_redirect_tqdm():
         for bag in args.bags:
-            result = process_and_evaluate(
-                bag,
-                cfg_paths,
-                args.namespace,
-                args.tag,
-                args.evo_flags.split(),
-            )
-            if result is not None:
-                plot_args.append(result)
+            logger.info(f"Processing bag: {bag}")
+            pose_gt, gt_path = evo_cli.load_ground_truth(bag, args.namespace)
+            results = pipeline.process_bag_offline(bag, cfg_paths, args.namespace)
+            if not results:
+                continue
+
+            evo_dir = evo_cli.evo_agent_dir(bag, args.namespace) / args.tag
+            evo_dir.mkdir(parents=True, exist_ok=True)
+            _save_config(evo_dir)
+            est_path = evo_dir / f"{args.namespace}_{args.tag}.tum"
+            evo_cli.save_tum(est_path, results)
+
+            if gt_path is not None:
+                evo_cli.run_evo_evaluations(gt_path, est_path, evo_dir, evo_flags)
+
+            plot_args.append((results, pose_gt, Path(bag).name))
 
     for results, pose_gt, label in plot_args:
-        state.plot_results(results, pose_gt, label)
+        state_plot.plot_results(results, pose_gt, label)
     plt.show()
 
 

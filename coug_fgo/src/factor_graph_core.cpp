@@ -346,37 +346,39 @@ gtsam::Matrix3 FactorGraphCore::computeInitialVelocityCovariance(
 
 std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialState(
     const utils::QueueBundle& queues) const {
-  const bool use_param_priors = params_.priors.use_parameter_priors;
   const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
   const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
 
-  const bool use_gps = params_.gps.enable_gps_init_priors && !use_param_priors;
-  const bool use_depth = params_.depth.enable_depth_init_priors && !use_param_priors;
-  const bool use_ahrs = params_.ahrs.enable_ahrs_init_priors && !use_param_priors;
-  const bool use_dvl = params_.dvl.enable_dvl_init_priors && !use_param_priors;
+  const bool use_param_priors = params_.priors.use_parameter_priors;
+  auto prior = [use_param_priors](bool enabled) { return enabled && !use_param_priors; };
+  const bool use_gps = prior(params_.gps.enable_gps_init_priors);
+  const bool use_depth = prior(params_.depth.enable_depth_init_priors);
+  const bool use_ahrs = prior(params_.ahrs.enable_ahrs_init_priors);
+  const bool use_dvl = prior(params_.dvl.enable_dvl_init_priors);
 
   // Additional sensor data needed for init
+  const bool need_ahrs = params_.comparison.enable_loose_dvl_preintegration;
   const bool need_dvl =
       params_.dvl.enable_dvl && (params_.comparison.enable_loose_dvl_preintegration ||
                                  params_.comparison.enable_tight_dvl_preintegration);
-  const bool need_ahrs = params_.comparison.enable_loose_dvl_preintegration;
 
-  const bool start_depth = params_.depth.enable_depth &&
-                           (kf == KeyframeSource::kDepth || backup_kf == KeyframeSource::kDepth);
-  const bool start_dvl =
-      params_.dvl.enable_dvl && (kf == KeyframeSource::kDvl || backup_kf == KeyframeSource::kDvl);
+  auto keyframed_by = [kf, backup_kf](KeyframeSource src) { return kf == src || backup_kf == src; };
+  const bool start_depth = params_.depth.enable_depth && keyframed_by(KeyframeSource::kDepth);
+  const bool start_dvl = params_.dvl.enable_dvl && keyframed_by(KeyframeSource::kDvl);
 
+  const std::pair<bool, const char*> requirements[] = {
+      {queues.imu.empty(), "IMU"},
+      {use_gps && queues.gps.empty(), "GPS"},
+      {use_depth && queues.depth.empty(), "depth"},
+      {(use_ahrs || need_ahrs) && queues.ahrs.empty(), "AHRS"},
+      {(use_dvl || need_dvl) && queues.dvl.empty(), "DVL"},
+  };
   std::string missing;
-  auto need = [&missing](bool required, bool empty, const char* name) {
-    if (required && empty) {
+  for (const auto& [is_missing, name] : requirements) {
+    if (is_missing) {
       missing += missing.empty() ? name : std::string(", ") + name;
     }
-  };
-  need(true, queues.imu.empty(), "IMU");
-  need(use_gps, queues.gps.empty(), "GPS");
-  need(use_depth, queues.depth.empty(), "depth");
-  need(use_ahrs || need_ahrs, queues.ahrs.empty(), "AHRS");
-  need(use_dvl || need_dvl, queues.dvl.empty(), "DVL");
+  }
 
   if (!missing.empty()) {
     logger_.logOnce(utils::LogLevel::kWarn, "init_wait:" + missing,

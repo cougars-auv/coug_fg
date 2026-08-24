@@ -75,10 +75,10 @@ sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
 
   imu_msg.orientation = tf2::toMsg(q);
 
-  const auto& s = params_.orientation_noise_sigmas;
-  imu_msg.orientation_covariance[0] = s[0] * s[0];
-  imu_msg.orientation_covariance[4] = s[1] * s[1];
-  imu_msg.orientation_covariance[8] = s[2] * s[2];
+  const auto& sigmas = params_.orientation_noise_sigmas;
+  imu_msg.orientation_covariance[0] = sigmas[0] * sigmas[0];
+  imu_msg.orientation_covariance[4] = sigmas[1] * sigmas[1];
+  imu_msg.orientation_covariance[8] = sigmas[2] * sigmas[2];
 
   static constexpr double kUnknownCovariance = -1.0;
   imu_msg.linear_acceleration_covariance[0] = kUnknownCovariance;
@@ -100,7 +100,8 @@ nav_msgs::msg::Odometry SeatracX150ImuDepthNode::convertToOdom(
   odom_msg.pose.pose.position.z = msg->depth_local * kSeatracToMeters;
   odom_msg.pose.pose.orientation.w = 1.0;
 
-  odom_msg.pose.covariance[14] = params_.depth_noise_sigma * params_.depth_noise_sigma;
+  double var_depth = params_.depth_noise_sigma * params_.depth_noise_sigma;
+  odom_msg.pose.covariance[14] = var_depth;
 
   return odom_msg;
 }

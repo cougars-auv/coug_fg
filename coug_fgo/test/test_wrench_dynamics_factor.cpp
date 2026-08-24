@@ -17,7 +17,7 @@
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
 
-#include "coug_fgo/factors/auv_dynamics_factor.hpp"
+#include "coug_fgo/factors/wrench_dynamics_factor.hpp"
 
 namespace {
 
@@ -27,7 +27,7 @@ constexpr double kResidualTol = 1e-9;
 
 }  // namespace
 
-TEST(AuvDynamicsFactorArmTest, Jacobians) {
+TEST(WrenchDynamicsFactorArmTest, Jacobians) {
   gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
   gtsam::Key vel_key_i = gtsam::symbol_shorthand::V(1);
   gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
@@ -41,9 +41,9 @@ TEST(AuvDynamicsFactorArmTest, Jacobians) {
   gtsam::Vector3 control_force(2.0, -1.0, 0.5);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
 
-  coug_fgo::factors::AuvDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
-                                                 control_force, target_T_sensor, mass, linear_drag,
-                                                 quad_drag, model);
+  coug_fgo::factors::WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j,
+                                                    dt, control_force, target_T_sensor, mass,
+                                                    linear_drag, quad_drag, model);
 
   gtsam::Values values;
   values.insert(pose_key_i,
@@ -53,11 +53,11 @@ TEST(AuvDynamicsFactorArmTest, Jacobians) {
                 gtsam::Pose3(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0)));
   values.insert(vel_key_j, gtsam::Vector3(1.1, -0.4, 0.25));
 
-  EXPECT_TRUE(gtsam::internal::testFactorJacobians("AuvDynamicsFactorArm", factor, values, kStep,
+  EXPECT_TRUE(gtsam::internal::testFactorJacobians("WrenchDynamicsFactorArm", factor, values, kStep,
                                                    kJacobianTol));
 }
 
-TEST(AuvDynamicsFactorArmTest, Residual) {
+TEST(WrenchDynamicsFactorArmTest, Residual) {
   gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
   gtsam::Key vel_key_i = gtsam::symbol_shorthand::V(1);
   gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
@@ -71,9 +71,9 @@ TEST(AuvDynamicsFactorArmTest, Residual) {
   gtsam::Vector3 control_force(2.0, -1.0, 0.5);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
 
-  coug_fgo::factors::AuvDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
-                                                 control_force, target_T_sensor, mass, linear_drag,
-                                                 quad_drag, model);
+  coug_fgo::factors::WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j,
+                                                    dt, control_force, target_T_sensor, mass,
+                                                    linear_drag, quad_drag, model);
 
   gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
   gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));

@@ -41,21 +41,21 @@ void SbgImuMagNode::magCallback(const sensor_msgs::msg::MagneticField::SharedPtr
 
 sensor_msgs::msg::MagneticField SbgImuMagNode::convertToTesla(
     const sensor_msgs::msg::MagneticField::SharedPtr msg) {
-  sensor_msgs::msg::MagneticField out = *msg;
+  sensor_msgs::msg::MagneticField mag_msg = *msg;
 
   const double scale = params_.au_to_tesla;
 
-  out.magnetic_field.x = msg->magnetic_field.x * scale;
-  out.magnetic_field.y = msg->magnetic_field.y * scale;
-  out.magnetic_field.z = msg->magnetic_field.z * scale;
+  mag_msg.magnetic_field.x = msg->magnetic_field.x * scale;
+  mag_msg.magnetic_field.y = msg->magnetic_field.y * scale;
+  mag_msg.magnetic_field.z = msg->magnetic_field.z * scale;
 
-  if (out.magnetic_field_covariance[0] >= 0.0) {
-    for (auto& element : out.magnetic_field_covariance) {
+  if (mag_msg.magnetic_field_covariance[0] >= 0.0) {
+    for (auto& element : mag_msg.magnetic_field_covariance) {
       element *= scale * scale;
     }
   }
 
-  return out;
+  return mag_msg;
 }
 
 }  // namespace coug_fgo

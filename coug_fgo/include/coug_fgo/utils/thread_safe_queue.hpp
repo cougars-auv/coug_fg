@@ -29,7 +29,7 @@ class ThreadSafeQueue {
     std::scoped_lock lock(mutex_);
     queue_.push_back(value);
     last_msg_time_ = value->timestamp;
-    last_arrival_ = std::chrono::steady_clock::now();
+    last_arrival_time_ = std::chrono::steady_clock::now();
   }
 
   std::deque<T> drain() {
@@ -54,10 +54,11 @@ class ThreadSafeQueue {
 
   std::optional<double> secondsSinceLastArrival() const {
     std::scoped_lock lock(mutex_);
-    if (!last_arrival_.has_value()) {
+    if (!last_arrival_time_.has_value()) {
       return std::nullopt;
     }
-    return std::chrono::duration<double>(std::chrono::steady_clock::now() - *last_arrival_).count();
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - *last_arrival_time_)
+        .count();
   }
 
   void restore(const std::deque<T>& items) {
@@ -69,7 +70,7 @@ class ThreadSafeQueue {
   mutable std::mutex mutex_;
   std::deque<T> queue_;
   std::optional<double> last_msg_time_;
-  std::optional<std::chrono::steady_clock::time_point> last_arrival_;
+  std::optional<std::chrono::steady_clock::time_point> last_arrival_time_;
 };
 
 }  // namespace coug_fgo::utils

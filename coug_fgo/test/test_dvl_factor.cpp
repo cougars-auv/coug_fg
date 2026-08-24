@@ -62,17 +62,17 @@ TEST(DvlFactorArmTest, Residual) {
   gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
 
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Vector3 vel_map(1.5, -0.5, 0.2);
+  gtsam::Vector3 map_v_target(1.5, -0.5, 0.2);
   gtsam::imuBias::ConstantBias bias(gtsam::Vector3(0.01, -0.02, 0.03),
                                     gtsam::Vector3(0.02, -0.01, 0.01));
 
   // Velocity the DVL would report: target motion plus lever arm rotation
-  const gtsam::Vector3 omega_target =
+  const gtsam::Vector3 target_omega =
       target_T_imu.rotation().matrix() * (measured_gyro - bias.gyroscope());
-  const gtsam::Vector3 vel_target = pose.rotation().matrix().transpose() * vel_map;
-  const gtsam::Vector3 lever_arm_vel = omega_target.cross(target_T_sensor.translation());
+  const gtsam::Vector3 target_vel = pose.rotation().matrix().transpose() * map_v_target;
+  const gtsam::Vector3 target_v_lever_arm = target_omega.cross(target_T_sensor.translation());
   const gtsam::Vector3 sensor_vel =
-      target_T_sensor.rotation().matrix().transpose() * (vel_target + lever_arm_vel);
+      target_T_sensor.rotation().matrix().transpose() * (target_vel + target_v_lever_arm);
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(0.01, -0.02, 0.03);
@@ -81,5 +81,5 @@ TEST(DvlFactorArmTest, Residual) {
 
   const gtsam::Vector expected = offset;
   EXPECT_TRUE(
-      gtsam::assert_equal(expected, factor.evaluateError(pose, vel_map, bias), kResidualTol));
+      gtsam::assert_equal(expected, factor.evaluateError(pose, map_v_target, bias), kResidualTol));
 }

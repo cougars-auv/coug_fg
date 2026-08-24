@@ -51,15 +51,16 @@ class DvlTightPreintFactorArm
     gtsam::Vector3 corrected_translation = measured_translation_ + (J_p_bg_ * gyro_bias_update);
 
     gtsam::Matrix36 H_transform_from_j = gtsam::Matrix36::Zero();
-    gtsam::Point3 position_j =
+    gtsam::Point3 map_p_sensor_j =
         pose_j.transformFrom(target_p_sensor_, H_pose_j ? &H_transform_from_j : nullptr);
 
     gtsam::Matrix36 H_transform_to_i = gtsam::Matrix36::Zero();
     gtsam::Matrix33 H_transform_to_j = gtsam::Matrix33::Zero();
-    gtsam::Point3 relative_position = pose_i.transformTo(
-        position_j, H_pose_i ? &H_transform_to_i : nullptr, H_pose_j ? &H_transform_to_j : nullptr);
+    gtsam::Point3 i_p_sensor_j =
+        pose_i.transformTo(map_p_sensor_j, H_pose_i ? &H_transform_to_i : nullptr,
+                           H_pose_j ? &H_transform_to_j : nullptr);
 
-    gtsam::Vector3 predicted_translation = relative_position - target_p_sensor_;
+    gtsam::Vector3 predicted_translation = i_p_sensor_j - target_p_sensor_;
 
     // 3D translation residual
     gtsam::Vector3 error = predicted_translation - corrected_translation;

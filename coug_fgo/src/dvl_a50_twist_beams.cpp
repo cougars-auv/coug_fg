@@ -117,10 +117,10 @@ geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistBeamsNode::convertToTw
   twist_msg.twist.twist.linear.z = kFrdToFlu[2] * msg->velocity.z;
 
   if (params_.use_fom_covariance) {
-    double cov_val = msg->fom * params_.fom_covariance_scale;
-    twist_msg.twist.covariance[0] = cov_val;
-    twist_msg.twist.covariance[7] = cov_val;
-    twist_msg.twist.covariance[14] = cov_val;
+    double var_vel = msg->fom * params_.fom_covariance_scale;
+    twist_msg.twist.covariance[0] = var_vel;
+    twist_msg.twist.covariance[7] = var_vel;
+    twist_msg.twist.covariance[14] = var_vel;
   } else {
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {

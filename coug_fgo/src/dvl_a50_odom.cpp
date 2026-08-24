@@ -86,33 +86,33 @@ nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
   geometry_msgs::msg::Pose odom_T_base;
   tf2::doTransform(dvl_T_base, odom_T_base, odom_T_dvl_tf);
 
-  nav_msgs::msg::Odometry odom;
-  odom.header.frame_id = params_.odom_frame;
+  nav_msgs::msg::Odometry odom_msg;
+  odom_msg.header.frame_id = params_.odom_frame;
 
-  odom.child_frame_id = params_.base_frame;
+  odom_msg.child_frame_id = params_.base_frame;
 
   if (params_.override_timestamp) {
-    odom.header.stamp = msg->header.stamp;
+    odom_msg.header.stamp = msg->header.stamp;
   } else {
     static constexpr double kSecondsToNanoseconds = 1e9;
     uint64_t sec = static_cast<uint64_t>(msg->time);
     uint64_t nanosec = static_cast<uint64_t>((msg->time - sec) * kSecondsToNanoseconds);
-    odom.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
+    odom_msg.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 
-  odom.pose.pose = odom_T_base;
+  odom_msg.pose.pose = odom_T_base;
 
-  double var = msg->pos_std * msg->pos_std;
-  odom.pose.covariance[0] = var;
-  odom.pose.covariance[7] = var;
-  odom.pose.covariance[14] = var;
+  double var_pos = msg->pos_std * msg->pos_std;
+  odom_msg.pose.covariance[0] = var_pos;
+  odom_msg.pose.covariance[7] = var_pos;
+  odom_msg.pose.covariance[14] = var_pos;
 
-  const auto& s = params_.orientation_noise_sigmas;
-  odom.pose.covariance[21] = s[0] * s[0];
-  odom.pose.covariance[28] = s[1] * s[1];
-  odom.pose.covariance[35] = s[2] * s[2];
+  const auto& sigmas = params_.orientation_noise_sigmas;
+  odom_msg.pose.covariance[21] = sigmas[0] * sigmas[0];
+  odom_msg.pose.covariance[28] = sigmas[1] * sigmas[1];
+  odom_msg.pose.covariance[35] = sigmas[2] * sigmas[2];
 
-  return odom;
+  return odom_msg;
 }
 
 }  // namespace coug_fgo

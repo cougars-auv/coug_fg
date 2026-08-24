@@ -87,11 +87,9 @@ class OfflineFactorGraph:
         # --- Sensor Settings ---
         sensors = self.params["sensors"]
         loose_preint = self.params["comparison"]["enable_loose_dvl_preintegration"]
-        tight_preint = self.params["comparison"]["enable_tight_dvl_preintegration"]
-        param_priors = self.params["priors"]["use_parameter_priors"]
 
         gps, depth, mag = sensors["gps"], sensors["depth"], sensors["mag"]
-        ahrs, dvl, dynamics = sensors["ahrs"], sensors["dvl"], sensors["dynamics"]
+        ahrs, dvl, wrench = sensors["ahrs"], sensors["dvl"], sensors["wrench"]
 
         self.enabled = {
             "imu": True,
@@ -100,16 +98,7 @@ class OfflineFactorGraph:
             "mag": mag["enable"],
             "ahrs": ahrs["enable"] or ahrs["enable_init_priors"] or loose_preint,
             "dvl": dvl["enable"] or dvl["enable_init_priors"],
-            "wrench": dynamics["enable"] or dynamics["enable_dropout_only"],
-        }
-
-        self.init_priors = {
-            "imu": True,
-            "gps": gps["enable_init_priors"] and not param_priors,
-            "depth": depth["enable_init_priors"] and not param_priors,
-            "ahrs": (ahrs["enable_init_priors"] and not param_priors) or loose_preint,
-            "dvl": (dvl["enable_init_priors"] and not param_priors)
-            or (dvl["enable"] and (loose_preint or tight_preint)),
+            "wrench": wrench["enable"] or wrench["enable_dropout_only"],
         }
 
         multiagent = self.params["multiagent"]
@@ -133,7 +122,6 @@ class OfflineFactorGraph:
 
         # --- Graph State ---
         self.is_initialized = False
-        self.init_data_ready = False
         self.results: list[dict] = []
 
         self.queues: dict[str, list[tuple]] = {
@@ -159,13 +147,6 @@ class OfflineFactorGraph:
             resolved = topic if topic.startswith("/") else prefix + topic
             topics.setdefault(resolved, []).append(key)
         return topics
-
-    def pending_init_sensors(self) -> list[str]:
-        return [
-            s
-            for s, seeds_priors in self.init_priors.items()
-            if seeds_priors and not self.queues[s]
-        ]
 
     def add_message(self, sensor: str, frame_id: str, measurement: tuple) -> None:
         # Offline, the graph/timer fires on message stamps instead of the wall clock
@@ -229,17 +210,16 @@ class OfflineFactorGraph:
         return True
 
     def _resolve_sensor_tf(self, sensor: str, frame_id: str) -> None:
-        name, cfg_key = ("com", "dynamics") if sensor == "wrench" else (sensor, sensor)
-        if name in self.tfs:
+        if sensor in self.tfs:
             return
 
         cfg = (
             self.params["multiagent"]
             if sensor == "modem"
-            else self.params["sensors"][cfg_key]
+            else self.params["sensors"][sensor]
         )
         frame = cfg["parameter_frame"] if cfg["use_parameter_frame"] else frame_id
-        self.tfs[name] = self._lookup_static_tf(cfg, frame)
+        self.tfs[sensor] = self._lookup_static_tf(cfg, frame)
 
     def _lookup_static_tf(self, cfg: dict, frame: str) -> tuple[np.ndarray, np.ndarray]:
         # Offline, transforms come from the URDF instead of a live TF tree
@@ -264,12 +244,6 @@ class OfflineFactorGraph:
             self.queues[key][:0] = msgs
 
     def _initialize_graph(self) -> None:
-        # --- Wait for Required Sensor Data ---
-        if not self.init_data_ready:
-            if self.pending_init_sensors():
-                return
-            self.init_data_ready = True
-
         # Look up target to base frame TF
         if "base" not in self.tfs:
             base = self.params["sensors"]["base"]
@@ -362,10 +336,10 @@ class OfflineFactorGraph:
     def _optimize_graph(self) -> None:
         # --- Optimization Request ---
         if result := self.core.optimize():
-            num_keyframes = result.pop("num_keyframes")
+            new_keyframes = result.pop("new_keyframes")
             if result.pop("processing_overflow"):
                 logger.warning(
-                    f"Processing overflow. Batching {num_keyframes} keyframes."
+                    f"Processing overflow. Batching {new_keyframes} keyframes."
                 )
             self.results.append(result)
 

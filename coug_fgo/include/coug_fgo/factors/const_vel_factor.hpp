@@ -40,13 +40,13 @@ class ConstVelFactor
     gtsam::Matrix33 H_unrotate_vi = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_Rj = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_vj = gtsam::Matrix33::Zero();
-    gtsam::Vector3 v_target_i = pose_i.rotation().unrotate(
+    gtsam::Vector3 target_v_i = pose_i.rotation().unrotate(
         vel_i, H_pose_i ? &H_unrotate_Ri : nullptr, H_vel_i ? &H_unrotate_vi : nullptr);
-    gtsam::Vector3 v_target_j = pose_j.rotation().unrotate(
+    gtsam::Vector3 target_v_j = pose_j.rotation().unrotate(
         vel_j, H_pose_j ? &H_unrotate_Rj : nullptr, H_vel_j ? &H_unrotate_vj : nullptr);
 
     // 3D velocity difference residual
-    gtsam::Vector3 error = v_target_i - v_target_j;
+    gtsam::Vector3 error = target_v_i - target_v_j;
 
     if (H_pose_i) {
       // Jacobian with respect to pose_i (3x6)

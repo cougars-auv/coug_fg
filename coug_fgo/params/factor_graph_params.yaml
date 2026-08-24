@@ -76,14 +76,14 @@ factor_graph_node:
   # --- Keyframe Settings ---
   keyframe_source:
     type: string
-    default_value: "DVL"
+    default_value: "Beams"
     validation:
-      one_of<>: [["None", "DVL", "Depth", "Timer"]]
+      one_of<>: [["None", "Beams", "DVL", "Depth", "Timer"]]
   backup_keyframe_source:
     type: string
     default_value: "Depth"
     validation:
-      one_of<>: [["None", "DVL", "Depth", "Timer"]]
+      one_of<>: [["None", "Beams", "DVL", "Depth", "Timer"]]
   keyframe_timeout_sec:
     type: double
     default_value: 0.5
@@ -129,6 +129,11 @@ factor_graph_node:
   dvl_topic:
     type: string
     default_value: "dvl/twist"
+    validation:
+      not_empty<>: []
+  beams_topic:
+    type: string
+    default_value: "dvl/beams"
     validation:
       not_empty<>: []
   wrench_topic:
@@ -261,7 +266,7 @@ factor_graph_node:
       type: double
       default_value: 200.0
       validation:
-        gt_eq<>: [0.0]
+        gt<>: [0.0]
     use_parameter_covariance:
       type: bool
       default_value: false
@@ -561,7 +566,7 @@ factor_graph_node:
   dvl:
     enable_dvl:
       type: bool
-      default_value: true
+      default_value: false
     enable_dvl_init_priors:
       type: bool
       default_value: false
@@ -618,6 +623,108 @@ factor_graph_node:
       validation:
         gt<>: [0.0]
 
+  beams:
+    enable_beams:
+      type: bool
+      default_value: true
+    use_parameter_frames:
+      type: bool
+      default_value: false
+    beam0_parameter_frame:
+      type: string
+      default_value: "beam0_link"
+      validation:
+        not_empty<>: []
+    beam1_parameter_frame:
+      type: string
+      default_value: "beam1_link"
+      validation:
+        not_empty<>: []
+    beam2_parameter_frame:
+      type: string
+      default_value: "beam2_link"
+      validation:
+        not_empty<>: []
+    beam3_parameter_frame:
+      type: string
+      default_value: "beam3_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tfs:
+      type: bool
+      default_value: false
+    parameter_tfs:
+      beam0_position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      beam0_orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+      beam1_position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      beam1_orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+      beam2_position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      beam2_orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+      beam3_position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      beam3_orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_covariance:
+      type: bool
+      default_value: false
+    parameter_covariance:
+      sigmas:
+        type: double_array
+        default_value: [0.02, 0.02, 0.02, 0.02]
+        validation:
+          fixed_size<>: [4]
+          lower_element_bounds<>: [0.0]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 0.25
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
   const_vel:
     enable_const_vel:
       type: bool
@@ -647,11 +754,11 @@ factor_graph_node:
       validation:
         gt<>: [0.0]
 
-  dynamics:
-    enable_dynamics:
+  wrench:
+    enable_wrench:
       type: bool
       default_value: false
-    enable_dynamics_dropout_only:
+    enable_wrench_dropout_only:
       type: bool
       default_value: false
     use_parameter_frame:

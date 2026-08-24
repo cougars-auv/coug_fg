@@ -26,14 +26,14 @@
 namespace coug_fgo::utils {
 
 struct TfBundle {
+  gtsam::Pose3 target_T_base;
   gtsam::Pose3 target_T_imu;
   gtsam::Pose3 target_T_gps;
   gtsam::Pose3 target_T_depth;
   gtsam::Pose3 target_T_mag;
   gtsam::Pose3 target_T_ahrs;
   gtsam::Pose3 target_T_dvl;
-  gtsam::Pose3 target_T_base;
-  gtsam::Pose3 target_T_com;
+  gtsam::Pose3 target_T_wrench;
   gtsam::Pose3 target_T_modem;
 };
 
@@ -67,7 +67,7 @@ struct TwistData {
   double timestamp{0.0};
   gtsam::Vector3 linear_velocity;
   // Angular-first, to match the GTSAM pose covariance convention
-  gtsam::Matrix66 twist_covariance;
+  gtsam::Matrix66 velocity_covariance;
 };
 
 struct WrenchData {

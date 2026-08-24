@@ -45,24 +45,25 @@ void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
 }
 
 sensor_msgs::msg::Imu ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu::SharedPtr msg) {
-  sensor_msgs::msg::Imu out = *msg;
+  sensor_msgs::msg::Imu imu_msg = *msg;
 
   // Convert NED -> ENU
   static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
 
   tf2::Quaternion q;
   tf2::fromMsg(msg->orientation, q);
-  out.orientation = tf2::toMsg(kNedToEnu * q);
+  imu_msg.orientation = tf2::toMsg(kNedToEnu * q);
 
-  if (out.orientation_covariance[0] >= 0.0) {
+  if (imu_msg.orientation_covariance[0] >= 0.0) {
     // IMU orientation covariance is expressed about the world-frame axes
     static const Eigen::Matrix3d kNedToEnu3D =
         (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
-    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov(out.orientation_covariance.data());
+    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov(
+        imu_msg.orientation_covariance.data());
     cov = (kNedToEnu3D * cov * kNedToEnu3D.transpose()).eval();
   }
 
-  return out;
+  return imu_msg;
 }
 
 }  // namespace coug_fgo

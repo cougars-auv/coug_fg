@@ -46,22 +46,22 @@ void OdomNedToEnuNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg
 
 nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
     const nav_msgs::msg::Odometry::SharedPtr msg) {
-  nav_msgs::msg::Odometry out = *msg;
+  nav_msgs::msg::Odometry odom_msg = *msg;
 
   // Convert NED -> ENU
   static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
 
   const auto& p = msg->pose.pose.position;
   tf2::Vector3 position = tf2::quatRotate(kNedToEnu, tf2::Vector3(p.x, p.y, p.z));
-  out.pose.pose.position.x = position.x();
-  out.pose.pose.position.y = position.y();
-  out.pose.pose.position.z = position.z();
+  odom_msg.pose.pose.position.x = position.x();
+  odom_msg.pose.pose.position.y = position.y();
+  odom_msg.pose.pose.position.z = position.z();
 
   tf2::Quaternion q;
   tf2::fromMsg(msg->pose.pose.orientation, q);
-  out.pose.pose.orientation = tf2::toMsg(kNedToEnu * q);
+  odom_msg.pose.pose.orientation = tf2::toMsg(kNedToEnu * q);
 
-  if (out.pose.covariance[0] >= 0.0) {
+  if (odom_msg.pose.covariance[0] >= 0.0) {
     // Pose orientation covariance is expressed about the world-frame axes
     static const Eigen::Matrix<double, 6, 6> kNedToEnu6D = []() {
       static const Eigen::Matrix3d kNedToEnu3D =
@@ -71,11 +71,11 @@ nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
       t.block<3, 3>(3, 3) = kNedToEnu3D;
       return t;
     }();
-    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov(out.pose.covariance.data());
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov(odom_msg.pose.covariance.data());
     cov = (kNedToEnu6D * cov * kNedToEnu6D.transpose()).eval();
   }
 
-  return out;
+  return odom_msg;
 }
 
 }  // namespace coug_fgo

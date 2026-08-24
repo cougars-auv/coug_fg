@@ -27,47 +27,44 @@ class DvlLoosePreintegrator {
   void reset(const gtsam::Rot3& initial_orientation,
              const gtsam::Rot3& target_R_ahrs = gtsam::Rot3(),
              const gtsam::Rot3& target_R_dvl = gtsam::Rot3(),
-             const gtsam::Matrix3& ahrs_cov = gtsam::Matrix3::Zero()) {
+             const gtsam::Matrix3& ahrs_tangent_cov = gtsam::Matrix3::Zero()) {
     map_R_i_ = initial_orientation;
     target_R_ahrs_ = target_R_ahrs.matrix();
     dvl_R_ahrs_ = (target_R_dvl.inverse() * target_R_ahrs).matrix();
-    ahrs_cov_ = ahrs_cov;
+    ahrs_tangent_cov_ = ahrs_tangent_cov;
     measured_translation_ = gtsam::Vector3::Zero();
-    covariance_ = gtsam::Matrix3::Zero();
+    velocity_noise_cov_ = gtsam::Matrix3::Zero();
     J_ahrs_ = gtsam::Matrix3::Zero();
   }
 
-  void integrateMeasurement(const gtsam::Vector3& measured_vel,
+  void integrateMeasurement(const gtsam::Vector3& measured_velocity,
                             const gtsam::Rot3& measured_orientation, double dt,
-                            const gtsam::Matrix3& measured_cov) {
+                            const gtsam::Matrix3& measured_velocity_cov) {
+    // Transform the velocity into the anchor frame (i) and integrate
     gtsam::Rot3 i_R_k = map_R_i_.between(measured_orientation);
+    gtsam::Vector3 i_v_dvl = i_R_k.rotate(measured_velocity);
+    measured_translation_ += i_v_dvl * dt;
 
-    // Integrate the position change in the start frame
-    gtsam::Vector3 v_i = i_R_k.rotate(measured_vel);
-    measured_translation_ += v_i * dt;
+    gtsam::Matrix3 J_vel = i_R_k.matrix() * dt;
+    velocity_noise_cov_ += J_vel * measured_velocity_cov * J_vel.transpose();
 
-    // Propagate measurement uncertainty into the covariance
-    gtsam::Matrix3 J = i_R_k.matrix() * dt;
-    covariance_ += J * measured_cov * J.transpose();
-
-    // Accumulate growing AHRS uncertainty (added later to the covariance)
-    J_ahrs_ += dt * (gtsam::skewSymmetric(v_i) * target_R_ahrs_ -
-                     i_R_k.matrix() * gtsam::skewSymmetric(measured_vel) * dvl_R_ahrs_);
+    J_ahrs_ += dt * (gtsam::skewSymmetric(i_v_dvl) * target_R_ahrs_ -
+                     i_R_k.matrix() * gtsam::skewSymmetric(measured_velocity) * dvl_R_ahrs_);
   }
 
   gtsam::Vector3 delta() const { return measured_translation_; }
 
   gtsam::Matrix3 covariance() const {
-    return covariance_ + J_ahrs_ * ahrs_cov_ * J_ahrs_.transpose();
+    return velocity_noise_cov_ + J_ahrs_ * ahrs_tangent_cov_ * J_ahrs_.transpose();
   }
 
  private:
   gtsam::Rot3 map_R_i_;
   gtsam::Matrix3 target_R_ahrs_;
   gtsam::Matrix3 dvl_R_ahrs_;
-  gtsam::Matrix3 ahrs_cov_;
+  gtsam::Matrix3 ahrs_tangent_cov_;
   gtsam::Vector3 measured_translation_;
-  gtsam::Matrix3 covariance_;
+  gtsam::Matrix3 velocity_noise_cov_;
   gtsam::Matrix3 J_ahrs_;
 };
 

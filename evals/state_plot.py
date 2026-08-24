@@ -23,17 +23,17 @@ LAYOUT = [
     (["roll", "pitch", "yaw"], ["Roll (rad)", "Pitch (rad)", "Yaw (rad)"], True),
     (["vx", "vy", "vz"], ["Vx (m/s)", "Vy (m/s)", "Vz (m/s)"], False),
     (
-        ["bias_accel_x", "bias_accel_y", "bias_accel_z"],
+        ["accel_bias_x", "accel_bias_y", "accel_bias_z"],
         ["Accel Bias X", "Accel Bias Y", "Accel Bias Z"],
         False,
     ),
     (
-        ["bias_gyro_x", "bias_gyro_y", "bias_gyro_z"],
+        ["gyro_bias_x", "gyro_bias_y", "gyro_bias_z"],
         ["Gyro Bias X", "Gyro Bias Y", "Gyro Bias Z"],
         False,
     ),
     (
-        ["bias_mag_x", "bias_mag_y", "bias_mag_z"],
+        ["mag_bias_x", "mag_bias_y", "mag_bias_z"],
         ["Mag Bias X (T)", "Mag Bias Y (T)", "Mag Bias Z (T)"],
         False,
     ),

@@ -40,14 +40,14 @@ void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
 
 geometry_msgs::msg::TransformStamped OdomToTfNode::convertToTf(
     const nav_msgs::msg::Odometry::SharedPtr msg) {
-  geometry_msgs::msg::TransformStamped ts;
-  ts.header = msg->header;
-  ts.child_frame_id = msg->child_frame_id;
-  ts.transform.translation.x = msg->pose.pose.position.x;
-  ts.transform.translation.y = msg->pose.pose.position.y;
-  ts.transform.translation.z = msg->pose.pose.position.z;
-  ts.transform.rotation = msg->pose.pose.orientation;
-  return ts;
+  geometry_msgs::msg::TransformStamped tf_msg;
+  tf_msg.header = msg->header;
+  tf_msg.child_frame_id = msg->child_frame_id;
+  tf_msg.transform.translation.x = msg->pose.pose.position.x;
+  tf_msg.transform.translation.y = msg->pose.pose.position.y;
+  tf_msg.transform.translation.z = msg->pose.pose.position.z;
+  tf_msg.transform.rotation = msg->pose.pose.orientation;
+  return tf_msg;
 }
 
 }  // namespace coug_fgo

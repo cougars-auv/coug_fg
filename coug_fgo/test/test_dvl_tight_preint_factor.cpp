@@ -71,9 +71,9 @@ TEST(DvlTightPreintFactorArmTest, Residual) {
   // DVL travel between the poses, in the target frame at i
   const gtsam::Point3 dvl_map_j =
       pose_j.rotation().matrix() * target_T_dvl.translation() + pose_j.translation();
-  const gtsam::Vector3 relative_position =
+  const gtsam::Vector3 i_p_sensor_j =
       pose_i.rotation().matrix().transpose() * (dvl_map_j - pose_i.translation());
-  const gtsam::Vector3 predicted_translation = relative_position - target_T_dvl.translation();
+  const gtsam::Vector3 predicted_translation = i_p_sensor_j - target_T_dvl.translation();
 
   // The factor re-corrects for bias drift since preintegration
   const gtsam::Vector3 bias_correction = J_p_bg * (bias_i.gyroscope() - gyro_bias_hat);

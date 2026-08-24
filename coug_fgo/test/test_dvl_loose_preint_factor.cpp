@@ -58,9 +58,9 @@ TEST(DvlLoosePreintFactorArmTest, Residual) {
   // Sensor travel between the poses, in the target frame at i
   const gtsam::Point3 sensor_map_j =
       pose_j.rotation().matrix() * target_T_sensor.translation() + pose_j.translation();
-  const gtsam::Vector3 relative_position =
+  const gtsam::Vector3 i_p_sensor_j =
       pose_i.rotation().matrix().transpose() * (sensor_map_j - pose_i.translation());
-  const gtsam::Vector3 predicted_translation = relative_position - target_T_sensor.translation();
+  const gtsam::Vector3 predicted_translation = i_p_sensor_j - target_T_sensor.translation();
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(0.01, -0.02, 0.03);

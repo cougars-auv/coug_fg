@@ -27,9 +27,11 @@ ESTIMATORS: dict[str, str] = {
     "global_isam2": "odometry/global_isam2",
     "global_lpi": "odometry/global_lpi",
     "global_tpi": "odometry/global_tpi",
+    "global_tm": "",
     "global_iekf": "odometry/global_iekf",
     "global_ukf": "odometry/global_ukf",
     "global_ekf": "odometry/global_ekf",
+    "global_nbr": "base/odometry/global_nbr",
     "imu": "imu/odometry",
     "dvl": "dvl/odometry",
 }
@@ -79,7 +81,6 @@ def _export_bag_tum(bag_path: str | Path, out_dir: Path, topic: str) -> Path | N
     args = ["evo_traj", "bag2", str(Path(bag_path).resolve()), topic, "--save_as_tum"]
     code = subprocess.run(args, cwd=out_dir, check=False).returncode
     if code != 0:
-        logger.error(f"evo_traj failed (exit {code}) exporting {topic}.")
         return None
 
     return _latest_tum(out_dir)
@@ -104,7 +105,6 @@ def load_ground_truth(bag_path: str | Path, namespace: str) -> tuple[dict, Path 
     truth_topic = f"/{namespace}/{TRUTH_TOPIC}"
     tum_path = resolve_tum(bag_path, agent_dir, truth_topic)
     if tum_path is None:
-        logger.error(f"No ground truth for {namespace}.")
         return {}, None
 
     return _load_tum(tum_path), tum_path
@@ -121,9 +121,7 @@ def run_evo_evaluations(
         if cmd == "evo_rpe":
             args += RPE_FLAGS
 
-        code = subprocess.run(args, check=False).returncode
-        if code != 0 or not archive.exists():
-            logger.error(f"{cmd} failed (exit {code}); no {archive}.")
+        subprocess.run(args, check=False)
 
 
 def build_benchmark_tables(agent_dir: Path) -> None:
@@ -143,6 +141,4 @@ def build_benchmark_tables(agent_dir: Path) -> None:
             "--save_table",
             str(table),
         ]
-        code = subprocess.run(args, check=False).returncode
-        if code != 0 or not table.exists():
-            logger.error(f"evo_res failed (exit {code}) building {table}.")
+        subprocess.run(args, check=False)

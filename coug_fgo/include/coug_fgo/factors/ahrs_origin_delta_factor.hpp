@@ -50,8 +50,6 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
   gtsam::Vector evaluateError(const gtsam::Pose3& delta, const gtsam::Pose3& pose,
                               gtsam::OptionalMatrixType H_delta = nullptr,
                               gtsam::OptionalMatrixType H_pose = nullptr) const override {
-    const bool need_jacobians = H_delta || H_pose;
-
     // Transform the agent's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
@@ -59,22 +57,22 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
                                              H_pose ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_rotation = gtsam::Matrix36::Zero();
-    gtsam::Rot3 map_R_agent = map_T_agent.rotation(need_jacobians ? &H_rotation : nullptr);
+    gtsam::Rot3 map_R_agent = map_T_agent.rotation((H_delta || H_pose) ? &H_rotation : nullptr);
 
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
     gtsam::Rot3 predicted_orientation =
-        map_R_agent.compose(target_R_sensor_, need_jacobians ? &H_compose : nullptr);
+        map_R_agent.compose(target_R_sensor_, (H_delta || H_pose) ? &H_compose : nullptr);
 
     // 3D orientation residual (Lie algebra), anchored at the measurement to match the noise basis
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
     gtsam::Rot3 orientation_error = measured_orientation_.between(
-        predicted_orientation, nullptr, need_jacobians ? &H_between : nullptr);
+        predicted_orientation, nullptr, (H_delta || H_pose) ? &H_between : nullptr);
 
     gtsam::Matrix33 H_logmap = gtsam::Matrix33::Zero();
     gtsam::Vector3 error =
-        gtsam::Rot3::Logmap(orientation_error, need_jacobians ? &H_logmap : nullptr);
+        gtsam::Rot3::Logmap(orientation_error, (H_delta || H_pose) ? &H_logmap : nullptr);
 
-    if (need_jacobians) {
+    if (H_delta || H_pose) {
       const gtsam::Matrix36 H_agent = H_logmap * H_between * H_compose * H_rotation;
 
       if (H_delta) {

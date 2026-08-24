@@ -38,11 +38,11 @@ class FactorGraphPy {
 
   using ImuBatch = std::vector<
       std::tuple<double, Eigen::Vector3d, Eigen::Vector3d, Eigen::Matrix3d, Eigen::Matrix3d>>;
-  using OdomBatch = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
+  using GpsBatch = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
   using DepthBatch = std::vector<std::tuple<double, double, Matrix6d>>;
   using MagBatch = std::vector<std::tuple<double, Eigen::Vector3d, Eigen::Matrix3d>>;
   using AhrsBatch = std::vector<std::tuple<double, Eigen::Vector4d, Eigen::Matrix3d>>;
-  using TwistBatch = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
+  using DvlBatch = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
   using WrenchBatch = std::vector<std::tuple<double, Vector6d>>;
   using AgentStatus = std::tuple<double, Eigen::Vector3d, Eigen::Vector4d, Matrix6d, double,
                                  Eigen::Vector4d, bool, double, bool, double, double, bool, double>;
@@ -53,13 +53,13 @@ class FactorGraphPy {
 
   pybind11::dict get_params() const;
 
-  bool initialize(const ImuBatch& imu, const OdomBatch& gps, const DepthBatch& depth,
-                  const MagBatch& mag, const AhrsBatch& ahrs, const TwistBatch& dvl,
+  bool initialize(const ImuBatch& imu, const GpsBatch& gps, const DepthBatch& depth,
+                  const MagBatch& mag, const AhrsBatch& ahrs, const DvlBatch& dvl,
                   const WrenchBatch& wrench, const MultiAgentBatch& multiagent, const TfMap& tfs);
 
-  pybind11::object update(double target_time, const ImuBatch& imu, const OdomBatch& gps,
+  pybind11::object update(double target_time, const ImuBatch& imu, const GpsBatch& gps,
                           const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,
-                          const TwistBatch& dvl, const WrenchBatch& wrench,
+                          const DvlBatch& dvl, const WrenchBatch& wrench,
                           const MultiAgentBatch& multiagent, const TfMap& tfs);
 
   pybind11::dict optimize();

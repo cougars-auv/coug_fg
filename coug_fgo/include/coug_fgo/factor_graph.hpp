@@ -82,9 +82,9 @@ class FactorGraphNode : public rclcpp::Node {
 
   bool checkAndUpdateRateLimit(rclcpp::Time& last_time, double max_rate_hz);
 
-  bool loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, const std::string& child,
-                      bool use_parameter_tf, const std::vector<double>& pos,
-                      const std::vector<double>& quat);
+  bool loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, const std::string& child_frame,
+                      bool use_parameter_tf, const std::vector<double>& position,
+                      const std::vector<double>& orientation);
 
   utils::TfBundle buildCurrentTfBundle();
 
@@ -93,28 +93,27 @@ class FactorGraphNode : public rclcpp::Node {
   void restoreAllQueues(const utils::QueueBundle& queues);
 
   // --- Publishing ---
-  void publishGlobalOdom(const gtsam::Pose3& current_pose, const gtsam::Matrix& pose_covariance,
+  void publishGlobalOdom(const gtsam::Pose3& curr_pose, const gtsam::Matrix& target_pose_cov,
                          const rclcpp::Time& timestamp);
 
-  void publishNeighborGlobalOdom(size_t agent_queue_idx, const gtsam::Pose3& current_pose,
-                                 const gtsam::Matrix& pose_covariance,
-                                 const rclcpp::Time& timestamp);
+  void publishNeighborGlobalOdom(size_t agent_queue_idx, const gtsam::Pose3& curr_pose,
+                                 const gtsam::Matrix& base_pose_cov, const rclcpp::Time& timestamp);
 
-  void broadcastGlobalTf(const gtsam::Pose3& current_pose, const rclcpp::Time& timestamp);
+  void broadcastGlobalTf(const gtsam::Pose3& curr_pose, const rclcpp::Time& timestamp);
 
-  void broadcastNeighborGlobalTf(size_t agent_queue_idx, const gtsam::Pose3& current_pose,
+  void broadcastNeighborGlobalTf(size_t agent_queue_idx, const gtsam::Pose3& curr_pose,
                                  const rclcpp::Time& timestamp);
 
   void publishSmoothedPath(const gtsam::Values& values, const rclcpp::Time& timestamp);
 
-  void publishVelocity(const gtsam::Vector3& current_vel, const gtsam::Matrix& vel_covariance,
+  void publishVelocity(const gtsam::Vector3& curr_vel, const gtsam::Matrix& vel_cov,
                        const rclcpp::Time& timestamp);
 
-  void publishImuBias(const gtsam::imuBias::ConstantBias& current_imu_bias,
-                      const gtsam::Matrix& imu_bias_covariance, const rclcpp::Time& timestamp);
+  void publishImuBias(const gtsam::imuBias::ConstantBias& curr_imu_bias,
+                      const gtsam::Matrix& imu_bias_cov, const rclcpp::Time& timestamp);
 
-  void publishMagBias(const gtsam::Point3& current_mag_bias,
-                      const gtsam::Matrix& mag_bias_covariance, const rclcpp::Time& timestamp);
+  void publishMagBias(const gtsam::Point3& curr_mag_bias, const gtsam::Matrix& mag_bias_cov,
+                      const rclcpp::Time& timestamp);
 
   void publishGraphMetrics(const rclcpp::Time& timestamp);
 
@@ -135,7 +134,6 @@ class FactorGraphNode : public rclcpp::Node {
   // --- Node State ---
   std::atomic<bool> is_initialized_{false};
   std::atomic<bool> has_crashed_{false};
-  bool init_data_ready_{false};
   rclcpp::Time last_update_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_opt_time_{0, 0, RCL_ROS_TIME};
   std::optional<double> last_target_time_;
@@ -184,7 +182,7 @@ class FactorGraphNode : public rclcpp::Node {
   geometry_msgs::msg::TransformStamped target_T_depth_tf_;
   geometry_msgs::msg::TransformStamped target_T_mag_tf_;
   geometry_msgs::msg::TransformStamped target_T_ahrs_tf_;
-  geometry_msgs::msg::TransformStamped target_T_com_tf_;
+  geometry_msgs::msg::TransformStamped target_T_wrench_tf_;
   geometry_msgs::msg::TransformStamped target_T_modem_tf_;
 
   std::string imu_frame_;
@@ -193,7 +191,7 @@ class FactorGraphNode : public rclcpp::Node {
   // --- ROS Interfaces ---
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_odom_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr smoothed_path_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr velocity_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr vel_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr imu_bias_pub_;
   rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_bias_pub_;
   rclcpp::Publisher<coug_interfaces::msg::GraphMetrics>::SharedPtr graph_metrics_pub_;

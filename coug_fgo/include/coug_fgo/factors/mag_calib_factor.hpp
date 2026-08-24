@@ -25,7 +25,7 @@ namespace coug_fgo::factors {
 
 class MagCalibFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Point3> {
   gtsam::Point3 measured_field_;
-  gtsam::Point3 field_ref_map_;
+  gtsam::Point3 map_field_ref_;
   gtsam::Rot3 target_R_sensor_;
 
  public:
@@ -34,16 +34,16 @@ class MagCalibFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::P
                     const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor2<gtsam::Pose3, gtsam::Point3>(noise_model, pose_key, bias_key),
         measured_field_(measured_field),
-        field_ref_map_(reference_field),
+        map_field_ref_(reference_field),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
   gtsam::Vector evaluateError(const gtsam::Pose3& pose, const gtsam::Point3& bias,
                               gtsam::OptionalMatrixType H_pose = nullptr,
                               gtsam::OptionalMatrixType H_bias = nullptr) const override {
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
-    gtsam::Point3 field_target =
-        pose.rotation().unrotate(field_ref_map_, H_pose ? &H_unrotate_R : nullptr);
-    gtsam::Point3 predicted_field = target_R_sensor_.unrotate(field_target);
+    gtsam::Point3 target_field =
+        pose.rotation().unrotate(map_field_ref_, H_pose ? &H_unrotate_R : nullptr);
+    gtsam::Point3 predicted_field = target_R_sensor_.unrotate(target_field);
 
     // 3D magnetic field residual, with the hard-iron offset added to the prediction
     gtsam::Vector3 error = predicted_field + bias - measured_field_;

@@ -22,25 +22,25 @@
 
 namespace coug_fgo::factors {
 
-class AuvDynamicsFactorArm
+class WrenchDynamicsFactorArm
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3> {
   double dt_;
-  gtsam::Vector3 f_target_;
+  gtsam::Vector3 target_force_;
   gtsam::Matrix33 mass_;
   gtsam::Matrix33 linear_drag_;
   gtsam::Matrix33 quad_drag_;
   gtsam::Matrix33 mass_inv_;
 
  public:
-  AuvDynamicsFactorArm(gtsam::Key pose_key_i, gtsam::Key vel_key_i, gtsam::Key pose_key_j,
-                       gtsam::Key vel_key_j, double dt, const gtsam::Vector3& control_force,
-                       const gtsam::Pose3& target_T_sensor, const gtsam::Matrix33& mass,
-                       const gtsam::Matrix33& linear_drag, const gtsam::Matrix33& quad_drag,
-                       const gtsam::SharedNoiseModel& noise_model)
+  WrenchDynamicsFactorArm(gtsam::Key pose_key_i, gtsam::Key vel_key_i, gtsam::Key pose_key_j,
+                          gtsam::Key vel_key_j, double dt, const gtsam::Vector3& control_force,
+                          const gtsam::Pose3& target_T_sensor, const gtsam::Matrix33& mass,
+                          const gtsam::Matrix33& linear_drag, const gtsam::Matrix33& quad_drag,
+                          const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3>(
             noise_model, pose_key_i, vel_key_i, pose_key_j, vel_key_j),
         dt_(dt),
-        f_target_(target_T_sensor.rotation().rotate(control_force)),
+        target_force_(target_T_sensor.rotation().rotate(control_force)),
         mass_(mass),
         linear_drag_(linear_drag),
         quad_drag_(quad_drag),
@@ -56,27 +56,27 @@ class AuvDynamicsFactorArm
     gtsam::Matrix33 H_unrotate_vi = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_Rj = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_vj = gtsam::Matrix33::Zero();
-    gtsam::Vector3 v_target_i = pose_i.rotation().unrotate(
+    gtsam::Vector3 target_v_i = pose_i.rotation().unrotate(
         vel_i, H_pose_i ? &H_unrotate_Ri : nullptr, H_vel_i ? &H_unrotate_vi : nullptr);
-    gtsam::Vector3 v_target_j = pose_j.rotation().unrotate(
+    gtsam::Vector3 target_v_j = pose_j.rotation().unrotate(
         vel_j, H_pose_j ? &H_unrotate_Rj : nullptr, H_vel_j ? &H_unrotate_vj : nullptr);
 
-    gtsam::Vector3 abs_v_target_i = v_target_i.cwiseAbs();
+    gtsam::Vector3 target_v_i_abs = target_v_i.cwiseAbs();
     gtsam::Vector3 drag_force =
-        -(linear_drag_ * v_target_i + quad_drag_ * v_target_i.cwiseProduct(abs_v_target_i));
+        -(linear_drag_ * target_v_i + quad_drag_ * target_v_i.cwiseProduct(target_v_i_abs));
 
-    // Jacobian of the velocity prediction with respect to v_target_i
+    // Jacobian of the velocity prediction with respect to target_v_i
     gtsam::Matrix33 J_scale = gtsam::Matrix33::Zero();
     if (H_pose_i || H_vel_i) {
-      gtsam::Matrix33 J_drag_v = -(linear_drag_ + 2.0 * quad_drag_ * abs_v_target_i.asDiagonal());
+      gtsam::Matrix33 J_drag_v = -(linear_drag_ + 2.0 * quad_drag_ * target_v_i_abs.asDiagonal());
       J_scale = gtsam::Matrix33::Identity() + dt_ * mass_inv_ * J_drag_v;
     }
 
-    gtsam::Vector3 accel_target = mass_inv_ * (f_target_ + drag_force);
-    gtsam::Vector3 v_target_pred = v_target_i + accel_target * dt_;
+    gtsam::Vector3 target_accel = mass_inv_ * (target_force_ + drag_force);
+    gtsam::Vector3 target_v_pred = target_v_i + target_accel * dt_;
 
     // 3D velocity difference residual
-    gtsam::Vector3 error = v_target_j - v_target_pred;
+    gtsam::Vector3 error = target_v_j - target_v_pred;
 
     if (H_pose_i) {
       // Jacobian with respect to pose_i (3x6)

@@ -53,9 +53,10 @@ class FactorGraphPy {
 
   pybind11::dict get_params() const;
 
-  bool initialize(const ImuBatch& imu, const GpsBatch& gps, const DepthBatch& depth,
-                  const MagBatch& mag, const AhrsBatch& ahrs, const DvlBatch& dvl,
-                  const WrenchBatch& wrench, const MultiAgentBatch& multiagent, const TfMap& tfs);
+  bool initialize(double init_time, const ImuBatch& imu, const GpsBatch& gps,
+                  const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,
+                  const DvlBatch& dvl, const WrenchBatch& wrench, const MultiAgentBatch& multiagent,
+                  const TfMap& tfs);
 
   pybind11::object update(double target_time, const ImuBatch& imu, const GpsBatch& gps,
                           const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,

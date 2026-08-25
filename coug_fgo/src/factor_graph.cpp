@@ -724,7 +724,7 @@ void FactorGraphNode::initializeGraph() {
   // --- Compute Initial State ---
   utils::QueueBundle init_queues = drainAllQueues();
 
-  if (!core_->initialize(init_queues, buildCurrentTfBundle())) {
+  if (!core_->initialize(get_clock()->now().seconds(), init_queues, buildCurrentTfBundle())) {
     restoreAllQueues(init_queues);
     return;
   }
@@ -746,15 +746,13 @@ void FactorGraphNode::updateGraph() {
          (*newest_stamp - *last_received) > params_.keyframe_timeout_sec)) {
       if (backup_keyframe_source_ != KeyframeSource::kNone) {
         active_source = backup_keyframe_source_;
-        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
-                             "Primary keyframe source '%s' timed out. Using backup '%s'.",
-                             params_.keyframe_source.c_str(),
-                             params_.backup_keyframe_source.c_str());
+        RCLCPP_WARN(get_logger(), "Primary keyframe source '%s' timed out. Using backup '%s'.",
+                    params_.keyframe_source.c_str(), params_.backup_keyframe_source.c_str());
       } else {
-        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 1000,
-                              "Primary keyframe source '%s' timed out and no backup is configured. "
-                              "No new keyframes will be created.",
-                              params_.keyframe_source.c_str());
+        RCLCPP_ERROR(get_logger(),
+                     "Primary keyframe source '%s' timed out and no backup is configured. "
+                     "No new keyframes will be created.",
+                     params_.keyframe_source.c_str());
       }
     }
   }
@@ -776,9 +774,9 @@ void FactorGraphNode::updateGraph() {
 
   if (last_target_time_.has_value() &&
       (*target_time - *last_target_time_) < params_.min_keyframe_interval_sec) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
-                         "Keyframe rejected: only %.4f s since the last keyframe (minimum %.4f s).",
-                         *target_time - *last_target_time_, params_.min_keyframe_interval_sec);
+    RCLCPP_WARN(get_logger(),
+                "Keyframe rejected: only %.4f s since the last keyframe (minimum %.4f s).",
+                *target_time - *last_target_time_, params_.min_keyframe_interval_sec);
     return;
   }
   last_target_time_ = *target_time;

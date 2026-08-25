@@ -94,7 +94,7 @@ constexpr double kMinIntegrationDt = 1.0e-6;
 constexpr double kMinInterpDt = 1.0e-9;
 constexpr double kMinRandomWalkDt = 0.001;
 constexpr double kSecondsToNanoseconds = 1e9;
-constexpr double kWarnThrottleSeconds = 5.0;
+constexpr double kInitWaitThrottleSeconds = 5.0;
 
 template <int N = 3>
 Eigen::Matrix<double, N, N> sigmasSquaredDiag(const std::vector<double>& sigmas) {
@@ -345,7 +345,7 @@ gtsam::Matrix3 FactorGraphCore::computeInitialVelocityCovariance(
 }
 
 std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialState(
-    const utils::QueueBundle& queues) const {
+    double init_time, const utils::QueueBundle& queues) const {
   const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
   const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
 
@@ -381,8 +381,8 @@ std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialStat
   }
 
   if (!missing.empty()) {
-    logger_.logOnce(utils::LogLevel::kWarn, "init_wait:" + missing,
-                    "Waiting for initialization data: " + missing + ".");
+    logger_.logThrottled(utils::LogLevel::kWarn, "init_wait:" + missing, kInitWaitThrottleSeconds,
+                         init_time, "Waiting for initialization data: " + missing + ".");
     return std::nullopt;
   }
 
@@ -502,11 +502,12 @@ void FactorGraphCore::addPriorFactors(const InitialState& init_state,
   logger_.log(utils::LogLevel::kInfo, oss.str());
 }
 
-bool FactorGraphCore::initialize(const utils::QueueBundle& queues, const utils::TfBundle& tfs) {
+bool FactorGraphCore::initialize(double init_time, const utils::QueueBundle& queues,
+                                 const utils::TfBundle& tfs) {
   tfs_ = tfs;
 
   // --- Compute Initial State ---
-  std::optional<InitialState> maybe_state = computeInitialState(queues);
+  std::optional<InitialState> maybe_state = computeInitialState(init_time, queues);
   if (!maybe_state) {
     return false;
   }
@@ -1248,9 +1249,8 @@ void FactorGraphCore::addMultiAgentFactors(
 
     if (!msg->pose_covariance.allFinite() ||
         (msg->pose_covariance.diagonal().array() <= 0.0).any()) {
-      logger_.logThrottled(
-          utils::LogLevel::kWarn, "neighbor_cov:" + std::to_string(agent_queue_idx),
-          kWarnThrottleSeconds, target_time,
+      logger_.log(
+          utils::LogLevel::kWarn,
           "Neighbor status covariance (queue " + std::to_string(agent_queue_idx) +
               ") is unusable (non-finite or non-positive diagonal); dropping the keyframe.");
       continue;
@@ -1261,12 +1261,10 @@ void FactorGraphCore::addMultiAgentFactors(
 
     if (inserted && params_.multiagent.estimate_origin_delta) {
       if (!msg->includes_range || !msg->includes_usbl) {
-        logger_.logThrottled(utils::LogLevel::kWarn,
-                             "neighbor_origin_delta:" + std::to_string(agent_queue_idx),
-                             kWarnThrottleSeconds, target_time,
-                             "Neighbor status (queue " + std::to_string(agent_queue_idx) +
-                                 ") has no range/bearing pair to seed the origin delta; dropping "
-                                 "the keyframe.");
+        logger_.log(utils::LogLevel::kWarn,
+                    "Neighbor status (queue " + std::to_string(agent_queue_idx) +
+                        ") has no range/bearing pair to seed the origin delta; dropping "
+                        "the keyframe.");
         neighbors_.erase(it);
         continue;
       }
@@ -1338,9 +1336,8 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   }
 
   if (queues.imu.empty() || queues.imu.front()->timestamp > target_time) {
-    logger_.logThrottled(utils::LogLevel::kWarn, "keyframe_no_imu", kWarnThrottleSeconds,
-                         target_time,
-                         "Keyframe rejected: no IMU measurements at or before the keyframe time.");
+    logger_.log(utils::LogLevel::kWarn,
+                "Keyframe rejected: no IMU measurements at or before the keyframe time.");
     return std::nullopt;
   }
 

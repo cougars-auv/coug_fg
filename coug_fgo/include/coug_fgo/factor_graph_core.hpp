@@ -79,7 +79,7 @@ class FactorGraphCore {
 
   void setLogCallback(utils::LogCallback callback);
 
-  bool initialize(const utils::QueueBundle& queues, const utils::TfBundle& tfs);
+  bool initialize(double init_time, const utils::QueueBundle& queues, const utils::TfBundle& tfs);
 
   std::optional<utils::QueueBundle> update(double target_time, utils::QueueBundle& queues,
                                            const utils::TfBundle& tfs);
@@ -140,7 +140,8 @@ class FactorGraphCore {
   };
 
   // --- Initialization ---
-  std::optional<InitialState> computeInitialState(const utils::QueueBundle& queues) const;
+  std::optional<InitialState> computeInitialState(double init_time,
+                                                  const utils::QueueBundle& queues) const;
 
   gtsam::Rot3 computeInitialOrientation(const std::shared_ptr<utils::AhrsData>& ahrs) const;
 

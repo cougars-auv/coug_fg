@@ -252,7 +252,7 @@ class OfflineFactorGraph:
         # --- Compute Initial State ---
         queues = self._drain_all_queues()
 
-        if self.core.initialize(**queues, tfs=self.tfs):
+        if self.core.initialize(self._stream_time, **queues, tfs=self.tfs):
             self.is_initialized = True
             logger.info("Graph initialized successfully.")
         else:

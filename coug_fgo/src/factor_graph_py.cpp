@@ -410,16 +410,16 @@ pybind11::dict FactorGraphPy::get_params() const {
   return p;
 }
 
-bool FactorGraphPy::initialize(const ImuBatch& imu, const GpsBatch& gps, const DepthBatch& depth,
-                               const MagBatch& mag, const AhrsBatch& ahrs, const DvlBatch& dvl,
-                               const WrenchBatch& wrench, const MultiAgentBatch& multiagent,
-                               const TfMap& tfs) {
+bool FactorGraphPy::initialize(double init_time, const ImuBatch& imu, const GpsBatch& gps,
+                               const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,
+                               const DvlBatch& dvl, const WrenchBatch& wrench,
+                               const MultiAgentBatch& multiagent, const TfMap& tfs) {
   if (is_initialized_) {
     return true;
   }
 
   utils::QueueBundle queues = toQueueBundle(imu, gps, depth, mag, ahrs, dvl, wrench, multiagent);
-  is_initialized_ = core_->initialize(queues, toTfBundle(tfs));
+  is_initialized_ = core_->initialize(init_time, queues, toTfBundle(tfs));
   return is_initialized_;
 }
 
@@ -501,7 +501,7 @@ PYBIND11_MODULE(coug_fgo_py, m) {
       .def(pybind11::init<const std::vector<std::string>&, const std::string&>(),
            pybind11::arg("config_paths"), pybind11::arg("namespace") = "")
       .def("get_params", &FactorGraphPy::get_params)
-      .def("initialize", &FactorGraphPy::initialize,
+      .def("initialize", &FactorGraphPy::initialize, pybind11::arg("init_time"),
            pybind11::arg("imu") = FactorGraphPy::ImuBatch(),
            pybind11::arg("gps") = FactorGraphPy::GpsBatch(),
            pybind11::arg("depth") = FactorGraphPy::DepthBatch(),

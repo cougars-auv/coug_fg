@@ -5,7 +5,7 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/cougars-auv/coug_fgo/main.svg)](https://results.pre-commit.ci/latest/github/cougars-auv/coug_fgo/main)
 [![codecov](https://codecov.io/gh/cougars-auv/coug_fgo/graph/badge.svg?token=OFBQI4IOT1)](https://codecov.io/gh/cougars-auv/coug_fgo)
 
-## 🤝 Contributing
+## Contributing
 
 - **Create a Branch:** Create a new branch using the format `name/feature` (e.g., `nelson/repo-docs`).
 
@@ -17,7 +17,7 @@
 
 - **Submit a PR:** Open a pull request, ensure required tests pass, and merge once approved. Upon merge to `main`, GitHub Actions will automatically build and push updated images to Docker Hub with any new dependencies.
 
-## 📦 Releasing
+## Releasing
 
 We adhere to the **Semantic Versioning (SemVer 2.0.0)** standard to release new versions of this repository:
 > Given a version number **`MAJOR.MINOR.PATCH`**, increment the:
@@ -36,7 +36,7 @@ We adhere to the **Semantic Versioning (SemVer 2.0.0)** standard to release new 
 
 - **Publish a GitHub Release:** Review the draft release in GitHub and click **Publish**.
 
-## 📚 Citations
+## Citations
 
 Please cite our relevant publications if you find this repository useful for your research:
 

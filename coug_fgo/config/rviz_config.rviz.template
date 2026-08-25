@@ -541,6 +541,17 @@ Visualization Manager:
           Value: true
       Enabled: true
       Name: DVL Beams
+    - Class: voxblox_rviz_plugin/VoxbloxMesh
+      Enabled: true
+      Name: VoxbloxMesh
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /AUV_NS/mesh
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

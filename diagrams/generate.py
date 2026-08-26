@@ -187,8 +187,8 @@ for i in range(5):
     pgm.add_edge(f"v{i}", f"dvl{i}")
 
 pgm.render()
-pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_direct.pdf", bbox_inches="tight")
-pgm.figure.savefig(OUTPUT_DIR / "fgo_dvl_direct.png", bbox_inches="tight", dpi=300)
+pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_direct.pdf", bbox_inches="tight")
+pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_direct.png", bbox_inches="tight", dpi=300)
 
 # =============================================================================
 # PER-BEAM DVL GRAPH
@@ -212,9 +212,9 @@ for i in range(5):
     pgm_dvl_beams.add_edge(f"v{i}", f"dvl{i}_0")
 
 pgm_dvl_beams.render()
-pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fgo_dvl_beams.pdf", bbox_inches="tight")
+pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fg_dvl_beams.pdf", bbox_inches="tight")
 pgm_dvl_beams.figure.savefig(
-    OUTPUT_DIR / "fgo_dvl_beams.png", bbox_inches="tight", dpi=300
+    OUTPUT_DIR / "fg_dvl_beams.png", bbox_inches="tight", dpi=300
 )
 
 # =============================================================================
@@ -239,10 +239,10 @@ for i in range(4):
 
 pgm_preint_loose.render()
 pgm_preint_loose.figure.savefig(
-    OUTPUT_DIR / "fgo_dvl_preint_loose.pdf", bbox_inches="tight"
+    OUTPUT_DIR / "fg_dvl_preint_loose.pdf", bbox_inches="tight"
 )
 pgm_preint_loose.figure.savefig(
-    OUTPUT_DIR / "fgo_dvl_preint_loose.png", bbox_inches="tight", dpi=300
+    OUTPUT_DIR / "fg_dvl_preint_loose.png", bbox_inches="tight", dpi=300
 )
 
 # =============================================================================
@@ -268,10 +268,10 @@ for i in range(4):
 
 pgm_preint_tight.render()
 pgm_preint_tight.figure.savefig(
-    OUTPUT_DIR / "fgo_dvl_preint_tight.pdf", bbox_inches="tight"
+    OUTPUT_DIR / "fg_dvl_preint_tight.pdf", bbox_inches="tight"
 )
 pgm_preint_tight.figure.savefig(
-    OUTPUT_DIR / "fgo_dvl_preint_tight.png", bbox_inches="tight", dpi=300
+    OUTPUT_DIR / "fg_dvl_preint_tight.png", bbox_inches="tight", dpi=300
 )
 
 # =============================================================================
@@ -314,9 +314,9 @@ for i in range(4):
     pgm_dynamics.add_edge(f"v{i + 1}", f"dynamics{i}")
 
 pgm_dynamics.render()
-pgm_dynamics.figure.savefig(OUTPUT_DIR / "fgo_dynamics.pdf", bbox_inches="tight")
+pgm_dynamics.figure.savefig(OUTPUT_DIR / "fg_dynamics.pdf", bbox_inches="tight")
 pgm_dynamics.figure.savefig(
-    OUTPUT_DIR / "fgo_dynamics.png", bbox_inches="tight", dpi=300
+    OUTPUT_DIR / "fg_dynamics.png", bbox_inches="tight", dpi=300
 )
 
 # =============================================================================
@@ -359,9 +359,9 @@ for i in range(1, 3):
     pgm_const_vel.add_edge(f"v{i + 1}", f"const_vel{i}")
 
 pgm_const_vel.render()
-pgm_const_vel.figure.savefig(OUTPUT_DIR / "fgo_const_vel.pdf", bbox_inches="tight")
+pgm_const_vel.figure.savefig(OUTPUT_DIR / "fg_const_vel.pdf", bbox_inches="tight")
 pgm_const_vel.figure.savefig(
-    OUTPUT_DIR / "fgo_const_vel.png", bbox_inches="tight", dpi=300
+    OUTPUT_DIR / "fg_const_vel.png", bbox_inches="tight", dpi=300
 )
 
 # =============================================================================
@@ -606,7 +606,7 @@ pgm_multiagent.add_plate(
 )
 
 pgm_multiagent.render()
-pgm_multiagent.figure.savefig(OUTPUT_DIR / "fgo_multiagent.pdf", bbox_inches="tight")
+pgm_multiagent.figure.savefig(OUTPUT_DIR / "fg_multiagent.pdf", bbox_inches="tight")
 pgm_multiagent.figure.savefig(
-    OUTPUT_DIR / "fgo_multiagent.png", bbox_inches="tight", dpi=300
+    OUTPUT_DIR / "fg_multiagent.png", bbox_inches="tight", dpi=300
 )

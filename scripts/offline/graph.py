@@ -23,15 +23,15 @@ from scipy.spatial.transform import Rotation
 
 from offline.urdf import UrdfTree
 
-FGO_LIB_PATH = str(
+FG_LIB_PATH = str(
     Path(os.environ["OVERLAY_WS"])
-    / "install/coug_fgo/lib"
+    / "install/coug_fg/lib"
     / f"python{sys.version_info.major}.{sys.version_info.minor}"
     / "site-packages"
 )
-sys.path.insert(0, FGO_LIB_PATH)
+sys.path.insert(0, FG_LIB_PATH)
 
-import coug_fgo_py
+import coug_fg_py
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class OfflineFactorGraph:
         urdf: UrdfTree | None = None,
     ) -> None:
         # --- Node Settings ---
-        self.core = coug_fgo_py.FactorGraphPy(config_paths, namespace)
+        self.core = coug_fg_py.FactorGraphPy(config_paths, namespace)
         self.params = self.core.get_params()
         self.namespace = namespace
         self.urdf = urdf

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 GT_COLOR = "#000000"
-FGO_COLOR = "#55A868"
+FG_COLOR = "#55A868"
 
 LAYOUT = [
     (["x", "y", "z"], ["X (m)", "Y (m)", "Z (m)"], True),
@@ -52,7 +52,7 @@ def _mask_gaps(t: np.ndarray, vals: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
 def plot_results(results: dict, pose_gt: dict, label: str = "") -> None:
     t0 = results["time"][0]
-    t_fgo = results["time"] - t0
+    t_fg = results["time"] - t0
 
     _, axes = plt.subplots(len(LAYOUT), 3, figsize=(15, 8), num=label or None)
     for row, (keys, axis_labels, show_gt) in enumerate(LAYOUT):
@@ -62,7 +62,7 @@ def plot_results(results: dict, pose_gt: dict, label: str = "") -> None:
                 gt_t, gt_vals = _mask_gaps(pose_gt["time"] - t0, pose_gt[key])
                 ax.plot(gt_t, gt_vals, "-", color=GT_COLOR, label="GT")
             if key in results:
-                ax.plot(t_fgo, results[key], "-", color=FGO_COLOR, label="FGO")
+                ax.plot(t_fg, results[key], "-", color=FG_COLOR, label="FG")
             ax.set_ylabel(axis_label)
             if row == len(LAYOUT) - 1:
                 ax.set_xlabel("Time (s)")

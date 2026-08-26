@@ -158,7 +158,7 @@ pgm.add_plate(
     [win_left, win_bottom, win_width, win_top - win_bottom],
     label="sliding window",
     position="bottom right",
-    rect_params={"fc": "#E8E8E8", "ec": "none"},
+    rect_params={"fc": "#F4F4F4", "ec": "none"},
     fontsize=10,
 )
 
@@ -601,7 +601,7 @@ pgm_multiagent.add_plate(
     [win_left, win_bottom, win_width, win_top_multiagent - win_bottom],
     label="sliding window",
     position="bottom right",
-    rect_params={"fc": "#E8E8E8", "ec": "none"},
+    rect_params={"fc": "#F4F4F4", "ec": "none"},
     fontsize=10,
 )
 

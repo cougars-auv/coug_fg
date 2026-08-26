@@ -350,11 +350,11 @@ std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialStat
   const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
 
   const bool use_param_priors = params_.priors.use_parameter_priors;
-  auto prior = [use_param_priors](bool enabled) { return enabled && !use_param_priors; };
-  const bool use_gps = prior(params_.gps.enable_gps_init_priors);
-  const bool use_depth = prior(params_.depth.enable_depth_init_priors);
-  const bool use_ahrs = prior(params_.ahrs.enable_ahrs_init_priors);
-  const bool use_dvl = prior(params_.dvl.enable_dvl_init_priors);
+  auto use_init_prior = [use_param_priors](bool enabled) { return enabled && !use_param_priors; };
+  const bool use_gps = use_init_prior(params_.gps.enable_gps_init_priors);
+  const bool use_depth = use_init_prior(params_.depth.enable_depth_init_priors);
+  const bool use_ahrs = use_init_prior(params_.ahrs.enable_ahrs_init_priors);
+  const bool use_dvl = use_init_prior(params_.dvl.enable_dvl_init_priors);
 
   // Additional sensor data needed for init
   const bool need_ahrs = params_.comparison.enable_loose_dvl_preintegration;
@@ -386,15 +386,15 @@ std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialStat
     return std::nullopt;
   }
 
-  auto newest = [](bool take, const auto& msgs) {
+  auto newest_if = [](bool take, const auto& msgs) {
     return (take && !msgs.empty()) ? msgs.back() : std::decay_t<decltype(msgs.back())>{};
   };
-  auto gps = newest(use_gps, queues.gps);
-  auto depth = newest(use_depth, queues.depth);
-  auto ahrs = newest(use_ahrs, queues.ahrs);
-  auto dvl = newest(use_dvl, queues.dvl);
-  auto depth_at_start = newest(start_depth, queues.depth);
-  auto dvl_at_start = newest(start_dvl || need_dvl, queues.dvl);
+  auto gps = newest_if(use_gps, queues.gps);
+  auto depth = newest_if(use_depth, queues.depth);
+  auto ahrs = newest_if(use_ahrs, queues.ahrs);
+  auto dvl = newest_if(use_dvl, queues.dvl);
+  auto depth_at_start = newest_if(start_depth, queues.depth);
+  auto dvl_at_start = newest_if(start_dvl || need_dvl, queues.dvl);
   auto imu = queues.imu.back();
 
   InitialState state;

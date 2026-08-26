@@ -468,21 +468,21 @@ utils::TfBundle FactorGraphNode::buildCurrentTfBundle() {
   std::scoped_lock lock(tf_mutex_);
   utils::TfBundle tfs;
 
-  auto resolve = [](const geometry_msgs::msg::TransformStamped& tf_in, gtsam::Pose3& pose_out) {
+  auto resolve_tf = [](const geometry_msgs::msg::TransformStamped& tf_in, gtsam::Pose3& pose_out) {
     if (!tf_in.header.frame_id.empty()) {
       pose_out = toGtsam(tf_in.transform);
     }
   };
 
-  resolve(target_T_imu_tf_, tfs.target_T_imu);
-  resolve(target_T_gps_tf_, tfs.target_T_gps);
-  resolve(target_T_depth_tf_, tfs.target_T_depth);
-  resolve(target_T_mag_tf_, tfs.target_T_mag);
-  resolve(target_T_ahrs_tf_, tfs.target_T_ahrs);
-  resolve(target_T_dvl_tf_, tfs.target_T_dvl);
-  resolve(target_T_base_tf_, tfs.target_T_base);
-  resolve(target_T_wrench_tf_, tfs.target_T_wrench);
-  resolve(target_T_modem_tf_, tfs.target_T_modem);
+  resolve_tf(target_T_imu_tf_, tfs.target_T_imu);
+  resolve_tf(target_T_gps_tf_, tfs.target_T_gps);
+  resolve_tf(target_T_depth_tf_, tfs.target_T_depth);
+  resolve_tf(target_T_mag_tf_, tfs.target_T_mag);
+  resolve_tf(target_T_ahrs_tf_, tfs.target_T_ahrs);
+  resolve_tf(target_T_dvl_tf_, tfs.target_T_dvl);
+  resolve_tf(target_T_base_tf_, tfs.target_T_base);
+  resolve_tf(target_T_wrench_tf_, tfs.target_T_wrench);
+  resolve_tf(target_T_modem_tf_, tfs.target_T_modem);
   return tfs;
 }
 

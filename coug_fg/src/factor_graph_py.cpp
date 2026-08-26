@@ -493,7 +493,9 @@ pybind11::dict FactorGraphPy::optimize() {
 PYBIND11_MODULE(coug_fg_py, m) {
   m.doc() = "Python bindings for the FactorGraphCore.";
 
-  pybind11::class_<coug_fg::FactorGraphPy>(m, "FactorGraphPy")
+  using coug_fg::FactorGraphPy;
+
+  pybind11::class_<FactorGraphPy>(m, "FactorGraphPy")
       .def(pybind11::init<const std::vector<std::string>&, const std::string&>(),
            pybind11::arg("config_paths"), pybind11::arg("namespace") = "")
       .def("get_params", &FactorGraphPy::get_params)

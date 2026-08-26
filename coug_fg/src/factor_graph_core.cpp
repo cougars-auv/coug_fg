@@ -52,23 +52,25 @@
 #include "coug_fg/factors/wrench_dynamics_factor.hpp"
 #include "coug_fg/utils/param_enums.hpp"
 
-using coug_fg::factors::AhrsFactorArm;
-using coug_fg::factors::AhrsOriginDeltaFactorArm;
-using coug_fg::factors::AhrsYawFactorArm;
-using coug_fg::factors::BearingFactorArm;
-using coug_fg::factors::BearingOriginDeltaFactorArm;
-using coug_fg::factors::ConstVelFactor;
-using coug_fg::factors::DepthFactorArm;
-using coug_fg::factors::DepthOriginDeltaFactorArm;
-using coug_fg::factors::DvlFactorArm;
-using coug_fg::factors::DvlLoosePreintFactorArm;
-using coug_fg::factors::DvlTightPreintFactorArm;
-using coug_fg::factors::Gps2dFactorArm;
-using coug_fg::factors::MagCalibFactorArm;
-using coug_fg::factors::MagFactorArm;
-using coug_fg::factors::RangeFactorArm;
-using coug_fg::factors::RangeOriginDeltaFactorArm;
-using coug_fg::factors::WrenchDynamicsFactorArm;
+namespace coug_fg {
+
+using factors::AhrsFactorArm;
+using factors::AhrsOriginDeltaFactorArm;
+using factors::AhrsYawFactorArm;
+using factors::BearingFactorArm;
+using factors::BearingOriginDeltaFactorArm;
+using factors::ConstVelFactor;
+using factors::DepthFactorArm;
+using factors::DepthOriginDeltaFactorArm;
+using factors::DvlFactorArm;
+using factors::DvlLoosePreintFactorArm;
+using factors::DvlTightPreintFactorArm;
+using factors::Gps2dFactorArm;
+using factors::MagCalibFactorArm;
+using factors::MagFactorArm;
+using factors::RangeFactorArm;
+using factors::RangeOriginDeltaFactorArm;
+using factors::WrenchDynamicsFactorArm;
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
 using gtsam::symbol_shorthand::M;  // Magnetometer hard-iron bias (x,y,z)
@@ -76,8 +78,6 @@ using gtsam::symbol_shorthand::N;  // Neighbor agent Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::O;  // Neighbor origin delta Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
-
-namespace coug_fg {
 
 using utils::DvlLoosePreintegrator;
 using utils::DvlTightPreintegrator;

@@ -5,10 +5,6 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/cougars-auv/coug_fg/main.svg)](https://results.pre-commit.ci/latest/github/cougars-auv/coug_fg/main)
 [![codecov](https://codecov.io/gh/cougars-auv/coug_fg/graph/badge.svg?token=OFBQI4IOT1)](https://codecov.io/gh/cougars-auv/coug_fg)
 
-<p align="left">
-  <img src="diagrams/fg_multiagent.png" width="600">
-</p>
-
 ## Contributing
 
 - **Create a Branch:** Create a new branch using the format `name/feature` (e.g., `nelson/repo-docs`).

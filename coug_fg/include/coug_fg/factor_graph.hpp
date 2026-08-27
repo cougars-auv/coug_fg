@@ -210,7 +210,7 @@ class FactorGraphNode : public rclcpp::Node {
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_srv_;
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   diagnostic_updater::Updater diagnostic_updater_;
 };

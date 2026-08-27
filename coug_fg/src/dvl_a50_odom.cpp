@@ -26,7 +26,6 @@ DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
       std::make_shared<dvl_a50_odom_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 

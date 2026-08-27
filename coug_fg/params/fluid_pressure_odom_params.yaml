@@ -1,5 +1,4 @@
 fluid_pressure_odom_node:
-  # --- Node Settings ---
   pressure_scale:
     type: double
     default_value: 1.0
@@ -20,7 +19,6 @@ fluid_pressure_odom_node:
     default_value: 9.81
     validation:
       gt<>: [0.0]
-
   max_pressure_delta:
     type: double
     default_value: 0.0
@@ -31,8 +29,6 @@ fluid_pressure_odom_node:
     default_value: 5
     validation:
       gt_eq<>: [1]
-
-  # --- ROS Topics and Frames ---
   input_topic:
     type: string
     default_value: "pressure/data"
@@ -43,19 +39,16 @@ fluid_pressure_odom_node:
     default_value: "depth/odometry"
     validation:
       not_empty<>: []
-
   calibrate_service:
     type: string
     default_value: "depth/calibrate"
     validation:
       not_empty<>: []
-
   map_frame:
     type: string
     default_value: "map"
     validation:
       not_empty<>: []
-
   use_parameter_child_frame:
     type: bool
     default_value: false

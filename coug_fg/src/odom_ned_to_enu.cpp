@@ -29,7 +29,6 @@ OdomNedToEnuNode::OdomNedToEnuNode(const rclcpp::NodeOptions& options)
       std::make_shared<odom_ned_to_enu_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       params_.input_topic, rclcpp::SensorDataQoS(),
       std::bind(&OdomNedToEnuNode::odomCallback, this, std::placeholders::_1));

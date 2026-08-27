@@ -28,7 +28,6 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
       std::make_shared<navsat_odom_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   navsat_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
       params_.input_topic, rclcpp::SensorDataQoS(),
       std::bind(&NavsatOdomNode::navsatCallback, this, std::placeholders::_1));
@@ -63,7 +62,6 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
                 origin_navsat_.latitude, origin_navsat_.longitude, origin_navsat_.altitude);
   }
 
-  // --- ROS Diagnostics ---
   if (params_.publish_diagnostics) {
     std::string ns = this->get_namespace();
     std::string clean_ns = (ns == "/") ? "" : ns;

@@ -50,12 +50,10 @@ Eigen::Matrix<double, N, N> toCovMatrix(const Array& arr) {
 }  // namespace
 
 void FactorGraphNode::setupRosInterfaces() {
-  // --- ROS TF Interfaces ---
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-  // --- ROS Publishers ---
   global_odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(params_.global_odom_topic,
                                                                rclcpp::SystemDefaultsQoS());
   if (params_.publish_smoothed_path) {
@@ -88,7 +86,6 @@ void FactorGraphNode::setupRosInterfaces() {
     }
   }
 
-  // --- ROS Services ---
   reset_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   reset_srv_ = create_service<std_srvs::srv::Trigger>(
       params_.reset_service,
@@ -96,12 +93,10 @@ void FactorGraphNode::setupRosInterfaces() {
              std::shared_ptr<std_srvs::srv::Trigger::Response> res) { resetGraph(req, res); },
       rclcpp::ServicesQoS(), reset_cb_group_);
 
-  // --- ROS Callback Groups ---
   sensor_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   auto sensor_options = rclcpp::SubscriptionOptions();
   sensor_options.callback_group = sensor_cb_group_;
 
-  // --- ROS Subscribers ---
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       params_.imu_topic, rclcpp::SensorDataQoS().keep_last(kSensorQueueDepth),
       [this](const sensor_msgs::msg::Imu::SharedPtr msg) {
@@ -312,7 +307,6 @@ void FactorGraphNode::setupRosInterfaces() {
         create_wall_timer(std::chrono::duration<double>(period), [this]() { notifyFrontend(); });
   }
 
-  // --- ROS Diagnostics ---
   if (params_.publish_diagnostics) {
     std::string ns = this->get_namespace();
     std::string clean_ns = (ns == "/") ? "" : ns;
@@ -715,13 +709,11 @@ void FactorGraphNode::publishGraphMetrics(const rclcpp::Time& timestamp) {
 }
 
 void FactorGraphNode::initializeGraph() {
-  // Look up target to base frame TF
   if (!loadOrLookupTf(target_T_base_tf_, params_.base_frame, params_.base.use_parameter_tf,
                       params_.base.parameter_tf.position, params_.base.parameter_tf.orientation)) {
     return;
   }
 
-  // --- Compute Initial State ---
   utils::QueueBundle init_queues = drainAllQueues();
 
   if (!core_->initialize(get_clock()->now().seconds(), init_queues, buildCurrentTfBundle())) {
@@ -757,7 +749,6 @@ void FactorGraphNode::updateGraph() {
     }
   }
 
-  // Extract target time
   std::optional<double> target_time;
   if (active_source == KeyframeSource::kDvl && !dvl_queue_.empty()) {
     target_time = dvl_queue_.getLastTime();
@@ -781,7 +772,6 @@ void FactorGraphNode::updateGraph() {
   }
   last_target_time_ = *target_time;
 
-  // --- Update Request ---
   utils::QueueBundle queues = drainAllQueues();
   auto leftover = core_->update(*target_time, queues, buildCurrentTfBundle());
   restoreAllQueues(leftover ? *leftover : queues);
@@ -817,14 +807,12 @@ void FactorGraphNode::frontendThreadLoop() {
 }
 
 void FactorGraphNode::optimizeGraph() {
-  // --- Optimization Request ---
   try {
     auto result = core_->optimize();
     if (!result) {
       return;
     }
 
-    // --- Update Diagnostics State ---
     last_total_duration_.store(result->total_duration);
     last_smoother_duration_.store(result->smoother_duration);
     last_cov_duration_.store(result->cov_duration);
@@ -838,7 +826,6 @@ void FactorGraphNode::optimizeGraph() {
                   result->new_keyframes);
     }
 
-    // --- Publish Results ---
     static constexpr double kSecondsToNanoseconds = 1e9;
     const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * kSecondsToNanoseconds));
     publishGlobalOdom(result->pose, result->pose_cov, stamp);

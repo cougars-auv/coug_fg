@@ -20,7 +20,6 @@ else()
   message(STATUS "LTO not available, skipping: ${_ipo_error}")
 endif()
 
-# --- Dependencies ---
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
@@ -30,7 +29,6 @@ find_package(pybind11 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GeographicLib REQUIRED IMPORTED_TARGET geographiclib)
 
-# --- GTSAM & Eigen Setup ---
 get_target_property(GTSAM_TARGET_INC gtsam INTERFACE_INCLUDE_DIRECTORIES)
 find_path(GTSAM_EIGEN_INCLUDE_DIR Eigen/Core
   PATHS ${GTSAM_TARGET_INC}
@@ -52,7 +50,6 @@ target_link_libraries(gtsam_with_eigen INTERFACE
   gtsam_unstable
 )
 
-# --- Nodes ---
 set(COUG_FG_NODES
   factor_graph
   dvl_a50_odom
@@ -66,7 +63,6 @@ set(COUG_FG_NODES
   seatrac_x150_imu_depth
 )
 
-# --- Parameters ---
 set(COUG_FG_NODE_SOURCES "")
 set(COUG_FG_PARAM_LIBRARIES "")
 foreach(node IN LISTS COUG_FG_NODES)
@@ -78,7 +74,6 @@ foreach(node IN LISTS COUG_FG_NODES)
   list(APPEND COUG_FG_PARAM_LIBRARIES "${node}_parameters")
 endforeach()
 
-# --- Component Library ---
 ament_auto_add_library(factor_graph_component SHARED NO_TARGET_LINK_LIBRARIES
   src/factor_graph_core.cpp
   ${COUG_FG_NODE_SOURCES}
@@ -105,13 +100,11 @@ rclcpp_components_register_nodes(factor_graph_component
   "coug_fg::SeatracX150ImuDepthNode"
 )
 
-# --- Executables ---
 foreach(node IN LISTS COUG_FG_NODES)
   ament_auto_add_executable(${node} NO_TARGET_LINK_LIBRARIES "src/${node}_node.cpp")
   target_link_libraries(${node} factor_graph_component)
 endforeach()
 
-# --- Python Bindings ---
 pybind11_add_module(coug_fg_py src/factor_graph_py.cpp)
 target_link_libraries(coug_fg_py PRIVATE
   factor_graph_component
@@ -120,7 +113,6 @@ install(FILES $<TARGET_FILE:coug_fg_py>
   DESTINATION "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
 )
 
-# --- Testing ---
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 

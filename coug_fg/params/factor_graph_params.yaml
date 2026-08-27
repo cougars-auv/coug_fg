@@ -1,5 +1,4 @@
 factor_graph_node:
-  # --- Node Settings ---
   publish_global_tf:
     type: bool
     default_value: true
@@ -24,7 +23,6 @@ factor_graph_node:
   publish_graph_metrics:
     type: bool
     default_value: false
-
   publish_pose_cov:
     type: bool
     default_value: false
@@ -40,8 +38,6 @@ factor_graph_node:
   publish_mag_bias_cov:
     type: bool
     default_value: false
-
-  # --- GTSAM Settings ---
   solver_type:
     type: string
     default_value: "IncrementalFixedLagSmoother"
@@ -72,8 +68,6 @@ factor_graph_node:
     default_value: 1
     validation:
       gt_eq<>: [1]
-
-  # --- Keyframe Settings ---
   keyframe_source:
     type: string
     default_value: "Beams"
@@ -99,8 +93,6 @@ factor_graph_node:
     default_value: 0.02
     validation:
       gt_eq<>: [0.0]
-
-  # --- ROS Topics and Frames ---
   imu_topic:
     type: string
     default_value: "imu/data"
@@ -176,7 +168,6 @@ factor_graph_node:
     default_value: "~/reset"
     validation:
       not_empty<>: []
-
   multiagent_namespaces:
     type: string_array
     default_value: ["coug2sim", "coug3sim"]
@@ -190,7 +181,6 @@ factor_graph_node:
     default_value: "base/odometry/global_nbr"
     validation:
       not_empty<>: []
-
   map_frame:
     type: string
     default_value: "map"
@@ -217,7 +207,6 @@ factor_graph_node:
     validation:
       not_empty<>: []
 
-  # --- Sensor Settings ---
   base:
     use_parameter_tf:
       type: bool
@@ -966,7 +955,6 @@ factor_graph_node:
       validation:
         gt<>: [0.0]
 
-  # --- Prior Settings ---
   priors:
     use_parameter_priors:
       type: bool
@@ -1065,7 +1053,6 @@ factor_graph_node:
         fixed_size<>: [3]
         lower_element_bounds<>: [0.0]
 
-  # --- Comparison Methods ---
   comparison:
     enable_loose_dvl_preintegration:
       type: bool

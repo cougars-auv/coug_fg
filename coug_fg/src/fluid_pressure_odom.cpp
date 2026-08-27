@@ -25,7 +25,6 @@ FluidPressureOdomNode::FluidPressureOdomNode(const rclcpp::NodeOptions& options)
       std::make_shared<fluid_pressure_odom_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   pressure_sub_ = create_subscription<sensor_msgs::msg::FluidPressure>(
       params_.input_topic, rclcpp::SensorDataQoS(),
       std::bind(&FluidPressureOdomNode::pressureCallback, this, std::placeholders::_1));

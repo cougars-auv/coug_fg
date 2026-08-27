@@ -28,7 +28,6 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
       std::make_shared<seatrac_x150_imu_depth_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   modem_sub_ = create_subscription<seatrac_interfaces::msg::ModemStatus>(
       params_.input_topic, rclcpp::SensorDataQoS(),
       std::bind(&SeatracX150ImuDepthNode::modemStatusCallback, this, std::placeholders::_1));

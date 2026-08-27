@@ -28,7 +28,6 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
       std::make_shared<dvl_a50_twist_beams_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   dvl_sub_ = create_subscription<dvl_msgs::msg::DVL>(
       params_.input_topic, rclcpp::SensorDataQoS(),
       std::bind(&DvlA50TwistBeamsNode::dvlCallback, this, std::placeholders::_1));

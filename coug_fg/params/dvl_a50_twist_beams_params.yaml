@@ -1,5 +1,4 @@
 dvl_a50_twist_beams_node:
-  # --- Node Settings ---
   simulate_dropout:
     type: bool
     default_value: false
@@ -13,7 +12,6 @@ dvl_a50_twist_beams_node:
     default_value: 5.0
     validation:
       gt_eq<>: [0.0]
-
   fom_valid_threshold:
     type: double
     default_value: 0.01
@@ -27,11 +25,9 @@ dvl_a50_twist_beams_node:
     default_value: 4.0
     validation:
       gt<>: [0.0]
-
   override_timestamp:
     type: bool
     default_value: false
-
   beam_field_of_view_radians:
     type: double
     default_value: 0.0768
@@ -47,8 +43,6 @@ dvl_a50_twist_beams_node:
     default_value: 50.0
     validation:
       gt<>: [0.0]
-
-  # --- ROS Topics and Frames ---
   input_topic:
     type: string
     default_value: "dvl/data"
@@ -64,7 +58,6 @@ dvl_a50_twist_beams_node:
     default_value: "dvl/beams"
     validation:
       not_empty<>: []
-
   beam0_range_topic:
     type: string
     default_value: "dvl/beam0/range"
@@ -85,7 +78,6 @@ dvl_a50_twist_beams_node:
     default_value: "dvl/beam3/range"
     validation:
       not_empty<>: []
-
   beam0_frame:
     type: string
     default_value: "beam0_link"
@@ -106,7 +98,6 @@ dvl_a50_twist_beams_node:
     default_value: "beam3_link"
     validation:
       not_empty<>: []
-
   use_parameter_frame:
     type: bool
     default_value: false

@@ -29,7 +29,6 @@ ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
       std::make_shared<imu_ned_to_enu_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       params_.input_topic, rclcpp::SensorDataQoS(),
       std::bind(&ImuNedToEnuNode::imuCallback, this, std::placeholders::_1));

@@ -24,7 +24,6 @@ OdomToTfNode::OdomToTfNode(const rclcpp::NodeOptions& options) : Node("odom_to_t
       std::make_shared<odom_to_tf_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(

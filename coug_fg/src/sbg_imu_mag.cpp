@@ -24,7 +24,6 @@ SbgImuMagNode::SbgImuMagNode(const rclcpp::NodeOptions& options)
       std::make_shared<sbg_imu_mag_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
 
-  // --- ROS Interfaces ---
   mag_sub_ = create_subscription<sensor_msgs::msg::MagneticField>(
       params_.input_topic, rclcpp::SensorDataQoS(),
       std::bind(&SbgImuMagNode::magCallback, this, std::placeholders::_1));

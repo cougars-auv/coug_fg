@@ -1,17 +1,13 @@
 dvl_a50_odom_node:
-  # --- Node Settings ---
   override_timestamp:
     type: bool
     default_value: false
-
   orientation_noise_sigmas:
     type: double_array
     default_value: [0.01745, 0.01745, 0.03491]
     validation:
       fixed_size<>: [3]
       lower_element_bounds<>: [0.0]
-
-  # --- ROS Topics and Frames ---
   input_topic:
     type: string
     default_value: "dvl/position"
@@ -22,7 +18,6 @@ dvl_a50_odom_node:
     default_value: "dvl/odometry_ned"
     validation:
       not_empty<>: []
-
   odom_frame:
     type: string
     default_value: "odom"
@@ -33,7 +28,6 @@ dvl_a50_odom_node:
     default_value: "base_link"
     validation:
       not_empty<>: []
-
   use_parameter_frame:
     type: bool
     default_value: false

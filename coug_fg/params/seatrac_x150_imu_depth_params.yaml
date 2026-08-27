@@ -1,5 +1,4 @@
 seatrac_x150_imu_depth_node:
-  # --- Node Settings ---
   orientation_noise_sigmas:
     type: double_array
     default_value: [0.00349, 0.00349, 0.01745]
@@ -11,14 +10,11 @@ seatrac_x150_imu_depth_node:
     default_value: 0.0
     validation:
       bounds<>: [-3.14159, 3.14159]
-
   depth_noise_sigma:
     type: double
     default_value: 0.1
     validation:
       gt_eq<>: [0.0]
-
-  # --- ROS Topics and Frames ---
   input_topic:
     type: string
     default_value: "modem_status"
@@ -34,13 +30,11 @@ seatrac_x150_imu_depth_node:
     default_value: "seatrac/depth/odometry_ned"
     validation:
       not_empty<>: []
-
   map_frame:
     type: string
     default_value: "map"
     validation:
       not_empty<>: []
-
   use_parameter_frame:
     type: bool
     default_value: false

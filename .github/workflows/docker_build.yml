@@ -16,7 +16,7 @@ name: Docker Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
       - ".github/workflows/docker_build.yml"
       - "**/package.xml"
@@ -34,5 +34,4 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           repository: ${{ env.UPSTREAM_REPO }}
           event-type: docker_dispatch
-          client-payload: "{\"repo\": \"${{ github.repository }}\", \"sha\": \"${{
-            github.sha }}\"}"
+          client-payload: '{"repo": "${{ github.repository }}", "sha": "${{ github.sha }}"}'

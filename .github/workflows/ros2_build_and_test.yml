@@ -16,9 +16,9 @@ name: ROS 2 Build & Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 env:
@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ ubuntu-24.04, ubuntu-24.04-arm ]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -74,5 +74,4 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           repository: ${{ env.UPSTREAM_REPO }}
           event-type: ros2_dispatch
-          client-payload: "{\"repo\": \"${{ github.repository }}\", \"sha\": \"${{
-            github.sha }}\"}"
+          client-payload: '{"repo": "${{ github.repository }}", "sha": "${{ github.sha }}"}'

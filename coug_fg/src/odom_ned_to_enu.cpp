@@ -67,14 +67,14 @@ nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
     static const Eigen::Matrix<double, 6, 6> kNedToEnu6D = []() {
       static const Eigen::Matrix3d kNedToEnu3D =
           (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
-      Eigen::Matrix<double, 6, 6> covariance_transform = Eigen::Matrix<double, 6, 6>::Zero();
-      covariance_transform.block<3, 3>(0, 0) = kNedToEnu3D;
-      covariance_transform.block<3, 3>(3, 3) = kNedToEnu3D;
-      return covariance_transform;
+      Eigen::Matrix<double, 6, 6> transform = Eigen::Matrix<double, 6, 6>::Zero();
+      transform.block<3, 3>(0, 0) = kNedToEnu3D;
+      transform.block<3, 3>(3, 3) = kNedToEnu3D;
+      return transform;
     }();
-    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> pose_covariance(
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> covariance(
         odom_msg.pose.covariance.data());
-    pose_covariance = (kNedToEnu6D * pose_covariance * kNedToEnu6D.transpose()).eval();
+    covariance = (kNedToEnu6D * covariance * kNedToEnu6D.transpose()).eval();
   }
 
   return odom_msg;

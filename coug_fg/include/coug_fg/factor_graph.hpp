@@ -122,6 +122,32 @@ class FactorGraphNode : public rclcpp::Node {
 
   void checkGraphStatus(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
+  // --- ROS Interfaces ---
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_odom_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr smoothed_path_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr vel_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr imu_bias_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_bias_pub_;
+  rclcpp::Publisher<coug_interfaces::msg::GraphMetrics>::SharedPtr graph_metrics_pub_;
+  std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> multiagent_pubs_;
+
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gps_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr depth_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::MagneticField>::SharedPtr mag_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr ahrs_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr dvl_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_sub_;
+  std::vector<rclcpp::Subscription<coug_interfaces::msg::AgentStatus>::SharedPtr> multiagent_subs_;
+  rclcpp::TimerBase::SharedPtr keyframe_timer_;
+
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_srv_;
+
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  diagnostic_updater::Updater diagnostic_updater_;
+
   // --- Parameters ---
   std::shared_ptr<factor_graph_node::ParamListener> param_listener_;
   factor_graph_node::Params params_;
@@ -187,32 +213,6 @@ class FactorGraphNode : public rclcpp::Node {
 
   std::string imu_frame_;
   std::string mag_frame_;
-
-  // --- ROS Interfaces ---
-  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_odom_pub_;
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr smoothed_path_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr vel_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr imu_bias_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_bias_pub_;
-  rclcpp::Publisher<coug_interfaces::msg::GraphMetrics>::SharedPtr graph_metrics_pub_;
-  std::vector<rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr> multiagent_pubs_;
-
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gps_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr depth_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::MagneticField>::SharedPtr mag_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr ahrs_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr dvl_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_sub_;
-  std::vector<rclcpp::Subscription<coug_interfaces::msg::AgentStatus>::SharedPtr> multiagent_subs_;
-  rclcpp::TimerBase::SharedPtr keyframe_timer_;
-
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_srv_;
-
-  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-  diagnostic_updater::Updater diagnostic_updater_;
 };
 
 }  // namespace coug_fg

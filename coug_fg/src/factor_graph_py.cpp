@@ -336,23 +336,23 @@ FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const
 }
 
 pybind11::dict FactorGraphPy::get_params() const {
-  pybind11::dict p;
+  pybind11::dict parameters;
 
   // --- Node Settings ---
-  p["solver_type"] = params_.solver_type;
-  p["max_update_rate_hz"] = params_.max_update_rate_hz;
-  p["max_opt_rate_hz"] = params_.max_opt_rate_hz;
-  p["publish_smoothed_path"] = params_.publish_smoothed_path;
-  p["publish_pose_cov"] = params_.publish_pose_cov;
-  p["publish_velocity_cov"] = params_.publish_velocity_cov;
-  p["publish_imu_bias_cov"] = params_.publish_imu_bias_cov;
+  parameters["solver_type"] = params_.solver_type;
+  parameters["max_update_rate_hz"] = params_.max_update_rate_hz;
+  parameters["max_opt_rate_hz"] = params_.max_opt_rate_hz;
+  parameters["publish_smoothed_path"] = params_.publish_smoothed_path;
+  parameters["publish_pose_cov"] = params_.publish_pose_cov;
+  parameters["publish_velocity_cov"] = params_.publish_velocity_cov;
+  parameters["publish_imu_bias_cov"] = params_.publish_imu_bias_cov;
 
   // --- Keyframe Settings ---
-  p["keyframe_source"] = params_.keyframe_source;
-  p["backup_keyframe_source"] = params_.backup_keyframe_source;
-  p["keyframe_timeout_sec"] = params_.keyframe_timeout_sec;
-  p["keyframe_timer_hz"] = params_.keyframe_timer_hz;
-  p["min_keyframe_interval_sec"] = params_.min_keyframe_interval_sec;
+  parameters["keyframe_source"] = params_.keyframe_source;
+  parameters["backup_keyframe_source"] = params_.backup_keyframe_source;
+  parameters["keyframe_timeout_sec"] = params_.keyframe_timeout_sec;
+  parameters["keyframe_timer_hz"] = params_.keyframe_timer_hz;
+  parameters["min_keyframe_interval_sec"] = params_.min_keyframe_interval_sec;
 
   // --- ROS Topics and Frames ---
   pybind11::dict topics;
@@ -363,24 +363,24 @@ pybind11::dict FactorGraphPy::get_params() const {
   topics["ahrs"] = params_.ahrs_topic;
   topics["dvl"] = params_.dvl_topic;
   topics["wrench"] = params_.wrench_topic;
-  p["topics"] = topics;
+  parameters["topics"] = topics;
 
-  p["target_frame"] = params_.target_frame;
-  p["base_frame"] = params_.base_frame;
+  parameters["target_frame"] = params_.target_frame;
+  parameters["base_frame"] = params_.base_frame;
 
   // --- Sensor Settings ---
-  auto sensor_dict = [](const auto& s, bool enable, bool enable_init_priors,
+  auto sensor_dict = [](const auto& sensor_config, bool enable, bool enable_init_priors,
                         bool enable_dropout_only = false) {
-    pybind11::dict d;
-    d["enable"] = enable;
-    d["enable_init_priors"] = enable_init_priors;
-    d["enable_dropout_only"] = enable_dropout_only;
-    d["use_parameter_frame"] = s.use_parameter_frame;
-    d["parameter_frame"] = s.parameter_frame;
-    d["use_parameter_tf"] = s.use_parameter_tf;
-    d["tf_position"] = s.parameter_tf.position;
-    d["tf_orientation"] = s.parameter_tf.orientation;
-    return d;
+    pybind11::dict sensor_parameters;
+    sensor_parameters["enable"] = enable;
+    sensor_parameters["enable_init_priors"] = enable_init_priors;
+    sensor_parameters["enable_dropout_only"] = enable_dropout_only;
+    sensor_parameters["use_parameter_frame"] = sensor_config.use_parameter_frame;
+    sensor_parameters["parameter_frame"] = sensor_config.parameter_frame;
+    sensor_parameters["use_parameter_tf"] = sensor_config.use_parameter_tf;
+    sensor_parameters["tf_position"] = sensor_config.parameter_tf.position;
+    sensor_parameters["tf_orientation"] = sensor_config.parameter_tf.orientation;
+    return sensor_parameters;
   };
 
   pybind11::dict sensors;
@@ -407,7 +407,7 @@ pybind11::dict FactorGraphPy::get_params() const {
   multiagent["use_parameter_tf"] = params_.multiagent.use_parameter_tf;
   multiagent["tf_position"] = params_.multiagent.parameter_tf.position;
   multiagent["tf_orientation"] = params_.multiagent.parameter_tf.orientation;
-  p["multiagent"] = multiagent;
+  parameters["multiagent"] = multiagent;
 
   pybind11::dict base;
   base["enable"] = true;
@@ -419,12 +419,12 @@ pybind11::dict FactorGraphPy::get_params() const {
   base["tf_position"] = params_.base.parameter_tf.position;
   base["tf_orientation"] = params_.base.parameter_tf.orientation;
   sensors["base"] = base;
-  p["sensors"] = sensors;
+  parameters["sensors"] = sensors;
 
   // --- Initial State Priors ---
   pybind11::dict priors;
   priors["use_parameter_priors"] = params_.priors.use_parameter_priors;
-  p["priors"] = priors;
+  parameters["priors"] = priors;
 
   // --- Comparison Methods ---
   pybind11::dict comparison;
@@ -432,9 +432,9 @@ pybind11::dict FactorGraphPy::get_params() const {
       params_.comparison.enable_loose_dvl_preintegration;
   comparison["enable_tight_dvl_preintegration"] =
       params_.comparison.enable_tight_dvl_preintegration;
-  p["comparison"] = comparison;
+  parameters["comparison"] = comparison;
 
-  return p;
+  return parameters;
 }
 
 bool FactorGraphPy::initialize(double init_time, const pybind11::dict& queues,

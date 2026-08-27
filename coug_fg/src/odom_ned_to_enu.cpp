@@ -51,11 +51,12 @@ nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
   // Convert NED -> ENU
   static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
 
-  const auto& p = msg->pose.pose.position;
-  tf2::Vector3 position = tf2::quatRotate(kNedToEnu, tf2::Vector3(p.x, p.y, p.z));
-  odom_msg.pose.pose.position.x = position.x();
-  odom_msg.pose.pose.position.y = position.y();
-  odom_msg.pose.pose.position.z = position.z();
+  const auto& ned_position = msg->pose.pose.position;
+  tf2::Vector3 enu_position =
+      tf2::quatRotate(kNedToEnu, tf2::Vector3(ned_position.x, ned_position.y, ned_position.z));
+  odom_msg.pose.pose.position.x = enu_position.x();
+  odom_msg.pose.pose.position.y = enu_position.y();
+  odom_msg.pose.pose.position.z = enu_position.z();
 
   tf2::Quaternion q;
   tf2::fromMsg(msg->pose.pose.orientation, q);
@@ -66,13 +67,14 @@ nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
     static const Eigen::Matrix<double, 6, 6> kNedToEnu6D = []() {
       static const Eigen::Matrix3d kNedToEnu3D =
           (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
-      Eigen::Matrix<double, 6, 6> t = Eigen::Matrix<double, 6, 6>::Zero();
-      t.block<3, 3>(0, 0) = kNedToEnu3D;
-      t.block<3, 3>(3, 3) = kNedToEnu3D;
-      return t;
+      Eigen::Matrix<double, 6, 6> covariance_transform = Eigen::Matrix<double, 6, 6>::Zero();
+      covariance_transform.block<3, 3>(0, 0) = kNedToEnu3D;
+      covariance_transform.block<3, 3>(3, 3) = kNedToEnu3D;
+      return covariance_transform;
     }();
-    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov(odom_msg.pose.covariance.data());
-    cov = (kNedToEnu6D * cov * kNedToEnu6D.transpose()).eval();
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> pose_covariance(
+        odom_msg.pose.covariance.data());
+    pose_covariance = (kNedToEnu6D * pose_covariance * kNedToEnu6D.transpose()).eval();
   }
 
   return odom_msg;

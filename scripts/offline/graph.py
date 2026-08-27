@@ -35,26 +35,31 @@ import coug_fg_py
 
 logger = logging.getLogger(__name__)
 
-SENSORS = ("imu", "gps", "depth", "mag", "ahrs", "dvl", "wrench")
+SolverType = coug_fg_py.SolverType
+KeyframeSource = coug_fg_py.KeyframeSource
 
 
-class KeyframeSource(StrEnum):
-    DVL = "DVL"
-    DEPTH = "Depth"
-    TIMER = "Timer"
-    NONE = "None"
+class Sensor(StrEnum):
+    IMU = "imu"
+    GPS = "gps"
+    DEPTH = "depth"
+    MAG = "mag"
+    AHRS = "ahrs"
+    DVL = "dvl"
+    WRENCH = "wrench"
 
 
-SOURCE_SENSORS: dict[KeyframeSource, str] = {
-    KeyframeSource.DVL: "dvl",
-    KeyframeSource.DEPTH: "depth",
-    KeyframeSource.TIMER: "imu",
+SENSORS = tuple(Sensor)
+
+SOURCE_SENSORS: dict[KeyframeSource, Sensor] = {
+    KeyframeSource.DVL: Sensor.DVL,
+    KeyframeSource.DEPTH: Sensor.DEPTH,
+    KeyframeSource.TIMER: Sensor.IMU,
 }
 
-
-TRIGGER_SOURCES: dict[str, KeyframeSource] = {
-    "dvl": KeyframeSource.DVL,
-    "depth": KeyframeSource.DEPTH,
+TRIGGER_SOURCES: dict[Sensor, KeyframeSource] = {
+    Sensor.DVL: KeyframeSource.DVL,
+    Sensor.DEPTH: KeyframeSource.DEPTH,
 }
 
 
@@ -66,39 +71,47 @@ class OfflineFactorGraph:
         namespace: str = "",
         urdf: UrdfTree | None = None,
     ) -> None:
-        # --- Node Settings ---
         self.core = coug_fg_py.FactorGraphPy(config_paths, namespace)
         self.params = self.core.get_params()
         self.namespace = namespace
         self.urdf = urdf
 
-        self.is_lm = self.params["solver_type"] == "LevenbergMarquardt"
+        self.solver_type = coug_fg_py.parse_solver_type(self.params["solver_type"])
+        self.is_lm = self.solver_type == SolverType.LEVENBERG_MARQUARDT
         if self.is_lm and not self.params["publish_smoothed_path"]:
             raise RuntimeError(
                 "LevenbergMarquardt requires publish_smoothed_path to be set to true."
             )
 
-        # --- Keyframe Settings ---
-        self.keyframe_source = KeyframeSource(self.params["keyframe_source"])
-        self.backup_keyframe_source = KeyframeSource(
+        self.keyframe_source = coug_fg_py.parse_keyframe_source(
+            self.params["keyframe_source"]
+        )
+        self.backup_keyframe_source = coug_fg_py.parse_keyframe_source(
             self.params["backup_keyframe_source"]
         )
 
-        # --- Sensor Settings ---
         sensors = self.params["sensors"]
         loose_preint = self.params["comparison"]["enable_loose_dvl_preintegration"]
 
-        gps, depth, mag = sensors["gps"], sensors["depth"], sensors["mag"]
-        ahrs, dvl, wrench = sensors["ahrs"], sensors["dvl"], sensors["wrench"]
+        gps, depth, mag = (
+            sensors[Sensor.GPS],
+            sensors[Sensor.DEPTH],
+            sensors[Sensor.MAG],
+        )
+        ahrs, dvl, wrench = (
+            sensors[Sensor.AHRS],
+            sensors[Sensor.DVL],
+            sensors[Sensor.WRENCH],
+        )
 
         self.enabled = {
-            "imu": True,
-            "gps": gps["enable"] or gps["enable_init_priors"],
-            "depth": depth["enable"] or depth["enable_init_priors"],
-            "mag": mag["enable"],
-            "ahrs": ahrs["enable"] or ahrs["enable_init_priors"] or loose_preint,
-            "dvl": dvl["enable"] or dvl["enable_init_priors"],
-            "wrench": wrench["enable"] or wrench["enable_dropout_only"],
+            Sensor.IMU: True,
+            Sensor.GPS: gps["enable"] or gps["enable_init_priors"],
+            Sensor.DEPTH: depth["enable"] or depth["enable_init_priors"],
+            Sensor.MAG: mag["enable"],
+            Sensor.AHRS: ahrs["enable"] or ahrs["enable_init_priors"] or loose_preint,
+            Sensor.DVL: dvl["enable"] or dvl["enable_init_priors"],
+            Sensor.WRENCH: wrench["enable"] or wrench["enable_dropout_only"],
         }
 
         multiagent = self.params["multiagent"]
@@ -111,16 +124,14 @@ class OfflineFactorGraph:
             f"multiagent_{i}" for i in range(len(self.multiagent_topics))
         ]
 
-        # Ensure neither keyframe source reads from a disabled sensor
         for source in (self.keyframe_source, self.backup_keyframe_source):
             sensor = SOURCE_SENSORS.get(source)
-            if sensor in ("dvl", "depth") and not sensors[sensor]["enable"]:
+            if sensor in (Sensor.DVL, Sensor.DEPTH) and not sensors[sensor]["enable"]:
                 raise ValueError(
                     f"Keyframe source '{self.keyframe_source}' or backup "
                     f"'{self.backup_keyframe_source}' references a disabled sensor."
                 )
 
-        # --- Graph State ---
         self.is_initialized = False
         self.results: list[dict] = []
 
@@ -180,7 +191,7 @@ class OfflineFactorGraph:
             if k != "smoothed_path"
         }
 
-        # Pose covariance is just left at the target frame here
+        # Offline, pose covariance is just left at the target frame here
         base_pos, base_quat = self.tfs["base"]
         base_rot = Rotation.from_quat(base_quat)
         target_positions = np.column_stack((results["x"], results["y"], results["z"]))
@@ -244,12 +255,10 @@ class OfflineFactorGraph:
             self.queues[key][:0] = msgs
 
     def _initialize_graph(self) -> None:
-        # Look up target to base frame TF
         if "base" not in self.tfs:
             base = self.params["sensors"]["base"]
             self.tfs["base"] = self._lookup_static_tf(base, self.params["base_frame"])
 
-        # --- Compute Initial State ---
         queues = self._drain_all_queues()
 
         if self.core.initialize(self._stream_time, **queues, tfs=self.tfs):
@@ -266,7 +275,7 @@ class OfflineFactorGraph:
             self.keyframe_source, SOURCE_SENSORS[KeyframeSource.DEPTH]
         )
         last_received = self._last_msg_time.get(sensor)
-        newest_stamp = self._last_msg_time.get("imu")
+        newest_stamp = self._last_msg_time.get(Sensor.IMU)
 
         timed_out = last_received is None or (
             newest_stamp is not None
@@ -289,7 +298,6 @@ class OfflineFactorGraph:
         return self.backup_keyframe_source
 
     def _update_graph(self) -> None:
-        # Extract target time
         sensor = SOURCE_SENSORS.get(self._active_keyframe_source())
         target_time = (
             self._last_msg_time.get(sensor) if sensor and self.queues[sensor] else None
@@ -311,7 +319,6 @@ class OfflineFactorGraph:
             return
         self._last_target_time = target_time
 
-        # --- Update Request ---
         queues = self._drain_all_queues()
         leftover = self.core.update(target_time, **queues, tfs=self.tfs)
         self._restore_all_queues(queues if leftover is None else leftover)
@@ -334,7 +341,6 @@ class OfflineFactorGraph:
             self._notify_frontend()
 
     def _optimize_graph(self) -> None:
-        # --- Optimization Request ---
         if result := self.core.optimize():
             new_keyframes = result.pop("new_keyframes")
             if result.pop("processing_overflow"):

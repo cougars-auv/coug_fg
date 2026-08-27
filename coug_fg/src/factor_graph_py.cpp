@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include "coug_fg/utils/param_enums.hpp"
 #include "coug_fg/utils/ros_conversions.hpp"
 
 namespace coug_fg {
@@ -494,6 +495,28 @@ PYBIND11_MODULE(coug_fg_py, m) {
   m.doc() = "Python bindings for the FactorGraphCore.";
 
   using coug_fg::FactorGraphPy;
+  using coug_fg::utils::KeyframeSource;
+  using coug_fg::utils::RobustKernel;
+  using coug_fg::utils::SolverType;
+
+  pybind11::enum_<SolverType>(m, "SolverType")
+      .value("INCREMENTAL_FIXED_LAG_SMOOTHER", SolverType::kIncrementalFixedLagSmoother)
+      .value("ISAM2", SolverType::kIsam2)
+      .value("LEVENBERG_MARQUARDT", SolverType::kLevenbergMarquardt);
+  m.def("parse_solver_type", &coug_fg::utils::parseSolverType);
+
+  pybind11::enum_<RobustKernel>(m, "RobustKernel")
+      .value("NONE", RobustKernel::kNone)
+      .value("HUBER", RobustKernel::kHuber)
+      .value("TUKEY", RobustKernel::kTukey);
+  m.def("parse_robust_kernel", &coug_fg::utils::parseRobustKernel);
+
+  pybind11::enum_<KeyframeSource>(m, "KeyframeSource")
+      .value("NONE", KeyframeSource::kNone)
+      .value("DVL", KeyframeSource::kDvl)
+      .value("DEPTH", KeyframeSource::kDepth)
+      .value("TIMER", KeyframeSource::kTimer);
+  m.def("parse_keyframe_source", &coug_fg::utils::parseKeyframeSource);
 
   pybind11::class_<FactorGraphPy>(m, "FactorGraphPy")
       .def(pybind11::init<const std::vector<std::string>&, const std::string&>(),

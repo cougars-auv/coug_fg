@@ -15,7 +15,6 @@
 import logging
 import os
 import sys
-from enum import StrEnum
 from pathlib import Path
 
 import numpy as np
@@ -38,28 +37,17 @@ logger = logging.getLogger(__name__)
 SolverType = coug_fg_py.SolverType
 KeyframeSource = coug_fg_py.KeyframeSource
 
+SENSORS = ("imu", "gps", "depth", "mag", "ahrs", "dvl", "wrench")
 
-class Sensor(StrEnum):
-    IMU = "imu"
-    GPS = "gps"
-    DEPTH = "depth"
-    MAG = "mag"
-    AHRS = "ahrs"
-    DVL = "dvl"
-    WRENCH = "wrench"
-
-
-SENSORS = tuple(Sensor)
-
-SOURCE_SENSORS: dict[KeyframeSource, Sensor] = {
-    KeyframeSource.DVL: Sensor.DVL,
-    KeyframeSource.DEPTH: Sensor.DEPTH,
-    KeyframeSource.TIMER: Sensor.IMU,
+SOURCE_SENSORS: dict[KeyframeSource, str] = {
+    KeyframeSource.DVL: "dvl",
+    KeyframeSource.DEPTH: "depth",
+    KeyframeSource.TIMER: "imu",
 }
 
-TRIGGER_SOURCES: dict[Sensor, KeyframeSource] = {
-    Sensor.DVL: KeyframeSource.DVL,
-    Sensor.DEPTH: KeyframeSource.DEPTH,
+TRIGGER_SOURCES: dict[str, KeyframeSource] = {
+    "dvl": KeyframeSource.DVL,
+    "depth": KeyframeSource.DEPTH,
 }
 
 
@@ -93,25 +81,23 @@ class OfflineFactorGraph:
         sensors = self.params["sensors"]
         loose_preint = self.params["comparison"]["enable_loose_dvl_preintegration"]
 
-        gps, depth, mag = (
-            sensors[Sensor.GPS],
-            sensors[Sensor.DEPTH],
-            sensors[Sensor.MAG],
-        )
-        ahrs, dvl, wrench = (
-            sensors[Sensor.AHRS],
-            sensors[Sensor.DVL],
-            sensors[Sensor.WRENCH],
+        gps, depth, mag, ahrs, dvl, wrench = (
+            sensors["gps"],
+            sensors["depth"],
+            sensors["mag"],
+            sensors["ahrs"],
+            sensors["dvl"],
+            sensors["wrench"],
         )
 
         self.enabled = {
-            Sensor.IMU: True,
-            Sensor.GPS: gps["enable"] or gps["enable_init_priors"],
-            Sensor.DEPTH: depth["enable"] or depth["enable_init_priors"],
-            Sensor.MAG: mag["enable"],
-            Sensor.AHRS: ahrs["enable"] or ahrs["enable_init_priors"] or loose_preint,
-            Sensor.DVL: dvl["enable"] or dvl["enable_init_priors"],
-            Sensor.WRENCH: wrench["enable"] or wrench["enable_dropout_only"],
+            "imu": True,
+            "gps": gps["enable"] or gps["enable_init_priors"],
+            "depth": depth["enable"] or depth["enable_init_priors"],
+            "mag": mag["enable"],
+            "ahrs": ahrs["enable"] or ahrs["enable_init_priors"] or loose_preint,
+            "dvl": dvl["enable"] or dvl["enable_init_priors"],
+            "wrench": wrench["enable"] or wrench["enable_dropout_only"],
         }
 
         multiagent = self.params["multiagent"]
@@ -126,7 +112,7 @@ class OfflineFactorGraph:
 
         for source in (self.keyframe_source, self.backup_keyframe_source):
             sensor = SOURCE_SENSORS.get(source)
-            if sensor in (Sensor.DVL, Sensor.DEPTH) and not sensors[sensor]["enable"]:
+            if sensor in ("dvl", "depth") and not sensors[sensor]["enable"]:
                 raise ValueError(
                     f"Keyframe source '{self.keyframe_source}' or backup "
                     f"'{self.backup_keyframe_source}' references a disabled sensor."
@@ -261,7 +247,7 @@ class OfflineFactorGraph:
 
         queues = self._drain_all_queues()
 
-        if self.core.initialize(self._stream_time, **queues, tfs=self.tfs):
+        if self.core.initialize(self._stream_time, queues, self.tfs):
             self.is_initialized = True
             logger.info("Graph initialized successfully.")
         else:
@@ -275,7 +261,7 @@ class OfflineFactorGraph:
             self.keyframe_source, SOURCE_SENSORS[KeyframeSource.DEPTH]
         )
         last_received = self._last_msg_time.get(sensor)
-        newest_stamp = self._last_msg_time.get(Sensor.IMU)
+        newest_stamp = self._last_msg_time.get("imu")
 
         timed_out = last_received is None or (
             newest_stamp is not None
@@ -320,7 +306,7 @@ class OfflineFactorGraph:
         self._last_target_time = target_time
 
         queues = self._drain_all_queues()
-        leftover = self.core.update(target_time, **queues, tfs=self.tfs)
+        leftover = self.core.update(target_time, queues, self.tfs)
         self._restore_all_queues(queues if leftover is None else leftover)
 
     def _notify_frontend(self) -> None:

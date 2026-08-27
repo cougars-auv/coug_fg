@@ -32,6 +32,22 @@ using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 
 namespace {
 
+using Vector6d = Eigen::Matrix<double, 6, 1>;
+using Matrix6d = Eigen::Matrix<double, 6, 6>;
+using ImuMsgs = std::vector<
+    std::tuple<double, Eigen::Vector3d, Eigen::Vector3d, Eigen::Matrix3d, Eigen::Matrix3d>>;
+using GpsMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
+using DepthMsgs = std::vector<std::tuple<double, double, Matrix6d>>;
+using MagMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Eigen::Matrix3d>>;
+using AhrsMsgs = std::vector<std::tuple<double, Eigen::Vector4d, Eigen::Matrix3d>>;
+using DvlMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
+using WrenchMsgs = std::vector<std::tuple<double, Vector6d>>;
+using AgentStatusMsg =
+    std::tuple<double, Eigen::Vector3d, Eigen::Vector4d, Matrix6d, double, Eigen::Vector4d, bool,
+               double, bool, double, double, bool, double>;
+using MultiAgentMsgs = std::vector<std::vector<AgentStatusMsg>>;
+using TfMap = std::unordered_map<std::string, std::pair<Eigen::Vector3d, Eigen::Vector4d>>;
+
 gtsam::Rot3 toRot3(const Eigen::Vector4d& quat_xyzw) {
   return gtsam::Rot3::Quaternion(quat_xyzw(3), quat_xyzw(0), quat_xyzw(1), quat_xyzw(2));
 }
@@ -69,41 +85,41 @@ pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
                            const std::optional<gtsam::Vector3>& velocity,
                            const std::optional<gtsam::imuBias::ConstantBias>& imu_bias,
                            const std::optional<gtsam::Point3>& mag_bias) {
-  pybind11::dict d;
-  gtsam::Quaternion q = pose.rotation().toQuaternion();
+  pybind11::dict state;
+  gtsam::Quaternion quaternion = pose.rotation().toQuaternion();
 
-  d["time"] = time;
-  d["x"] = pose.translation().x();
-  d["y"] = pose.translation().y();
-  d["z"] = pose.translation().z();
-  d["qx"] = q.x();
-  d["qy"] = q.y();
-  d["qz"] = q.z();
-  d["qw"] = q.w();
+  state["time"] = time;
+  state["x"] = pose.translation().x();
+  state["y"] = pose.translation().y();
+  state["z"] = pose.translation().z();
+  state["qx"] = quaternion.x();
+  state["qy"] = quaternion.y();
+  state["qz"] = quaternion.z();
+  state["qw"] = quaternion.w();
 
   if (velocity) {
-    d["vx"] = velocity->x();
-    d["vy"] = velocity->y();
-    d["vz"] = velocity->z();
+    state["vx"] = velocity->x();
+    state["vy"] = velocity->y();
+    state["vz"] = velocity->z();
   }
   if (imu_bias) {
-    d["accel_bias_x"] = imu_bias->accelerometer().x();
-    d["accel_bias_y"] = imu_bias->accelerometer().y();
-    d["accel_bias_z"] = imu_bias->accelerometer().z();
-    d["gyro_bias_x"] = imu_bias->gyroscope().x();
-    d["gyro_bias_y"] = imu_bias->gyroscope().y();
-    d["gyro_bias_z"] = imu_bias->gyroscope().z();
+    state["accel_bias_x"] = imu_bias->accelerometer().x();
+    state["accel_bias_y"] = imu_bias->accelerometer().y();
+    state["accel_bias_z"] = imu_bias->accelerometer().z();
+    state["gyro_bias_x"] = imu_bias->gyroscope().x();
+    state["gyro_bias_y"] = imu_bias->gyroscope().y();
+    state["gyro_bias_z"] = imu_bias->gyroscope().z();
   }
   if (mag_bias) {
-    d["mag_bias_x"] = mag_bias->x();
-    d["mag_bias_y"] = mag_bias->y();
-    d["mag_bias_z"] = mag_bias->z();
+    state["mag_bias_x"] = mag_bias->x();
+    state["mag_bias_y"] = mag_bias->y();
+    state["mag_bias_z"] = mag_bias->z();
   }
-  return d;
+  return state;
 }
 
-utils::TfBundle toTfBundle(const FactorGraphPy::TfMap& tfs) {
-  static const std::unordered_map<std::string, gtsam::Pose3 utils::TfBundle::*> kTfFields = {
+utils::TfBundle toTfBundle(const TfMap& tfs) {
+  static const std::unordered_map<std::string, gtsam::Pose3 utils::TfBundle::*> kTransformFields = {
       {"base", &utils::TfBundle::target_T_base},  {"imu", &utils::TfBundle::target_T_imu},
       {"gps", &utils::TfBundle::target_T_gps},    {"depth", &utils::TfBundle::target_T_depth},
       {"mag", &utils::TfBundle::target_T_mag},    {"ahrs", &utils::TfBundle::target_T_ahrs},
@@ -112,8 +128,8 @@ utils::TfBundle toTfBundle(const FactorGraphPy::TfMap& tfs) {
 
   utils::TfBundle bundle;
   for (const auto& [name, tf] : tfs) {
-    auto it = kTfFields.find(name);
-    if (it == kTfFields.end()) {
+    auto it = kTransformFields.find(name);
+    if (it == kTransformFields.end()) {
       throw std::invalid_argument("Unknown transform name: " + name);
     }
     bundle.*(it->second) = toPose3(tf.first, tf.second);
@@ -121,11 +137,9 @@ utils::TfBundle toTfBundle(const FactorGraphPy::TfMap& tfs) {
   return bundle;
 }
 
-utils::QueueBundle toQueueBundle(
-    const FactorGraphPy::ImuBatch& imu, const FactorGraphPy::GpsBatch& gps,
-    const FactorGraphPy::DepthBatch& depth, const FactorGraphPy::MagBatch& mag,
-    const FactorGraphPy::AhrsBatch& ahrs, const FactorGraphPy::DvlBatch& dvl,
-    const FactorGraphPy::WrenchBatch& wrench, const FactorGraphPy::MultiAgentBatch& multiagent) {
+utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& depth,
+                                 const MagMsgs& mag, const AhrsMsgs& ahrs, const DvlMsgs& dvl,
+                                 const WrenchMsgs& wrench, const MultiAgentMsgs& multiagent) {
   utils::QueueBundle queues;
 
   for (const auto& [t, accel, gyro, accel_cov, gyro_cov] : imu) {
@@ -211,54 +225,68 @@ utils::QueueBundle toQueueBundle(
   return queues;
 }
 
-pybind11::dict toBatchDict(const utils::QueueBundle& queues) {
-  FactorGraphPy::ImuBatch imu;
-  for (const auto& imu_msg : queues.imu) {
+template <typename Msgs>
+Msgs queueOrEmpty(const pybind11::dict& queues, const char* name) {
+  return queues.contains(name) ? queues[name].cast<Msgs>() : Msgs{};
+}
+
+utils::QueueBundle toQueueBundle(const pybind11::dict& queues) {
+  return toQueueBundle(queueOrEmpty<ImuMsgs>(queues, "imu"), queueOrEmpty<GpsMsgs>(queues, "gps"),
+                       queueOrEmpty<DepthMsgs>(queues, "depth"),
+                       queueOrEmpty<MagMsgs>(queues, "mag"), queueOrEmpty<AhrsMsgs>(queues, "ahrs"),
+                       queueOrEmpty<DvlMsgs>(queues, "dvl"),
+                       queueOrEmpty<WrenchMsgs>(queues, "wrench"),
+                       queueOrEmpty<MultiAgentMsgs>(queues, "multiagent"));
+}
+
+pybind11::dict toQueueDict(const utils::QueueBundle& queue_bundle) {
+  ImuMsgs imu;
+  for (const auto& imu_msg : queue_bundle.imu) {
     imu.emplace_back(imu_msg->timestamp, imu_msg->linear_acceleration, imu_msg->angular_velocity,
                      imu_msg->linear_acceleration_covariance, imu_msg->angular_velocity_covariance);
   }
 
-  FactorGraphPy::GpsBatch gps;
-  for (const auto& gps_msg : queues.gps) {
+  GpsMsgs gps;
+  for (const auto& gps_msg : queue_bundle.gps) {
     gps.emplace_back(gps_msg->timestamp, gps_msg->pose.translation(),
                      utils::swapCovarianceBlocks(gps_msg->pose_covariance));
   }
 
-  FactorGraphPy::DepthBatch depth;
-  for (const auto& depth_msg : queues.depth) {
+  DepthMsgs depth;
+  for (const auto& depth_msg : queue_bundle.depth) {
     depth.emplace_back(depth_msg->timestamp, depth_msg->pose.translation().z(),
                        utils::swapCovarianceBlocks(depth_msg->pose_covariance));
   }
 
-  FactorGraphPy::MagBatch mag;
-  for (const auto& mag_msg : queues.mag) {
+  MagMsgs mag;
+  for (const auto& mag_msg : queue_bundle.mag) {
     mag.emplace_back(mag_msg->timestamp, mag_msg->magnetic_field,
                      mag_msg->magnetic_field_covariance);
   }
 
-  FactorGraphPy::AhrsBatch ahrs;
-  for (const auto& ahrs_msg : queues.ahrs) {
+  AhrsMsgs ahrs;
+  for (const auto& ahrs_msg : queue_bundle.ahrs) {
     ahrs.emplace_back(ahrs_msg->timestamp, toQuatXyzw(ahrs_msg->orientation),
                       ahrs_msg->orientation_covariance);
   }
 
-  FactorGraphPy::DvlBatch dvl;
-  for (const auto& dvl_msg : queues.dvl) {
+  DvlMsgs dvl;
+  for (const auto& dvl_msg : queue_bundle.dvl) {
     dvl.emplace_back(dvl_msg->timestamp, dvl_msg->linear_velocity,
                      utils::swapCovarianceBlocks(dvl_msg->velocity_covariance));
   }
 
-  FactorGraphPy::WrenchBatch wrench;
-  for (const auto& wrench_msg : queues.wrench) {
-    FactorGraphPy::Vector6d force_torque;
+  WrenchMsgs wrench;
+  for (const auto& wrench_msg : queue_bundle.wrench) {
+    Vector6d force_torque;
     force_torque << wrench_msg->force, wrench_msg->torque;
     wrench.emplace_back(wrench_msg->timestamp, force_torque);
   }
 
-  FactorGraphPy::MultiAgentBatch multiagent;
-  multiagent.reserve(queues.multiagent.size());
-  for (const auto& agent : queues.multiagent) {
-    std::vector<FactorGraphPy::AgentStatus> neighbor;
+  MultiAgentMsgs multiagent;
+  multiagent.reserve(queue_bundle.multiagent.size());
+  for (const auto& agent : queue_bundle.multiagent) {
+    std::vector<AgentStatusMsg> neighbor;
     for (const auto& status_msg : agent) {
       neighbor.emplace_back(
           status_msg->timestamp, status_msg->pose.translation(),
@@ -271,16 +299,16 @@ pybind11::dict toBatchDict(const utils::QueueBundle& queues) {
     multiagent.push_back(std::move(neighbor));
   }
 
-  pybind11::dict batches;
-  batches["imu"] = imu;
-  batches["gps"] = gps;
-  batches["depth"] = depth;
-  batches["mag"] = mag;
-  batches["ahrs"] = ahrs;
-  batches["dvl"] = dvl;
-  batches["wrench"] = wrench;
-  batches["multiagent"] = multiagent;
-  return batches;
+  pybind11::dict queues;
+  queues["imu"] = imu;
+  queues["gps"] = gps;
+  queues["depth"] = depth;
+  queues["mag"] = mag;
+  queues["ahrs"] = ahrs;
+  queues["dvl"] = dvl;
+  queues["wrench"] = wrench;
+  queues["multiagent"] = multiagent;
+  return queues;
 }
 
 }  // namespace
@@ -409,34 +437,29 @@ pybind11::dict FactorGraphPy::get_params() const {
   return p;
 }
 
-bool FactorGraphPy::initialize(double init_time, const ImuBatch& imu, const GpsBatch& gps,
-                               const DepthBatch& depth, const MagBatch& mag, const AhrsBatch& ahrs,
-                               const DvlBatch& dvl, const WrenchBatch& wrench,
-                               const MultiAgentBatch& multiagent, const TfMap& tfs) {
+bool FactorGraphPy::initialize(double init_time, const pybind11::dict& queues,
+                               const pybind11::dict& tfs) {
   if (is_initialized_) {
     return true;
   }
 
-  utils::QueueBundle queues = toQueueBundle(imu, gps, depth, mag, ahrs, dvl, wrench, multiagent);
-  is_initialized_ = core_->initialize(init_time, queues, toTfBundle(tfs));
+  utils::QueueBundle queue_bundle = toQueueBundle(queues);
+  is_initialized_ = core_->initialize(init_time, queue_bundle, toTfBundle(tfs.cast<TfMap>()));
   return is_initialized_;
 }
 
-pybind11::object FactorGraphPy::update(double target_time, const ImuBatch& imu, const GpsBatch& gps,
-                                       const DepthBatch& depth, const MagBatch& mag,
-                                       const AhrsBatch& ahrs, const DvlBatch& dvl,
-                                       const WrenchBatch& wrench, const MultiAgentBatch& multiagent,
-                                       const TfMap& tfs) {
+pybind11::object FactorGraphPy::update(double target_time, const pybind11::dict& queues,
+                                       const pybind11::dict& tfs) {
   if (!is_initialized_) {
     return pybind11::none();
   }
 
-  utils::QueueBundle queues = toQueueBundle(imu, gps, depth, mag, ahrs, dvl, wrench, multiagent);
-  auto leftover = core_->update(target_time, queues, toTfBundle(tfs));
+  utils::QueueBundle queue_bundle = toQueueBundle(queues);
+  auto leftover = core_->update(target_time, queue_bundle, toTfBundle(tfs.cast<TfMap>()));
   if (!leftover) {
     return pybind11::none();
   }
-  return toBatchDict(*leftover);
+  return toQueueDict(*leftover);
 }
 
 pybind11::dict FactorGraphPy::optimize() {
@@ -523,24 +546,8 @@ PYBIND11_MODULE(coug_fg_py, m) {
            pybind11::arg("config_paths"), pybind11::arg("namespace") = "")
       .def("get_params", &FactorGraphPy::get_params)
       .def("initialize", &FactorGraphPy::initialize, pybind11::arg("init_time"),
-           pybind11::arg("imu") = FactorGraphPy::ImuBatch(),
-           pybind11::arg("gps") = FactorGraphPy::GpsBatch(),
-           pybind11::arg("depth") = FactorGraphPy::DepthBatch(),
-           pybind11::arg("mag") = FactorGraphPy::MagBatch(),
-           pybind11::arg("ahrs") = FactorGraphPy::AhrsBatch(),
-           pybind11::arg("dvl") = FactorGraphPy::DvlBatch(),
-           pybind11::arg("wrench") = FactorGraphPy::WrenchBatch(),
-           pybind11::arg("multiagent") = FactorGraphPy::MultiAgentBatch(), pybind11::kw_only(),
-           pybind11::arg("tfs"))
-      .def("update", &FactorGraphPy::update, pybind11::arg("target_time"),
-           pybind11::arg("imu") = FactorGraphPy::ImuBatch(),
-           pybind11::arg("gps") = FactorGraphPy::GpsBatch(),
-           pybind11::arg("depth") = FactorGraphPy::DepthBatch(),
-           pybind11::arg("mag") = FactorGraphPy::MagBatch(),
-           pybind11::arg("ahrs") = FactorGraphPy::AhrsBatch(),
-           pybind11::arg("dvl") = FactorGraphPy::DvlBatch(),
-           pybind11::arg("wrench") = FactorGraphPy::WrenchBatch(),
-           pybind11::arg("multiagent") = FactorGraphPy::MultiAgentBatch(), pybind11::kw_only(),
+           pybind11::arg("queues"), pybind11::arg("tfs"))
+      .def("update", &FactorGraphPy::update, pybind11::arg("target_time"), pybind11::arg("queues"),
            pybind11::arg("tfs"))
       .def("optimize", &FactorGraphPy::optimize);
 }

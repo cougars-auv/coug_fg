@@ -48,8 +48,8 @@ using AgentStatusMsg =
 using MultiAgentMsgs = std::vector<std::vector<AgentStatusMsg>>;
 using TfMap = std::unordered_map<std::string, std::pair<Eigen::Vector3d, Eigen::Vector4d>>;
 
-gtsam::Rot3 toRot3(const Eigen::Vector4d& quat_xyzw) {
-  return gtsam::Rot3::Quaternion(quat_xyzw(3), quat_xyzw(0), quat_xyzw(1), quat_xyzw(2));
+gtsam::Rot3 toRot3(const Eigen::Vector4d& q) {
+  return gtsam::Rot3::Quaternion(q(3), q(0), q(1), q(2));
 }
 
 Eigen::Vector4d toQuatXyzw(const gtsam::Rot3& rot) {
@@ -57,8 +57,8 @@ Eigen::Vector4d toQuatXyzw(const gtsam::Rot3& rot) {
   return Eigen::Vector4d(q.x(), q.y(), q.z(), q.w());
 }
 
-gtsam::Pose3 toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& quat_xyzw) {
-  return gtsam::Pose3(toRot3(quat_xyzw), gtsam::Point3(position));
+gtsam::Pose3 toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& q) {
+  return gtsam::Pose3(toRot3(q), gtsam::Point3(position));
 }
 
 void pyLogCallback(utils::LogLevel level, const std::string& msg) {
@@ -86,16 +86,16 @@ pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
                            const std::optional<gtsam::imuBias::ConstantBias>& imu_bias,
                            const std::optional<gtsam::Point3>& mag_bias) {
   pybind11::dict state;
-  gtsam::Quaternion quaternion = pose.rotation().toQuaternion();
+  gtsam::Quaternion q = pose.rotation().toQuaternion();
 
   state["time"] = time;
   state["x"] = pose.translation().x();
   state["y"] = pose.translation().y();
   state["z"] = pose.translation().z();
-  state["qx"] = quaternion.x();
-  state["qy"] = quaternion.y();
-  state["qz"] = quaternion.z();
-  state["qw"] = quaternion.w();
+  state["qx"] = q.x();
+  state["qy"] = q.y();
+  state["qz"] = q.z();
+  state["qw"] = q.w();
 
   if (velocity) {
     state["vx"] = velocity->x();
@@ -176,10 +176,10 @@ utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const D
     queues.mag.push_back(mag_msg);
   }
 
-  for (const auto& [t, quat_xyzw, orientation_cov] : ahrs) {
+  for (const auto& [t, q, orientation_cov] : ahrs) {
     auto ahrs_msg = std::make_shared<utils::AhrsData>();
     ahrs_msg->timestamp = t;
-    ahrs_msg->orientation = toRot3(quat_xyzw);
+    ahrs_msg->orientation = toRot3(q);
     ahrs_msg->orientation_covariance = orientation_cov;
     queues.ahrs.push_back(ahrs_msg);
   }
@@ -202,15 +202,15 @@ utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const D
 
   queues.multiagent.resize(multiagent.size());
   for (size_t agent_queue_idx = 0; agent_queue_idx < multiagent.size(); ++agent_queue_idx) {
-    for (const auto& [t, position, quat_xyzw, pose_cov, depth_z, imu_quat_xyzw, includes_range,
-                      range_dist, includes_usbl, usbl_azimuth, usbl_elevation, includes_position,
+    for (const auto& [t, position, q, pose_cov, depth_z, imu_q, includes_range, range_dist,
+                      includes_usbl, usbl_azimuth, usbl_elevation, includes_position,
                       position_depth] : multiagent[agent_queue_idx]) {
       auto status_msg = std::make_shared<utils::AgentStatusData>();
       status_msg->timestamp = t;
-      status_msg->pose = toPose3(position, quat_xyzw);
+      status_msg->pose = toPose3(position, q);
       status_msg->pose_covariance = utils::swapCovarianceBlocks(pose_cov);
       status_msg->pressure_depth = depth_z;
-      status_msg->imu_orientation = toRot3(imu_quat_xyzw);
+      status_msg->imu_orientation = toRot3(imu_q);
       status_msg->includes_range = includes_range;
       status_msg->range_dist = range_dist;
       status_msg->includes_usbl = includes_usbl;

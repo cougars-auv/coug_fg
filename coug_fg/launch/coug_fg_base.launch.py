@@ -29,8 +29,8 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_list_str = LaunchConfiguration("agent_list").perform(context)
 
-    agent_namespaces = yaml.safe_load(agent_list_str)
-    auv_ns = agent_namespaces[0]
+    agent_list = yaml.safe_load(agent_list_str)
+    agent_ns = agent_list[0]
 
     fleet_params = PathJoinSubstitution(
         [
@@ -39,10 +39,10 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
             "coug_fg_params.yaml",
         ]
     )
-    auv_params = PathJoinSubstitution(
+    agent_params = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
-            f"{auv_ns}_params.yaml",
+            f"{agent_ns}_params.yaml",
         ]
     )
 
@@ -53,12 +53,12 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
             name="navsat_odom_node",
             parameters=[
                 fleet_params,
-                auv_params,
+                agent_params,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
                     "set_origin": True,
-                    "input_topic": f"/{auv_ns}/gps/fix",
+                    "input_topic": f"/{agent_ns}/gps/fix",
                     "output_topic": "gps/odometry_null",
                 },
             ],

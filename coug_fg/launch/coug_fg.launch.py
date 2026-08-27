@@ -27,11 +27,11 @@ from launch_ros.actions import Node
 
 def generate_launch_description() -> LaunchDescription:
     use_sim_time = LaunchConfiguration("use_sim_time")
-    auv_ns = LaunchConfiguration("auv_ns")
+    agent_ns = LaunchConfiguration("agent_ns")
     loc_comparison = LaunchConfiguration("loc_comparison")
     lead_agent = LaunchConfiguration("lead_agent")
 
-    is_lead_agent = EqualsSubstitution(auv_ns, lead_agent)
+    is_lead_agent = EqualsSubstitution(agent_ns, lead_agent)
 
     fleet_params = PathJoinSubstitution(
         [
@@ -40,23 +40,23 @@ def generate_launch_description() -> LaunchDescription:
             "coug_fg_params.yaml",
         ]
     )
-    auv_params = PathJoinSubstitution(
+    agent_params = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
-            PythonExpression(["'", auv_ns, "' + '_params.yaml'"]),
+            PythonExpression(["'", agent_ns, "' + '_params.yaml'"]),
         ]
     )
 
     odom_frame = PythonExpression(
-        ["'", auv_ns, "/odom' if '", auv_ns, "' != '' else 'odom'"]
+        ["'", agent_ns, "/odom' if '", agent_ns, "' != '' else 'odom'"]
     )
 
     base_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/base_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'base_link'",
         ]
     )
@@ -64,9 +64,9 @@ def generate_launch_description() -> LaunchDescription:
     imu_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/imu_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'imu_link'",
         ]
     )
@@ -74,9 +74,9 @@ def generate_launch_description() -> LaunchDescription:
     gps_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/gps_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'gps_link'",
         ]
     )
@@ -84,9 +84,9 @@ def generate_launch_description() -> LaunchDescription:
     depth_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/depth_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'depth_link'",
         ]
     )
@@ -94,9 +94,9 @@ def generate_launch_description() -> LaunchDescription:
     dvl_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/dvl_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'dvl_link'",
         ]
     )
@@ -104,9 +104,9 @@ def generate_launch_description() -> LaunchDescription:
     beam0_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/beam0_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'beam0_link'",
         ]
     )
@@ -114,9 +114,9 @@ def generate_launch_description() -> LaunchDescription:
     beam1_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/beam1_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'beam1_link'",
         ]
     )
@@ -124,9 +124,9 @@ def generate_launch_description() -> LaunchDescription:
     beam2_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/beam2_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'beam2_link'",
         ]
     )
@@ -134,9 +134,9 @@ def generate_launch_description() -> LaunchDescription:
     beam3_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/beam3_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'beam3_link'",
         ]
     )
@@ -144,9 +144,9 @@ def generate_launch_description() -> LaunchDescription:
     com_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/com_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'com_link'",
         ]
     )
@@ -154,9 +154,9 @@ def generate_launch_description() -> LaunchDescription:
     modem_link_frame = PythonExpression(
         [
             "'",
-            auv_ns,
+            agent_ns,
             "/modem_link' if '",
-            auv_ns,
+            agent_ns,
             "' != '' else 'modem_link'",
         ]
     )
@@ -169,9 +169,9 @@ def generate_launch_description() -> LaunchDescription:
                 description="Use simulation/rosbag clock if true",
             ),
             DeclareLaunchArgument(
-                "auv_ns",
+                "agent_ns",
                 default_value="auv0",
-                description="Namespace for the AUV (e.g. auv0)",
+                description="Namespace for the agent (e.g. auv0)",
             ),
             DeclareLaunchArgument(
                 "loc_comparison",
@@ -189,7 +189,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="factor_graph_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -221,7 +221,7 @@ def generate_launch_description() -> LaunchDescription:
                 condition=IfCondition(loc_comparison),
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -258,7 +258,7 @@ def generate_launch_description() -> LaunchDescription:
                 condition=IfCondition(loc_comparison),
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -294,7 +294,7 @@ def generate_launch_description() -> LaunchDescription:
                 condition=IfCondition(loc_comparison),
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -328,7 +328,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="dvl_a50_twist_beams_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "beam0_frame": beam0_link_frame,
@@ -345,7 +345,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="dvl_a50_odom_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "odom_frame": "map",
@@ -360,7 +360,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="fluid_pressure_odom_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -374,7 +374,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="navsat_odom_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -388,7 +388,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="sbg_imu_mag_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -400,7 +400,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="seatrac_x150_imu_depth_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -414,7 +414,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="seatrac_imu_ned_to_enu_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -426,7 +426,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="seatrac_odom_ned_to_enu_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -438,7 +438,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="imu_ned_to_enu_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -450,7 +450,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="odom_ned_to_enu_node",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -462,12 +462,12 @@ def generate_launch_description() -> LaunchDescription:
                 name="gps_to_truth_relay",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                     },
                 ],
-                condition=IfCondition(EqualsSubstitution(auv_ns, "bluerov2")),
+                condition=IfCondition(EqualsSubstitution(agent_ns, "bluerov2")),
             ),
             # --- Robot Localization Pipeline ---
             # https://docs.ros.org/en/melodic/api/robot_localization/html/state_estimation_nodes.html
@@ -477,7 +477,7 @@ def generate_launch_description() -> LaunchDescription:
                 name="ekf_filter_node_odom",
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "odom_frame": odom_frame,
@@ -495,7 +495,7 @@ def generate_launch_description() -> LaunchDescription:
                 condition=IfCondition(loc_comparison),
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -514,7 +514,7 @@ def generate_launch_description() -> LaunchDescription:
                 condition=IfCondition(loc_comparison),
                 parameters=[
                     fleet_params,
-                    auv_params,
+                    agent_params,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",

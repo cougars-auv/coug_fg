@@ -33,9 +33,9 @@ def visualization_setup(
     launch_rviz_str = LaunchConfiguration("launch_rviz").perform(context)
     launch_pj_str = LaunchConfiguration("launch_plotjuggler").perform(context)
 
-    agent_namespaces = yaml.safe_load(agent_list_str)
-    auv_ns_str = agent_namespaces[0]
-    is_multiagent = len(agent_namespaces) > 1
+    agent_list = yaml.safe_load(agent_list_str)
+    agent_ns_str = agent_list[0]
+    is_multiagent = len(agent_list) > 1
 
     pkg_share = get_package_share_directory("coug_fg")
     nodes_to_launch = []
@@ -48,7 +48,7 @@ def visualization_setup(
             template_content = f.read()
 
         if is_multiagent:
-            base = yaml.safe_load(template_content.replace("AUV_NS", auv_ns_str))
+            base = yaml.safe_load(template_content.replace("AGENT_NS", agent_ns_str))
 
             global_display_classes = {
                 "rviz_default_plugins/Grid",
@@ -66,13 +66,13 @@ def visualization_setup(
             with open(per_agent_template_path, "r") as f:
                 per_agent_template = f.read()
 
-            for ns in agent_namespaces:
-                per_agent = yaml.safe_load(per_agent_template.replace("AUV_NS", ns))
+            for ns in agent_list:
+                per_agent = yaml.safe_load(per_agent_template.replace("AGENT_NS", ns))
                 base["Visualization Manager"]["Displays"].extend(per_agent["displays"])
 
             config_content = yaml.safe_dump(base, sort_keys=False)
         else:
-            config_content = template_content.replace("AUV_NS", auv_ns_str)
+            config_content = template_content.replace("AGENT_NS", agent_ns_str)
 
         with tempfile.NamedTemporaryFile(
             mode="w", delete=False, suffix=".rviz"
@@ -95,7 +95,7 @@ def visualization_setup(
         with open(template_path, "r") as f:
             template_content = f.read()
 
-        config_content = template_content.replace("AUV_NS", auv_ns_str)
+        config_content = template_content.replace("AGENT_NS", agent_ns_str)
 
         with tempfile.NamedTemporaryFile(
             mode="w", delete=False, suffix=".xml"

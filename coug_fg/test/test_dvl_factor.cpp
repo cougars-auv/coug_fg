@@ -22,6 +22,12 @@
 
 namespace {
 
+using coug_fg::factors::DvlFactorArm;
+
+using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
+using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -29,17 +35,17 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DvlFactorArmTest, Jacobians) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
-  gtsam::Key vel_key = gtsam::symbol_shorthand::V(1);
-  gtsam::Key bias_key = gtsam::symbol_shorthand::B(1);
+  gtsam::Key pose_key = X(1);
+  gtsam::Key vel_key = V(1);
+  gtsam::Key bias_key = B(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
   gtsam::Vector3 measured_vel(1.0, 0.5, -0.2);
   gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
 
-  coug_fg::factors::DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
-                                        measured_vel, measured_gyro, model);
+  DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu, measured_vel,
+                      measured_gyro, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -53,9 +59,9 @@ TEST(DvlFactorArmTest, Jacobians) {
 }
 
 TEST(DvlFactorArmTest, Residual) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
-  gtsam::Key vel_key = gtsam::symbol_shorthand::V(1);
-  gtsam::Key bias_key = gtsam::symbol_shorthand::B(1);
+  gtsam::Key pose_key = X(1);
+  gtsam::Key vel_key = V(1);
+  gtsam::Key bias_key = B(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
@@ -76,8 +82,8 @@ TEST(DvlFactorArmTest, Residual) {
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(0.01, -0.02, 0.03);
-  coug_fg::factors::DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
-                                        sensor_vel - offset, measured_gyro, model);
+  DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
+                      sensor_vel - offset, measured_gyro, model);
 
   const gtsam::Vector expected = offset;
   EXPECT_TRUE(

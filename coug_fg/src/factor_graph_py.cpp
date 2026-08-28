@@ -30,6 +30,18 @@ using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
 using gtsam::symbol_shorthand::M;  // Magnetometer hard-iron bias (x,y,z)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 
+using utils::AgentStatusData;
+using utils::AhrsData;
+using utils::ImuData;
+using utils::LogLevel;
+using utils::MagneticFieldData;
+using utils::OdometryData;
+using utils::QueueBundle;
+using utils::swapCovarianceBlocks;
+using utils::TfBundle;
+using utils::TwistData;
+using utils::WrenchData;
+
 namespace {
 
 using Vector6d = Eigen::Matrix<double, 6, 1>;
@@ -61,19 +73,19 @@ gtsam::Pose3 toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& q) 
   return gtsam::Pose3(toRot3(q), gtsam::Point3(position));
 }
 
-void pyLogCallback(utils::LogLevel level, const std::string& msg) {
+void pyLogCallback(LogLevel level, const std::string& msg) {
   int py_level = 30;  // logging.WARNING
   switch (level) {
-    case utils::LogLevel::kDebug:
+    case LogLevel::kDebug:
       py_level = 10;
       break;
-    case utils::LogLevel::kInfo:
+    case LogLevel::kInfo:
       py_level = 20;
       break;
-    case utils::LogLevel::kWarn:
+    case LogLevel::kWarn:
       py_level = 30;
       break;
-    case utils::LogLevel::kError:
+    case LogLevel::kError:
       py_level = 40;
       break;
   }
@@ -118,15 +130,15 @@ pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
   return state;
 }
 
-utils::TfBundle toTfBundle(const TfMap& tfs) {
-  static const std::unordered_map<std::string, gtsam::Pose3 utils::TfBundle::*> kTransformFields = {
-      {"base", &utils::TfBundle::target_T_base},  {"imu", &utils::TfBundle::target_T_imu},
-      {"gps", &utils::TfBundle::target_T_gps},    {"depth", &utils::TfBundle::target_T_depth},
-      {"mag", &utils::TfBundle::target_T_mag},    {"ahrs", &utils::TfBundle::target_T_ahrs},
-      {"dvl", &utils::TfBundle::target_T_dvl},    {"wrench", &utils::TfBundle::target_T_wrench},
-      {"modem", &utils::TfBundle::target_T_modem}};
+TfBundle toTfBundle(const TfMap& tfs) {
+  static const std::unordered_map<std::string, gtsam::Pose3 TfBundle::*> kTransformFields = {
+      {"base", &TfBundle::target_T_base},  {"imu", &TfBundle::target_T_imu},
+      {"gps", &TfBundle::target_T_gps},    {"depth", &TfBundle::target_T_depth},
+      {"mag", &TfBundle::target_T_mag},    {"ahrs", &TfBundle::target_T_ahrs},
+      {"dvl", &TfBundle::target_T_dvl},    {"wrench", &TfBundle::target_T_wrench},
+      {"modem", &TfBundle::target_T_modem}};
 
-  utils::TfBundle bundle;
+  TfBundle bundle;
   for (const auto& [name, tf] : tfs) {
     auto it = kTransformFields.find(name);
     if (it == kTransformFields.end()) {
@@ -137,13 +149,13 @@ utils::TfBundle toTfBundle(const TfMap& tfs) {
   return bundle;
 }
 
-utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& depth,
-                                 const MagMsgs& mag, const AhrsMsgs& ahrs, const DvlMsgs& dvl,
-                                 const WrenchMsgs& wrench, const MultiAgentMsgs& multiagent) {
-  utils::QueueBundle queues;
+QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& depth,
+                          const MagMsgs& mag, const AhrsMsgs& ahrs, const DvlMsgs& dvl,
+                          const WrenchMsgs& wrench, const MultiAgentMsgs& multiagent) {
+  QueueBundle queues;
 
   for (const auto& [t, accel, gyro, accel_cov, gyro_cov] : imu) {
-    auto imu_msg = std::make_shared<utils::ImuData>();
+    auto imu_msg = std::make_shared<ImuData>();
     imu_msg->timestamp = t;
     imu_msg->linear_acceleration = accel;
     imu_msg->angular_velocity = gyro;
@@ -153,23 +165,23 @@ utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const D
   }
 
   for (const auto& [t, position, pose_cov] : gps) {
-    auto gps_msg = std::make_shared<utils::OdometryData>();
+    auto gps_msg = std::make_shared<OdometryData>();
     gps_msg->timestamp = t;
     gps_msg->pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(position));
-    gps_msg->pose_covariance = utils::swapCovarianceBlocks(pose_cov);
+    gps_msg->pose_covariance = swapCovarianceBlocks(pose_cov);
     queues.gps.push_back(gps_msg);
   }
 
   for (const auto& [t, depth_z, pose_cov] : depth) {
-    auto depth_msg = std::make_shared<utils::OdometryData>();
+    auto depth_msg = std::make_shared<OdometryData>();
     depth_msg->timestamp = t;
     depth_msg->pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, depth_z));
-    depth_msg->pose_covariance = utils::swapCovarianceBlocks(pose_cov);
+    depth_msg->pose_covariance = swapCovarianceBlocks(pose_cov);
     queues.depth.push_back(depth_msg);
   }
 
   for (const auto& [t, field, field_cov] : mag) {
-    auto mag_msg = std::make_shared<utils::MagneticFieldData>();
+    auto mag_msg = std::make_shared<MagneticFieldData>();
     mag_msg->timestamp = t;
     mag_msg->magnetic_field = field;
     mag_msg->magnetic_field_covariance = field_cov;
@@ -177,7 +189,7 @@ utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const D
   }
 
   for (const auto& [t, q, orientation_cov] : ahrs) {
-    auto ahrs_msg = std::make_shared<utils::AhrsData>();
+    auto ahrs_msg = std::make_shared<AhrsData>();
     ahrs_msg->timestamp = t;
     ahrs_msg->orientation = toRot3(q);
     ahrs_msg->orientation_covariance = orientation_cov;
@@ -185,15 +197,15 @@ utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const D
   }
 
   for (const auto& [t, velocity, twist_cov] : dvl) {
-    auto dvl_msg = std::make_shared<utils::TwistData>();
+    auto dvl_msg = std::make_shared<TwistData>();
     dvl_msg->timestamp = t;
     dvl_msg->linear_velocity = velocity;
-    dvl_msg->velocity_covariance = utils::swapCovarianceBlocks(twist_cov);
+    dvl_msg->velocity_covariance = swapCovarianceBlocks(twist_cov);
     queues.dvl.push_back(dvl_msg);
   }
 
   for (const auto& [t, force_torque] : wrench) {
-    auto wrench_msg = std::make_shared<utils::WrenchData>();
+    auto wrench_msg = std::make_shared<WrenchData>();
     wrench_msg->timestamp = t;
     wrench_msg->force = force_torque.head<3>();
     wrench_msg->torque = force_torque.tail<3>();
@@ -205,10 +217,10 @@ utils::QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const D
     for (const auto& [t, position, q, pose_cov, depth_z, imu_q, includes_range, range_dist,
                       includes_usbl, usbl_azimuth, usbl_elevation, includes_position,
                       position_depth] : multiagent[agent_queue_idx]) {
-      auto status_msg = std::make_shared<utils::AgentStatusData>();
+      auto status_msg = std::make_shared<AgentStatusData>();
       status_msg->timestamp = t;
       status_msg->pose = toPose3(position, q);
-      status_msg->pose_covariance = utils::swapCovarianceBlocks(pose_cov);
+      status_msg->pose_covariance = swapCovarianceBlocks(pose_cov);
       status_msg->pressure_depth = depth_z;
       status_msg->imu_orientation = toRot3(imu_q);
       status_msg->includes_range = includes_range;
@@ -230,7 +242,7 @@ Msgs queueOrEmpty(const pybind11::dict& queues, const char* name) {
   return queues.contains(name) ? queues[name].cast<Msgs>() : Msgs{};
 }
 
-utils::QueueBundle toQueueBundle(const pybind11::dict& queues) {
+QueueBundle toQueueBundle(const pybind11::dict& queues) {
   return toQueueBundle(queueOrEmpty<ImuMsgs>(queues, "imu"), queueOrEmpty<GpsMsgs>(queues, "gps"),
                        queueOrEmpty<DepthMsgs>(queues, "depth"),
                        queueOrEmpty<MagMsgs>(queues, "mag"), queueOrEmpty<AhrsMsgs>(queues, "ahrs"),
@@ -239,7 +251,7 @@ utils::QueueBundle toQueueBundle(const pybind11::dict& queues) {
                        queueOrEmpty<MultiAgentMsgs>(queues, "multiagent"));
 }
 
-pybind11::dict toQueueDict(const utils::QueueBundle& queue_bundle) {
+pybind11::dict toQueueDict(const QueueBundle& queue_bundle) {
   ImuMsgs imu;
   for (const auto& imu_msg : queue_bundle.imu) {
     imu.emplace_back(imu_msg->timestamp, imu_msg->linear_acceleration, imu_msg->angular_velocity,
@@ -249,13 +261,13 @@ pybind11::dict toQueueDict(const utils::QueueBundle& queue_bundle) {
   GpsMsgs gps;
   for (const auto& gps_msg : queue_bundle.gps) {
     gps.emplace_back(gps_msg->timestamp, gps_msg->pose.translation(),
-                     utils::swapCovarianceBlocks(gps_msg->pose_covariance));
+                     swapCovarianceBlocks(gps_msg->pose_covariance));
   }
 
   DepthMsgs depth;
   for (const auto& depth_msg : queue_bundle.depth) {
     depth.emplace_back(depth_msg->timestamp, depth_msg->pose.translation().z(),
-                       utils::swapCovarianceBlocks(depth_msg->pose_covariance));
+                       swapCovarianceBlocks(depth_msg->pose_covariance));
   }
 
   MagMsgs mag;
@@ -273,7 +285,7 @@ pybind11::dict toQueueDict(const utils::QueueBundle& queue_bundle) {
   DvlMsgs dvl;
   for (const auto& dvl_msg : queue_bundle.dvl) {
     dvl.emplace_back(dvl_msg->timestamp, dvl_msg->linear_velocity,
-                     utils::swapCovarianceBlocks(dvl_msg->velocity_covariance));
+                     swapCovarianceBlocks(dvl_msg->velocity_covariance));
   }
 
   WrenchMsgs wrench;
@@ -291,7 +303,7 @@ pybind11::dict toQueueDict(const utils::QueueBundle& queue_bundle) {
       neighbor.emplace_back(
           status_msg->timestamp, status_msg->pose.translation(),
           toQuatXyzw(status_msg->pose.rotation()),
-          utils::swapCovarianceBlocks(status_msg->pose_covariance), status_msg->pressure_depth,
+          swapCovarianceBlocks(status_msg->pose_covariance), status_msg->pressure_depth,
           toQuatXyzw(status_msg->imu_orientation), status_msg->includes_range,
           status_msg->range_dist, status_msg->includes_usbl, status_msg->usbl_azimuth,
           status_msg->usbl_elevation, status_msg->includes_position, status_msg->position_depth);
@@ -443,7 +455,7 @@ bool FactorGraphPy::initialize(double init_time, const pybind11::dict& queues,
     return true;
   }
 
-  utils::QueueBundle queue_bundle = toQueueBundle(queues);
+  QueueBundle queue_bundle = toQueueBundle(queues);
   is_initialized_ = core_->initialize(init_time, queue_bundle, toTfBundle(tfs.cast<TfMap>()));
   return is_initialized_;
 }
@@ -454,7 +466,7 @@ pybind11::object FactorGraphPy::update(double target_time, const pybind11::dict&
     return pybind11::none();
   }
 
-  utils::QueueBundle queue_bundle = toQueueBundle(queues);
+  QueueBundle queue_bundle = toQueueBundle(queues);
   auto leftover = core_->update(target_time, queue_bundle, toTfBundle(tfs.cast<TfMap>()));
   if (!leftover) {
     return pybind11::none();
@@ -519,6 +531,9 @@ PYBIND11_MODULE(coug_fg_py, m) {
 
   using coug_fg::FactorGraphPy;
   using coug_fg::utils::KeyframeSource;
+  using coug_fg::utils::parseKeyframeSource;
+  using coug_fg::utils::parseRobustKernel;
+  using coug_fg::utils::parseSolverType;
   using coug_fg::utils::RobustKernel;
   using coug_fg::utils::SolverType;
 
@@ -526,20 +541,20 @@ PYBIND11_MODULE(coug_fg_py, m) {
       .value("INCREMENTAL_FIXED_LAG_SMOOTHER", SolverType::kIncrementalFixedLagSmoother)
       .value("ISAM2", SolverType::kIsam2)
       .value("LEVENBERG_MARQUARDT", SolverType::kLevenbergMarquardt);
-  m.def("parse_solver_type", &coug_fg::utils::parseSolverType);
+  m.def("parse_solver_type", &parseSolverType);
 
   pybind11::enum_<RobustKernel>(m, "RobustKernel")
       .value("NONE", RobustKernel::kNone)
       .value("HUBER", RobustKernel::kHuber)
       .value("TUKEY", RobustKernel::kTukey);
-  m.def("parse_robust_kernel", &coug_fg::utils::parseRobustKernel);
+  m.def("parse_robust_kernel", &parseRobustKernel);
 
   pybind11::enum_<KeyframeSource>(m, "KeyframeSource")
       .value("NONE", KeyframeSource::kNone)
       .value("DVL", KeyframeSource::kDvl)
       .value("DEPTH", KeyframeSource::kDepth)
       .value("TIMER", KeyframeSource::kTimer);
-  m.def("parse_keyframe_source", &coug_fg::utils::parseKeyframeSource);
+  m.def("parse_keyframe_source", &parseKeyframeSource);
 
   pybind11::class_<FactorGraphPy>(m, "FactorGraphPy")
       .def(pybind11::init<const std::vector<std::string>&, const std::string&>(),

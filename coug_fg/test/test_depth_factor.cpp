@@ -21,6 +21,10 @@
 
 namespace {
 
+using coug_fg::factors::DepthFactorArm;
+
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -28,12 +32,12 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DepthFactorArmTest, Jacobians) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   double measured_depth = 5.0;
 
-  coug_fg::factors::DepthFactorArm factor(pose_key, measured_depth, target_T_sensor, model);
+  DepthFactorArm factor(pose_key, measured_depth, target_T_sensor, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -44,7 +48,7 @@ TEST(DepthFactorArmTest, Jacobians) {
 }
 
 TEST(DepthFactorArmTest, Residual) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
@@ -55,7 +59,7 @@ TEST(DepthFactorArmTest, Residual) {
 
   // Measured shallower than the state predicts
   constexpr double kOffset = 0.25;
-  coug_fg::factors::DepthFactorArm factor(pose_key, sensor_depth - kOffset, target_T_sensor, model);
+  DepthFactorArm factor(pose_key, sensor_depth - kOffset, target_T_sensor, model);
 
   EXPECT_NEAR(factor.evaluateError(pose)(0), kOffset, kResidualTol);
 }

@@ -22,6 +22,9 @@
 
 namespace coug_fg {
 
+using coug_interfaces::msg::DvlBeam;
+using coug_interfaces::msg::DvlBeamList;
+
 DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
     : Node("dvl_a50_twist_beams_node", options) {
   param_listener_ =
@@ -35,8 +38,8 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
   twist_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
       params_.twist_output_topic, rclcpp::SystemDefaultsQoS());
 
-  beams_pub_ = create_publisher<coug_interfaces::msg::DvlBeamList>(params_.beams_output_topic,
-                                                                   rclcpp::SystemDefaultsQoS());
+  beams_pub_ =
+      create_publisher<DvlBeamList>(params_.beams_output_topic, rclcpp::SystemDefaultsQoS());
 
   beam_frames_ = {params_.beam0_frame, params_.beam1_frame, params_.beam2_frame,
                   params_.beam3_frame};
@@ -131,9 +134,8 @@ geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistBeamsNode::convertToTw
   return twist_msg;
 }
 
-coug_interfaces::msg::DvlBeamList DvlA50TwistBeamsNode::convertToBeams(
-    const dvl_msgs::msg::DVL::SharedPtr msg) {
-  coug_interfaces::msg::DvlBeamList beams_msg;
+DvlBeamList DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::SharedPtr msg) {
+  DvlBeamList beams_msg;
   beams_msg.header.frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
   beams_msg.header.stamp = resolveStamp(msg);
@@ -145,7 +147,7 @@ coug_interfaces::msg::DvlBeamList DvlA50TwistBeamsNode::convertToBeams(
       continue;
     }
 
-    coug_interfaces::msg::DvlBeam beam;
+    DvlBeam beam;
     beam.frame_id = beam_frames_[in.id];
     beam.valid = in.valid;
     beam.velocity = in.velocity;

@@ -23,6 +23,10 @@
 
 namespace {
 
+using coug_fg::factors::AhrsYawFactorArm;
+
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -30,14 +34,14 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(AhrsYawFactorArmTest, Jacobians) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Rot3 measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
   double magnetic_declination = 0.05;
 
-  coug_fg::factors::AhrsYawFactorArm factor(pose_key, measured_attitude, target_T_sensor,
-                                            magnetic_declination, model);
+  AhrsYawFactorArm factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
+                          model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -48,7 +52,7 @@ TEST(AhrsYawFactorArmTest, Jacobians) {
 }
 
 TEST(AhrsYawFactorArmTest, Residual) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
@@ -62,8 +66,8 @@ TEST(AhrsYawFactorArmTest, Residual) {
   const gtsam::Rot3 measured_attitude =
       gtsam::Rot3::Yaw(magnetic_declination) * gtsam::Rot3::Yaw(sensor_yaw - kOffset);
 
-  coug_fg::factors::AhrsYawFactorArm factor(pose_key, measured_attitude, target_T_sensor,
-                                            magnetic_declination, model);
+  AhrsYawFactorArm factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
+                          model);
 
   EXPECT_NEAR(factor.evaluateError(pose)(0), kOffset, kResidualTol);
 
@@ -72,8 +76,8 @@ TEST(AhrsYawFactorArmTest, Residual) {
   const gtsam::Rot3 wrapped_attitude =
       gtsam::Rot3::Yaw(magnetic_declination) * gtsam::Rot3::Yaw(sensor_yaw - kWrappedOffset);
 
-  coug_fg::factors::AhrsYawFactorArm wrapped(pose_key, wrapped_attitude, target_T_sensor,
-                                             magnetic_declination, model);
+  AhrsYawFactorArm wrapped(pose_key, wrapped_attitude, target_T_sensor, magnetic_declination,
+                           model);
 
   EXPECT_NEAR(wrapped.evaluateError(pose)(0), kWrappedOffset - 2.0 * M_PI, kResidualTol);
 }

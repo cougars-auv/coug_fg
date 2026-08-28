@@ -22,6 +22,11 @@
 
 namespace {
 
+using coug_fg::factors::DvlTightPreintFactorArm;
+
+using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -29,18 +34,17 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DvlTightPreintFactorArmTest, Jacobians) {
-  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
-  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
-  gtsam::Key bias_key_i = gtsam::symbol_shorthand::B(1);
+  gtsam::Key pose_key_i = X(1);
+  gtsam::Key pose_key_j = X(2);
+  gtsam::Key bias_key_i = B(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_dvl(gtsam::Rot3::Ypr(-0.1, 0.1, -0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Vector3 measured_translation(1.0, 0.5, -0.2);
   gtsam::Matrix3 J_p_bg = gtsam::Matrix3::Identity() * 0.01;
   gtsam::Vector3 gyro_bias_hat(0.01, -0.02, 0.005);
 
-  coug_fg::factors::DvlTightPreintFactorArm factor(pose_key_i, pose_key_j, bias_key_i, target_T_dvl,
-                                                   measured_translation, J_p_bg, gyro_bias_hat,
-                                                   model);
+  DvlTightPreintFactorArm factor(pose_key_i, pose_key_j, bias_key_i, target_T_dvl,
+                                 measured_translation, J_p_bg, gyro_bias_hat, model);
 
   gtsam::Values values;
   values.insert(pose_key_i,
@@ -55,9 +59,9 @@ TEST(DvlTightPreintFactorArmTest, Jacobians) {
 }
 
 TEST(DvlTightPreintFactorArmTest, Residual) {
-  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
-  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
-  gtsam::Key bias_key_i = gtsam::symbol_shorthand::B(1);
+  gtsam::Key pose_key_i = X(1);
+  gtsam::Key pose_key_j = X(2);
+  gtsam::Key bias_key_i = B(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_dvl(gtsam::Rot3::Ypr(-0.1, 0.1, -0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Matrix3 J_p_bg = gtsam::Matrix3::Identity() * 0.01;
@@ -80,9 +84,9 @@ TEST(DvlTightPreintFactorArmTest, Residual) {
 
   // Measured short of the corrected prediction
   const gtsam::Vector3 offset(0.01, -0.02, 0.03);
-  coug_fg::factors::DvlTightPreintFactorArm factor(pose_key_i, pose_key_j, bias_key_i, target_T_dvl,
-                                                   predicted_translation - bias_correction - offset,
-                                                   J_p_bg, gyro_bias_hat, model);
+  DvlTightPreintFactorArm factor(pose_key_i, pose_key_j, bias_key_i, target_T_dvl,
+                                 predicted_translation - bias_correction - offset, J_p_bg,
+                                 gyro_bias_hat, model);
 
   const gtsam::Vector expected = offset;
   EXPECT_TRUE(

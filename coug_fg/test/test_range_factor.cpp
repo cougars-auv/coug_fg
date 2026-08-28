@@ -21,6 +21,10 @@
 
 namespace {
 
+using coug_fg::factors::RangeFactorArm;
+
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -28,15 +32,15 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(RangeFactorArmTest, Jacobians) {
-  gtsam::Key pose_key_l = gtsam::symbol_shorthand::X(1);
-  gtsam::Key pose_key_n = gtsam::symbol_shorthand::X(2);
+  gtsam::Key pose_key_l = X(1);
+  gtsam::Key pose_key_n = X(2);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
   gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.2, -0.4, 0.1));
   double measured_range = 10.0;
 
-  coug_fg::factors::RangeFactorArm factor(pose_key_l, pose_key_n, measured_range, target_T_sensor_l,
-                                          target_T_sensor_n, model);
+  RangeFactorArm factor(pose_key_l, pose_key_n, measured_range, target_T_sensor_l,
+                        target_T_sensor_n, model);
 
   gtsam::Values values;
   values.insert(pose_key_l,
@@ -49,8 +53,8 @@ TEST(RangeFactorArmTest, Jacobians) {
 }
 
 TEST(RangeFactorArmTest, Residual) {
-  gtsam::Key pose_key_l = gtsam::symbol_shorthand::X(1);
-  gtsam::Key pose_key_n = gtsam::symbol_shorthand::X(2);
+  gtsam::Key pose_key_l = X(1);
+  gtsam::Key pose_key_n = X(2);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
   gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.2, -0.4, 0.1));
@@ -66,8 +70,8 @@ TEST(RangeFactorArmTest, Residual) {
 
   // Measured short of the prediction
   constexpr double kOffset = 0.4;
-  coug_fg::factors::RangeFactorArm factor(pose_key_l, pose_key_n, sensor_range - kOffset,
-                                          target_T_sensor_l, target_T_sensor_n, model);
+  RangeFactorArm factor(pose_key_l, pose_key_n, sensor_range - kOffset, target_T_sensor_l,
+                        target_T_sensor_n, model);
 
   EXPECT_NEAR(factor.evaluateError(pose_l, pose_n)(0), kOffset, kResidualTol);
 }

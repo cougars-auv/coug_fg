@@ -21,6 +21,10 @@
 
 namespace {
 
+using coug_fg::factors::DvlLoosePreintFactorArm;
+
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -28,14 +32,14 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DvlLoosePreintFactorArmTest, Jacobians) {
-  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
-  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
+  gtsam::Key pose_key_i = X(1);
+  gtsam::Key pose_key_j = X(2);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Vector3 measured_translation(1.0, 0.5, -0.2);
 
-  coug_fg::factors::DvlLoosePreintFactorArm factor(pose_key_i, pose_key_j, target_T_sensor,
-                                                   measured_translation, model);
+  DvlLoosePreintFactorArm factor(pose_key_i, pose_key_j, target_T_sensor, measured_translation,
+                                 model);
 
   gtsam::Values values;
   values.insert(pose_key_i,
@@ -48,8 +52,8 @@ TEST(DvlLoosePreintFactorArmTest, Jacobians) {
 }
 
 TEST(DvlLoosePreintFactorArmTest, Residual) {
-  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
-  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
+  gtsam::Key pose_key_i = X(1);
+  gtsam::Key pose_key_j = X(2);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
   gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
@@ -64,8 +68,8 @@ TEST(DvlLoosePreintFactorArmTest, Residual) {
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(0.01, -0.02, 0.03);
-  coug_fg::factors::DvlLoosePreintFactorArm factor(pose_key_i, pose_key_j, target_T_sensor,
-                                                   predicted_translation - offset, model);
+  DvlLoosePreintFactorArm factor(pose_key_i, pose_key_j, target_T_sensor,
+                                 predicted_translation - offset, model);
 
   const gtsam::Vector expected = offset;
   EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose_i, pose_j), kResidualTol));

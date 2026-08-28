@@ -21,6 +21,10 @@
 
 namespace {
 
+using coug_fg::factors::MagFactorArm;
+
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;          // finite difference step
 constexpr double kJacobianTol = 1e-10;  // fields run ~1e-5 T, a loose tol accepts zero
 constexpr double kResidualTol = 1e-15;
@@ -28,14 +32,13 @@ constexpr double kResidualTol = 1e-15;
 }  // namespace
 
 TEST(MagFactorArmTest, Jacobians) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
   gtsam::Point3 measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
 
-  coug_fg::factors::MagFactorArm factor(pose_key, measured_field, reference_field, target_T_sensor,
-                                        model);
+  MagFactorArm factor(pose_key, measured_field, reference_field, target_T_sensor, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -46,7 +49,7 @@ TEST(MagFactorArmTest, Jacobians) {
 }
 
 TEST(MagFactorArmTest, Residual) {
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
@@ -58,8 +61,7 @@ TEST(MagFactorArmTest, Residual) {
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(1.0e-7, -2.0e-7, 3.0e-7);
-  coug_fg::factors::MagFactorArm factor(pose_key, sensor_field - offset, reference_field,
-                                        target_T_sensor, model);
+  MagFactorArm factor(pose_key, sensor_field - offset, reference_field, target_T_sensor, model);
 
   const gtsam::Vector expected = offset;
   EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose), kResidualTol));

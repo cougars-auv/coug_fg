@@ -21,6 +21,11 @@
 
 namespace {
 
+using coug_fg::factors::WrenchDynamicsFactorArm;
+
+using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -28,10 +33,10 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(WrenchDynamicsFactorArmTest, Jacobians) {
-  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
-  gtsam::Key vel_key_i = gtsam::symbol_shorthand::V(1);
-  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
-  gtsam::Key vel_key_j = gtsam::symbol_shorthand::V(2);
+  gtsam::Key pose_key_i = X(1);
+  gtsam::Key vel_key_i = V(1);
+  gtsam::Key pose_key_j = X(2);
+  gtsam::Key vel_key_j = V(2);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
 
   double dt = 0.5;
@@ -41,9 +46,8 @@ TEST(WrenchDynamicsFactorArmTest, Jacobians) {
   gtsam::Vector3 control_force(2.0, -1.0, 0.5);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
 
-  coug_fg::factors::WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
-                                                   control_force, target_T_sensor, mass,
-                                                   linear_drag, quad_drag, model);
+  WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt, control_force,
+                                 target_T_sensor, mass, linear_drag, quad_drag, model);
 
   gtsam::Values values;
   values.insert(pose_key_i,
@@ -58,10 +62,10 @@ TEST(WrenchDynamicsFactorArmTest, Jacobians) {
 }
 
 TEST(WrenchDynamicsFactorArmTest, Residual) {
-  gtsam::Key pose_key_i = gtsam::symbol_shorthand::X(1);
-  gtsam::Key vel_key_i = gtsam::symbol_shorthand::V(1);
-  gtsam::Key pose_key_j = gtsam::symbol_shorthand::X(2);
-  gtsam::Key vel_key_j = gtsam::symbol_shorthand::V(2);
+  gtsam::Key pose_key_i = X(1);
+  gtsam::Key vel_key_i = V(1);
+  gtsam::Key pose_key_j = X(2);
+  gtsam::Key vel_key_j = V(2);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
 
   double dt = 0.5;
@@ -71,9 +75,8 @@ TEST(WrenchDynamicsFactorArmTest, Residual) {
   gtsam::Vector3 control_force(2.0, -1.0, 0.5);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
 
-  coug_fg::factors::WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
-                                                   control_force, target_T_sensor, mass,
-                                                   linear_drag, quad_drag, model);
+  WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt, control_force,
+                                 target_T_sensor, mass, linear_drag, quad_drag, model);
 
   gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
   gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));

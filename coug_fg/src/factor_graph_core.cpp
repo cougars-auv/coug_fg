@@ -79,14 +79,26 @@ using gtsam::symbol_shorthand::O;  // Neighbor origin delta Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
 
+using utils::AgentStatusData;
+using utils::AhrsData;
 using utils::DvlLoosePreintegrator;
 using utils::DvlTightPreintegrator;
+using utils::ImuData;
 using utils::KeyframeSource;
+using utils::LogCallback;
+using utils::Logger;
+using utils::LogLevel;
+using utils::MagneticFieldData;
+using utils::OdometryData;
 using utils::parseKeyframeSource;
 using utils::parseRobustKernel;
 using utils::parseSolverType;
+using utils::QueueBundle;
 using utils::RobustKernel;
 using utils::SolverType;
+using utils::TfBundle;
+using utils::TwistData;
+using utils::WrenchData;
 
 namespace {
 
@@ -105,8 +117,8 @@ Eigen::Matrix<double, N, N> sigmasSquaredDiag(const std::vector<double>& sigmas)
                                          .asDiagonal());
 }
 
-void warnCovFallback(const utils::Logger& logger, const std::string& sensor) {
-  logger.logOnce(utils::LogLevel::kWarn, "cov_fallback:" + sensor,
+void warnCovFallback(const Logger& logger, const std::string& sensor) {
+  logger.logOnce(LogLevel::kWarn, "cov_fallback:" + sensor,
                  sensor +
                      " message covariance is unusable (non-finite or non-positive diagonal); "
                      "falling back to the parameter covariance.");
@@ -115,7 +127,7 @@ void warnCovFallback(const utils::Logger& logger, const std::string& sensor) {
 template <int N>
 Eigen::Matrix<double, N, N> resolveCov(bool use_param, const std::vector<double>& sigmas,
                                        double scalar, const Eigen::Matrix<double, N, N>& msg_cov,
-                                       const std::string& sensor, const utils::Logger& logger,
+                                       const std::string& sensor, const Logger& logger,
                                        double sensor_unit_scale = 1.0) {
   if (use_param) {
     return sigmasSquaredDiag<N>(sigmas) * scalar;
@@ -128,7 +140,7 @@ Eigen::Matrix<double, N, N> resolveCov(bool use_param, const std::vector<double>
 }
 
 double resolveVar(bool use_param, double sigma, double scalar, double msg_var,
-                  const std::string& sensor, const utils::Logger& logger) {
+                  const std::string& sensor, const Logger& logger) {
   if (use_param) {
     return sigma * sigma * scalar;
   }
@@ -154,8 +166,8 @@ gtsam::SharedNoiseModel applyRobustKernel(const gtsam::SharedNoiseModel& noise,
   return noise;
 }
 
-gtsam::Rot3 getInterpolatedOrientation(
-    const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs, double target_time) {
+gtsam::Rot3 getInterpolatedOrientation(const std::deque<std::shared_ptr<AhrsData>>& ahrs_msgs,
+                                       double target_time) {
   if (ahrs_msgs.empty()) {
     return gtsam::Rot3();
   }
@@ -199,12 +211,12 @@ FactorGraphCore::FactorGraphCore(const factor_graph_node::Params& params) : para
                    gtsam::Point3(modem_tf.position[0], modem_tf.position[1], modem_tf.position[2]));
 }
 
-void FactorGraphCore::setLogCallback(utils::LogCallback callback) {
+void FactorGraphCore::setLogCallback(LogCallback callback) {
   logger_.setCallback(std::move(callback));
 }
 
 gtsam::Rot3 FactorGraphCore::computeInitialOrientation(
-    const std::shared_ptr<utils::AhrsData>& ahrs) const {
+    const std::shared_ptr<AhrsData>& ahrs) const {
   if (ahrs) {
     // Account for AHRS rotation
     gtsam::Rot3 target_R_ahrs = tfs_.target_T_ahrs.rotation();
@@ -222,8 +234,8 @@ gtsam::Rot3 FactorGraphCore::computeInitialOrientation(
 }
 
 gtsam::Point3 FactorGraphCore::computeInitialPosition(
-    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::OdometryData>& gps,
-    const std::shared_ptr<utils::OdometryData>& depth) const {
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<OdometryData>& gps,
+    const std::shared_ptr<OdometryData>& depth) const {
   gtsam::Point3 map_p_base(params_.priors.parameter_priors.initial_position[0],
                            params_.priors.parameter_priors.initial_position[1],
                            params_.priors.parameter_priors.initial_position[2]);
@@ -247,7 +259,7 @@ gtsam::Point3 FactorGraphCore::computeInitialPosition(
 }
 
 gtsam::Vector3 FactorGraphCore::computeInitialVelocity(
-    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::TwistData>& dvl) const {
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<TwistData>& dvl) const {
   if (dvl) {
     // Account for DVL rotation
     gtsam::Vector3 target_v_dvl = tfs_.target_T_dvl.rotation().rotate(dvl->linear_velocity);
@@ -261,9 +273,8 @@ gtsam::Vector3 FactorGraphCore::computeInitialVelocity(
 }
 
 gtsam::Matrix6 FactorGraphCore::computeInitialPoseCovariance(
-    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::OdometryData>& gps,
-    const std::shared_ptr<utils::OdometryData>& depth,
-    const std::shared_ptr<utils::AhrsData>& ahrs) const {
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<OdometryData>& gps,
+    const std::shared_ptr<OdometryData>& depth, const std::shared_ptr<AhrsData>& ahrs) const {
   const auto& sigmas = params_.priors.parameter_priors_covariance;
   gtsam::Matrix3 map_orientation_cov = sigmasSquaredDiag(sigmas.initial_orientation_sigmas);
   gtsam::Matrix3 map_position_cov = sigmasSquaredDiag(sigmas.initial_position_sigmas);
@@ -313,7 +324,7 @@ gtsam::Matrix6 FactorGraphCore::computeInitialPoseCovariance(
 }
 
 gtsam::Matrix3 FactorGraphCore::computeInitialVelocityCovariance(
-    const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::TwistData>& dvl,
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<TwistData>& dvl,
     const gtsam::Matrix3& target_orientation_cov) const {
   gtsam::Matrix3 map_velocity_cov;
 
@@ -345,7 +356,7 @@ gtsam::Matrix3 FactorGraphCore::computeInitialVelocityCovariance(
 }
 
 std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialState(
-    double init_time, const utils::QueueBundle& queues) const {
+    double init_time, const QueueBundle& queues) const {
   const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
   const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
 
@@ -381,7 +392,7 @@ std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialStat
   }
 
   if (!missing.empty()) {
-    logger_.logThrottled(utils::LogLevel::kWarn, "init_wait:" + missing, kInitWaitThrottleSeconds,
+    logger_.logThrottled(LogLevel::kWarn, "init_wait:" + missing, kInitWaitThrottleSeconds,
                          init_time, "Waiting for initialization data: " + missing + ".");
     return std::nullopt;
   }
@@ -499,11 +510,10 @@ void FactorGraphCore::addPriorFactors(const InitialState& init_state,
       << "  Accel bias [m/s^2]  : " << prior_imu_bias_sigmas.head<3>().transpose() << "\n"
       << "  Gyro bias [rad/s]   : " << prior_imu_bias_sigmas.tail<3>().transpose() << "\n"
       << "  Mag bias [T]        : " << prior_mag_bias_sigmas.transpose();
-  logger_.log(utils::LogLevel::kInfo, oss.str());
+  logger_.log(LogLevel::kInfo, oss.str());
 }
 
-bool FactorGraphCore::initialize(double init_time, const utils::QueueBundle& queues,
-                                 const utils::TfBundle& tfs) {
+bool FactorGraphCore::initialize(double init_time, const QueueBundle& queues, const TfBundle& tfs) {
   tfs_ = tfs;
 
   // --- Compute Initial State ---
@@ -589,9 +599,8 @@ bool FactorGraphCore::initialize(double init_time, const utils::QueueBundle& que
   return true;
 }
 
-void FactorGraphCore::addGpsFactor(
-    gtsam::NonlinearFactorGraph& graph,
-    const std::deque<std::shared_ptr<utils::OdometryData>>& gps_msgs) {
+void FactorGraphCore::addGpsFactor(gtsam::NonlinearFactorGraph& graph,
+                                   const std::deque<std::shared_ptr<OdometryData>>& gps_msgs) {
   if (gps_msgs.empty()) {
     return;
   }
@@ -608,9 +617,8 @@ void FactorGraphCore::addGpsFactor(
                                        tfs_.target_T_gps, gps_noise);
 }
 
-void FactorGraphCore::addDepthFactor(
-    gtsam::NonlinearFactorGraph& graph,
-    const std::deque<std::shared_ptr<utils::OdometryData>>& depth_msgs) {
+void FactorGraphCore::addDepthFactor(gtsam::NonlinearFactorGraph& graph,
+                                     const std::deque<std::shared_ptr<OdometryData>>& depth_msgs) {
   if (depth_msgs.empty()) {
     return;
   }
@@ -629,9 +637,8 @@ void FactorGraphCore::addDepthFactor(
                                        tfs_.target_T_depth, depth_noise);
 }
 
-void FactorGraphCore::addMagFactor(
-    gtsam::NonlinearFactorGraph& graph,
-    const std::deque<std::shared_ptr<utils::MagneticFieldData>>& mag_msgs) {
+void FactorGraphCore::addMagFactor(gtsam::NonlinearFactorGraph& graph,
+                                   const std::deque<std::shared_ptr<MagneticFieldData>>& mag_msgs) {
   if (mag_msgs.empty()) {
     return;
   }
@@ -660,7 +667,7 @@ void FactorGraphCore::addMagFactor(
 }
 
 void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
-                                    const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs) {
+                                    const std::deque<std::shared_ptr<AhrsData>>& ahrs_msgs) {
   if (ahrs_msgs.empty()) {
     return;
   }
@@ -698,7 +705,7 @@ void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 }
 
 void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,
-                                   const std::deque<std::shared_ptr<utils::TwistData>>& dvl_msgs,
+                                   const std::deque<std::shared_ptr<TwistData>>& dvl_msgs,
                                    const gtsam::Vector3& imu_gyro) {
   if (dvl_msgs.empty()) {
     return;
@@ -745,8 +752,8 @@ void FactorGraphCore::addConstVelFactor(gtsam::NonlinearFactorGraph& graph, doub
 }
 
 void FactorGraphCore::addWrenchDynamicsFactor(
-    gtsam::NonlinearFactorGraph& graph,
-    const std::deque<std::shared_ptr<utils::WrenchData>>& wrench_msgs, double target_time) {
+    gtsam::NonlinearFactorGraph& graph, const std::deque<std::shared_ptr<WrenchData>>& wrench_msgs,
+    double target_time) {
   // Implements a zero-order hold (ZOH) for wrench commands
   if (!wrench_msgs.empty()) {
     last_wrench_msg_ = wrench_msgs.back();
@@ -779,9 +786,9 @@ void FactorGraphCore::addWrenchDynamicsFactor(
       wrench_noise);
 }
 
-void FactorGraphCore::addImuPreintFactor(
-    gtsam::NonlinearFactorGraph& graph, const std::deque<std::shared_ptr<utils::ImuData>>& imu_msgs,
-    double target_time) {
+void FactorGraphCore::addImuPreintFactor(gtsam::NonlinearFactorGraph& graph,
+                                         const std::deque<std::shared_ptr<ImuData>>& imu_msgs,
+                                         double target_time) {
   if (!imu_preintegrator_ || imu_msgs.empty()) {
     return;
   }
@@ -820,9 +827,8 @@ void FactorGraphCore::addImuPreintFactor(
 }
 
 void FactorGraphCore::addDvlLoosePreintFactor(
-    gtsam::NonlinearFactorGraph& graph,
-    const std::deque<std::shared_ptr<utils::TwistData>>& dvl_msgs,
-    const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs, double target_time) {
+    gtsam::NonlinearFactorGraph& graph, const std::deque<std::shared_ptr<TwistData>>& dvl_msgs,
+    const std::deque<std::shared_ptr<AhrsData>>& ahrs_msgs, double target_time) {
   if (!dvl_loose_preintegrator_ || ahrs_msgs.empty()) {
     return;
   }
@@ -892,9 +898,8 @@ void FactorGraphCore::addDvlLoosePreintFactor(
 }
 
 void FactorGraphCore::addDvlTightPreintFactor(
-    gtsam::NonlinearFactorGraph& graph,
-    const std::deque<std::shared_ptr<utils::TwistData>>& dvl_msgs,
-    const std::deque<std::shared_ptr<utils::ImuData>>& imu_msgs, double target_time,
+    gtsam::NonlinearFactorGraph& graph, const std::deque<std::shared_ptr<TwistData>>& dvl_msgs,
+    const std::deque<std::shared_ptr<ImuData>>& imu_msgs, double target_time,
     const gtsam::Vector3& held_imu_accel, const gtsam::Vector3& held_imu_gyro) {
   if (!dvl_tight_preintegrator_ || imu_msgs.empty()) {
     return;
@@ -1021,7 +1026,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
 
 void FactorGraphCore::addOriginDeltaPriorFactor(gtsam::NonlinearFactorGraph& graph,
                                                 gtsam::Values& values, size_t agent_queue_idx,
-                                                const utils::AgentStatusData& msg) {
+                                                const AgentStatusData& msg) {
   const auto& priors = params_.priors;
 
   gtsam::Rot3 map_R_delta =
@@ -1085,7 +1090,7 @@ void FactorGraphCore::addNeighborPriorFactor(gtsam::NonlinearFactorGraph& graph,
       << "Prior sigmas:\n"
       << "  Position [m]        : " << prior_pose_sigmas.tail<3>().transpose() << "\n"
       << "  Orientation [rad]   : " << prior_pose_sigmas.head<3>().transpose() << " (RPY)";
-  logger_.log(utils::LogLevel::kInfo, oss.str());
+  logger_.log(LogLevel::kInfo, oss.str());
 }
 
 void FactorGraphCore::addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& graph,
@@ -1105,7 +1110,7 @@ void FactorGraphCore::addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& grap
 }
 
 void FactorGraphCore::addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph,
-                                             const utils::AgentStatusData& msg,
+                                             const AgentStatusData& msg,
                                              const NeighborState& neighbor,
                                              size_t agent_queue_idx) {
   const gtsam::Pose3 kNoArm;
@@ -1127,7 +1132,7 @@ void FactorGraphCore::addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph,
 }
 
 void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
-                                            const utils::AgentStatusData& msg,
+                                            const AgentStatusData& msg,
                                             const NeighborState& neighbor, size_t agent_queue_idx) {
   const gtsam::Pose3 kNoArm;
 
@@ -1154,7 +1159,7 @@ void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 }
 
 void FactorGraphCore::addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& graph,
-                                               const utils::AgentStatusData& msg,
+                                               const AgentStatusData& msg,
                                                const NeighborState& neighbor, gtsam::Key pose_key,
                                                size_t agent_queue_idx) {
   if (!msg.includes_range) {
@@ -1179,7 +1184,7 @@ void FactorGraphCore::addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& grap
 }
 
 void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& graph,
-                                                 const utils::AgentStatusData& msg,
+                                                 const AgentStatusData& msg,
                                                  const NeighborState& neighbor, gtsam::Key pose_key,
                                                  size_t agent_queue_idx) {
   if (!msg.includes_usbl) {
@@ -1211,10 +1216,10 @@ void FactorGraphCore::addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& gr
 
 void FactorGraphCore::addMultiAgentFactors(
     gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
-    gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
-    const utils::QueueBundle& queues, double target_time) {
+    gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps, const QueueBundle& queues,
+    double target_time) {
   // Conjugate a neighbor's broadcast pose covariance into its base-frame tangent space
-  auto base_tangent_cov = [](const utils::AgentStatusData& msg) {
+  auto base_tangent_cov = [](const AgentStatusData& msg) {
     gtsam::Matrix66 map_R_base = gtsam::Matrix66::Zero();
     map_R_base.block<3, 3>(0, 0) = msg.pose.rotation().matrix();
     map_R_base.block<3, 3>(3, 3) = msg.pose.rotation().matrix();
@@ -1250,7 +1255,7 @@ void FactorGraphCore::addMultiAgentFactors(
     if (!msg->pose_covariance.allFinite() ||
         (msg->pose_covariance.diagonal().array() <= 0.0).any()) {
       logger_.log(
-          utils::LogLevel::kWarn,
+          LogLevel::kWarn,
           "Neighbor status covariance (queue " + std::to_string(agent_queue_idx) +
               ") is unusable (non-finite or non-positive diagonal); dropping the keyframe.");
       continue;
@@ -1261,7 +1266,7 @@ void FactorGraphCore::addMultiAgentFactors(
 
     if (inserted && params_.multiagent.estimate_origin_delta) {
       if (!msg->includes_range || !msg->includes_usbl) {
-        logger_.log(utils::LogLevel::kWarn,
+        logger_.log(LogLevel::kWarn,
                     "Neighbor status (queue " + std::to_string(agent_queue_idx) +
                         ") has no range/bearing pair to seed the origin delta; dropping "
                         "the keyframe.");
@@ -1315,9 +1320,8 @@ void FactorGraphCore::addMultiAgentFactors(
   }
 }
 
-std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
-                                                          utils::QueueBundle& queues,
-                                                          const utils::TfBundle& tfs) {
+std::optional<QueueBundle> FactorGraphCore::update(double target_time, QueueBundle& queues,
+                                                   const TfBundle& tfs) {
   if (target_time <= prev_time_ + kMinIntegrationDt) {
     return std::nullopt;
   }
@@ -1336,7 +1340,7 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   }
 
   if (queues.imu.empty() || queues.imu.front()->timestamp > target_time) {
-    logger_.log(utils::LogLevel::kWarn,
+    logger_.log(LogLevel::kWarn,
                 "Keyframe rejected: no IMU measurements at or before the keyframe time.");
     return std::nullopt;
   }
@@ -1346,7 +1350,7 @@ std::optional<utils::QueueBundle> FactorGraphCore::update(double target_time,
   gtsam::Values new_values;
   gtsam::IncrementalFixedLagSmoother::KeyTimestampMap new_timestamps;
 
-  utils::QueueBundle leftover;
+  QueueBundle leftover;
 
   std::scoped_lock state_lock(state_mutex_);
 

@@ -21,6 +21,11 @@
 
 namespace {
 
+using coug_fg::factors::AhrsOriginDeltaFactorArm;
+
+using gtsam::symbol_shorthand::O;  // Neighbor origin delta Pose3 (x,y,z,r,p,y)
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
 constexpr double kStep = 1e-5;  // finite difference step
 constexpr double kJacobianTol = 1e-5;
 constexpr double kResidualTol = 1e-9;
@@ -28,15 +33,15 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(AhrsOriginDeltaFactorArmTest, Jacobians) {
-  gtsam::Key delta_key = gtsam::symbol_shorthand::O(1);
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key delta_key = O(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Rot3 measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
   double magnetic_declination = 0.05;
 
-  coug_fg::factors::AhrsOriginDeltaFactorArm factor(delta_key, pose_key, measured_attitude,
-                                                    target_T_sensor, magnetic_declination, model);
+  AhrsOriginDeltaFactorArm factor(delta_key, pose_key, measured_attitude, target_T_sensor,
+                                  magnetic_declination, model);
 
   gtsam::Values values;
   values.insert(delta_key,
@@ -49,8 +54,8 @@ TEST(AhrsOriginDeltaFactorArmTest, Jacobians) {
 }
 
 TEST(AhrsOriginDeltaFactorArmTest, Residual) {
-  gtsam::Key delta_key = gtsam::symbol_shorthand::O(1);
-  gtsam::Key pose_key = gtsam::symbol_shorthand::X(1);
+  gtsam::Key delta_key = O(1);
+  gtsam::Key pose_key = X(1);
   gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   gtsam::Pose3 delta(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
@@ -65,8 +70,8 @@ TEST(AhrsOriginDeltaFactorArmTest, Residual) {
   const gtsam::Rot3 measured_attitude =
       gtsam::Rot3::Yaw(magnetic_declination) * map_R_sensor * gtsam::Rot3::Expmap(offset);
 
-  coug_fg::factors::AhrsOriginDeltaFactorArm factor(delta_key, pose_key, measured_attitude,
-                                                    target_T_sensor, magnetic_declination, model);
+  AhrsOriginDeltaFactorArm factor(delta_key, pose_key, measured_attitude, target_T_sensor,
+                                  magnetic_declination, model);
 
   // Logmap(Expmap(-offset)) undoes the injected turn
   const gtsam::Vector expected = -offset;

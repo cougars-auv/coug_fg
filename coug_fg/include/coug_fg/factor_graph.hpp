@@ -71,6 +71,24 @@ class FactorGraphNode : public rclcpp::Node {
   void resetGraph(const std_srvs::srv::Trigger::Request::SharedPtr request,
                   std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
+  // --- Sensor Callbacks ---
+  void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  void gpsCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+  void depthCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+  void magCallback(const sensor_msgs::msg::MagneticField::SharedPtr msg);
+
+  void ahrsCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  void dvlCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg);
+
+  void wrenchCallback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg);
+
+  void multiAgentCallback(const coug_interfaces::msg::AgentStatus::SharedPtr msg,
+                          size_t agent_queue_idx);
+
   void frontendThreadLoop();
 
   void backendThreadLoop();

@@ -56,9 +56,7 @@ win_left = (start_x + col_spacing) - win_pad
 win_width = (3 * col_spacing) + (2 * win_pad)
 win_bottom = 0 - win_pad + 0.175
 
-# =============================================================================
-# BASE FACTOR GRAPH
-# =============================================================================
+# --- BASE FACTOR GRAPH ---
 
 pgm = daft.PGM(directed=False)
 
@@ -168,9 +166,7 @@ pgm_dynamics = copy.deepcopy(pgm)
 pgm_const_vel = copy.deepcopy(pgm)
 pgm_dvl_beams = copy.deepcopy(pgm)
 
-# =============================================================================
-# DIRECT DVL GRAPH
-# =============================================================================
+# --- DIRECT DVL GRAPH ---
 
 for i in range(5):
     col_x = start_x + (i * col_spacing)
@@ -190,9 +186,7 @@ pgm.render()
 pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_direct.pdf", bbox_inches="tight")
 pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_direct.png", bbox_inches="tight", dpi=300)
 
-# =============================================================================
-# PER-BEAM DVL GRAPH
-# =============================================================================
+# --- PER-BEAM DVL GRAPH ---
 
 for i in range(5):
     col_x = start_x + (i * col_spacing)
@@ -217,9 +211,7 @@ pgm_dvl_beams.figure.savefig(
     OUTPUT_DIR / "fg_dvl_beams.png", bbox_inches="tight", dpi=300
 )
 
-# =============================================================================
-# LOOSE PREINTEGRATED DVL GRAPH
-# =============================================================================
+# --- LOOSE PREINTEGRATED DVL GRAPH ---
 
 for i in range(4):
     col_x = start_x + (i * col_spacing)
@@ -245,9 +237,7 @@ pgm_preint_loose.figure.savefig(
     OUTPUT_DIR / "fg_dvl_preint_loose.png", bbox_inches="tight", dpi=300
 )
 
-# =============================================================================
-# TIGHT PREINTEGRATED DVL GRAPH
-# =============================================================================
+# --- TIGHT PREINTEGRATED DVL GRAPH ---
 
 for i in range(4):
     col_x = start_x + (i * col_spacing)
@@ -274,9 +264,7 @@ pgm_preint_tight.figure.savefig(
     OUTPUT_DIR / "fg_dvl_preint_tight.png", bbox_inches="tight", dpi=300
 )
 
-# =============================================================================
-# DYNAMICS GRAPH
-# =============================================================================
+# --- DYNAMICS GRAPH ---
 
 for i in [0, 1, 4]:
     col_x = start_x + (i * col_spacing)
@@ -319,9 +307,7 @@ pgm_dynamics.figure.savefig(
     OUTPUT_DIR / "fg_dynamics.png", bbox_inches="tight", dpi=300
 )
 
-# =============================================================================
-# CONSTANT VELOCITY GRAPH
-# =============================================================================
+# --- CONSTANT VELOCITY GRAPH ---
 
 for i in [0, 1, 4]:
     col_x = start_x + (i * col_spacing)
@@ -364,9 +350,7 @@ pgm_const_vel.figure.savefig(
     OUTPUT_DIR / "fg_const_vel.png", bbox_inches="tight", dpi=300
 )
 
-# =============================================================================
-# MULTIAGENT GRAPH
-# =============================================================================
+# --- MULTIAGENT GRAPH ---
 
 # Lead agent factor graph
 pgm_multiagent = daft.PGM(directed=False)

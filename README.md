@@ -7,15 +7,7 @@
 
 ## Contributing
 
-- **Create a Branch:** Create a new branch using the format `name/feature` (e.g., `nelson/repo-docs`).
-
-- **Make Changes:** Develop and debug your new feature. Add good documentation.
-
-  > If you need to add dependencies, update the `package.xml`, the Dockerfiles under `.docker/`, `cougars.repos`, `dev.repos`, or `dependencies.repos` in your branch and test building the image locally.
-
-- **Sync Frequently:** Regularly integrate the latest changes from `main` into your branch (via rebase or merge) to prevent future conflicts.
-
-- **Submit a PR:** Open a pull request, ensure required tests pass, and merge once approved. Upon merge to `main`, GitHub Actions will automatically build and push updated images to Docker Hub with any new dependencies.
+We **strongly recommend** using the `cougars-dev` environment for code development. See the [Contributing](https://github.com/cougars-auv/cougars-dev/blob/main/README.md#contributing) section there.
 
 ## Releasing
 

@@ -1618,9 +1618,9 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
     result.imu_bias = prev_imu_bias_;
     result.mag_bias = prev_mag_bias_;
 
-    result.neighbor_estimates.reserve(neighbors_.size());
+    result.neighbor_results.reserve(neighbors_.size());
     for (const auto& [agent_queue_idx, neighbor] : neighbors_) {
-      NeighborEstimate estimate;
+      NeighborResult estimate;
       estimate.agent_queue_idx = agent_queue_idx;
       estimate.timestamp = neighbor.curr_time;
       estimate.pose_key = N(neighbor.curr_step);
@@ -1638,10 +1638,11 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
 
       // Transform the neighbor's pose into the map frame with the origin delta
       if (params_.multiagent.estimate_origin_delta) {
-        estimate.pose = prev_origin_deltas_.at(agent_queue_idx) * estimate.pose;
+        estimate.origin_delta = prev_origin_deltas_.at(agent_queue_idx);
+        estimate.pose = *estimate.origin_delta * estimate.pose;
       }
 
-      result.neighbor_estimates.push_back(std::move(estimate));
+      result.neighbor_results.push_back(std::move(estimate));
     }
   }
 
@@ -1674,7 +1675,7 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
   const gtsam::Values* cov_values = nullptr;
   std::optional<gtsam::Marginals> cov_marginals;
   if (params_.publish_neighbor_pose_cov && params_.multiagent.estimate_origin_delta &&
-      !result.neighbor_estimates.empty()) {
+      !result.neighbor_results.empty()) {
     if (inc_smoother_) {
       cov_values = &inc_smoother_->getLinearizationPoint();
       cov_marginals.emplace(inc_smoother_->getFactors(), *cov_values);
@@ -1706,7 +1707,7 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
            cross.transpose();
   };
 
-  for (auto& neighbor : result.neighbor_estimates) {
+  for (auto& neighbor : result.neighbor_results) {
     neighbor.pose_cov = neighbor_cov(neighbor.pose_key, neighbor.agent_queue_idx);
   }
 
@@ -1716,11 +1717,11 @@ std::optional<OptimizeResult> FactorGraphCore::optimize() {
   // --- Export Smoothed Path ---
   if (params_.publish_smoothed_path) {
     if (inc_smoother_) {
-      result.all_estimates = inc_smoother_->calculateEstimate();
+      result.smoothed_path = inc_smoother_->calculateEstimate();
     } else if (isam_) {
-      result.all_estimates = isam_->calculateEstimate();
+      result.smoothed_path = isam_->calculateEstimate();
     } else {
-      result.all_estimates = lm_values_;
+      result.smoothed_path = lm_values_;
     }
   }
 

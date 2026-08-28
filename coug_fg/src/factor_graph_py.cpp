@@ -499,8 +499,8 @@ pybind11::dict FactorGraphPy::optimize() {
   result["processing_overflow"] = opt_result->processing_overflow;
   result["new_keyframes"] = opt_result->new_keyframes;
 
-  if (params_.publish_smoothed_path && !opt_result->all_estimates.empty()) {
-    const gtsam::Values& estimates = opt_result->all_estimates;
+  if (params_.publish_smoothed_path && !opt_result->smoothed_path.empty()) {
+    const gtsam::Values& estimates = opt_result->smoothed_path;
     pybind11::list smoothed;
 
     static constexpr double kNanosecondsToSeconds = 1e-9;

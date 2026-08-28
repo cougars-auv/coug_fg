@@ -39,13 +39,14 @@
 
 namespace coug_fg {
 
-struct NeighborEstimate {
+struct NeighborResult {
   size_t agent_queue_idx;
   double timestamp{0.0};
   gtsam::Key pose_key{0};
 
   gtsam::Pose3 pose;
   gtsam::Matrix pose_cov;
+  std::optional<gtsam::Pose3> origin_delta;
 };
 
 struct OptimizeResult {
@@ -58,7 +59,7 @@ struct OptimizeResult {
   gtsam::Matrix velocity_cov;
   gtsam::Matrix imu_bias_cov;
   gtsam::Matrix mag_bias_cov;
-  gtsam::Values all_estimates;
+  gtsam::Values smoothed_path;
 
   double total_duration{0.0};
   double smoother_duration{0.0};
@@ -70,7 +71,7 @@ struct OptimizeResult {
   size_t total_factors{0};
   size_t total_variables{0};
 
-  std::vector<NeighborEstimate> neighbor_estimates;
+  std::vector<NeighborResult> neighbor_results;
 };
 
 class FactorGraphCore {

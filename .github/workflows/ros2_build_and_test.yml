@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: frostlab/cougars:base-latest
+  DOCKER_IMAGE: frostlab/cougars:runtime-latest
   UPSTREAM_REPO: cougars-auv/cougars-dev
 
 jobs:

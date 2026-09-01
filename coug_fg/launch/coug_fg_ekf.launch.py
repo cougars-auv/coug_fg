@@ -23,6 +23,12 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 
 
+def agent_frame(agent_ns: LaunchConfiguration, frame: str) -> PythonExpression:
+    return PythonExpression(
+        ["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"]
+    )
+
+
 def generate_launch_description() -> LaunchDescription:
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_ns = LaunchConfiguration("agent_ns")
@@ -41,119 +47,16 @@ def generate_launch_description() -> LaunchDescription:
         ]
     )
 
-    odom_frame = PythonExpression(
-        ["'", agent_ns, "/odom' if '", agent_ns, "' != '' else 'odom'"]
-    )
-
-    base_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/base_link' if '",
-            agent_ns,
-            "' != '' else 'base_link'",
-        ]
-    )
-
-    # imu_link_frame = PythonExpression(
-    #     [
-    #         "'",
-    #         agent_ns,
-    #         "/imu_link' if '",
-    #         agent_ns,
-    #         "' != '' else 'imu_link'",
-    #     ]
-    # )
-
-    gps_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/gps_link' if '",
-            agent_ns,
-            "' != '' else 'gps_link'",
-        ]
-    )
-
-    depth_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/depth_link' if '",
-            agent_ns,
-            "' != '' else 'depth_link'",
-        ]
-    )
-
-    dvl_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/dvl_link' if '",
-            agent_ns,
-            "' != '' else 'dvl_link'",
-        ]
-    )
-
-    beam0_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/beam0_link' if '",
-            agent_ns,
-            "' != '' else 'beam0_link'",
-        ]
-    )
-
-    beam1_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/beam1_link' if '",
-            agent_ns,
-            "' != '' else 'beam1_link'",
-        ]
-    )
-
-    beam2_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/beam2_link' if '",
-            agent_ns,
-            "' != '' else 'beam2_link'",
-        ]
-    )
-
-    beam3_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/beam3_link' if '",
-            agent_ns,
-            "' != '' else 'beam3_link'",
-        ]
-    )
-
-    # com_link_frame = PythonExpression(
-    #     [
-    #         "'",
-    #         agent_ns,
-    #         "/com_link' if '",
-    #         agent_ns,
-    #         "' != '' else 'com_link'",
-    #     ]
-    # )
-
-    modem_link_frame = PythonExpression(
-        [
-            "'",
-            agent_ns,
-            "/modem_link' if '",
-            agent_ns,
-            "' != '' else 'modem_link'",
-        ]
-    )
+    odom_frame = agent_frame(agent_ns, "odom")
+    base_link_frame = agent_frame(agent_ns, "base_link")
+    gps_link_frame = agent_frame(agent_ns, "gps_link")
+    depth_link_frame = agent_frame(agent_ns, "depth_link")
+    dvl_link_frame = agent_frame(agent_ns, "dvl_link")
+    beam0_link_frame = agent_frame(agent_ns, "beam0_link")
+    beam1_link_frame = agent_frame(agent_ns, "beam1_link")
+    beam2_link_frame = agent_frame(agent_ns, "beam2_link")
+    beam3_link_frame = agent_frame(agent_ns, "beam3_link")
+    modem_link_frame = agent_frame(agent_ns, "modem_link")
 
     return LaunchDescription(
         [

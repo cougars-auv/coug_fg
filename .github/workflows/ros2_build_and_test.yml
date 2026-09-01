@@ -64,6 +64,14 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
+  build-test-status:
+    needs: build-test
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - if: needs.build-test.result != 'success'
+        run: exit 1
+
   trigger-upstream:
     needs: build-test
     if: github.event_name != 'pull_request'

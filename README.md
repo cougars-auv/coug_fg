@@ -30,7 +30,7 @@ This repository follows the **Semantic Versioning (SemVer 2.0.0)** standard:
 
 ## Citations
 
-If you use this repository in your research, please cite the relevant publications:
+If you use this repository in your research, please cite the following publications:
 
 ### CoUGARs
 ```bibtex

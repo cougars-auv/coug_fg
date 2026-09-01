@@ -11,7 +11,7 @@ We **strongly recommend** using the [`cougars-dev`](https://github.com/cougars-a
 
 ## Releasing
 
-This repository follows the **Semantic Versioning (SemVer 2.0.0)** standard.
+This repository follows the **Semantic Versioning (SemVer 2.0.0)** standard:
 > Given a version number **`MAJOR.MINOR.PATCH`**, increment the:
 > - **MAJOR** version when you make incompatible API changes
 > - **MINOR** version when you add functionality in a backward compatible manner

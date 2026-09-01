@@ -21,6 +21,9 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   DOCKER_IMAGE: frostlab/cougars:runtime-latest
   UPSTREAM_REPO: cougars-auv/cougars-dev

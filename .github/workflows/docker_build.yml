@@ -22,6 +22,9 @@ on:
       - "**/package.xml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   UPSTREAM_REPO: cougars-auv/cougars-dev
 

@@ -32,14 +32,14 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
     agent_list = yaml.safe_load(agent_list_str)
     agent_ns = agent_list[0]
 
-    fleet_params = PathJoinSubstitution(
+    fleet_param_file = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
             "fleet",
             "coug_fg_params.yaml",
         ]
     )
-    agent_params = PathJoinSubstitution(
+    agent_param_file = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
             f"{agent_ns}_params.yaml",
@@ -52,8 +52,8 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
             executable="navsat_odom",
             name="navsat_odom_node",
             parameters=[
-                fleet_params,
-                agent_params,
+                fleet_param_file,
+                agent_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",

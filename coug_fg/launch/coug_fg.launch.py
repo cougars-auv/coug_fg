@@ -39,14 +39,14 @@ def generate_launch_description() -> LaunchDescription:
 
     is_lead_agent = EqualsSubstitution(agent_ns, lead_agent)
 
-    fleet_params = PathJoinSubstitution(
+    fleet_param_file = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
             "fleet",
             "coug_fg_params.yaml",
         ]
     )
-    agent_params = PathJoinSubstitution(
+    agent_param_file = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
             PythonExpression(["'", agent_ns, "' + '_params.yaml'"]),
@@ -115,8 +115,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="factor_graph",
                 name="factor_graph_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     factor_graph_params,
                 ],
             ),
@@ -127,8 +127,8 @@ def generate_launch_description() -> LaunchDescription:
                 name="factor_graph_node_isam2",
                 condition=IfCondition(loc_comparison),
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         **factor_graph_params,
                         "global_odom_topic": "odometry/global_isam2",
@@ -146,8 +146,8 @@ def generate_launch_description() -> LaunchDescription:
                 name="factor_graph_node_lpi",
                 condition=IfCondition(loc_comparison),
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         **factor_graph_params,
                         "global_odom_topic": "odometry/global_lpi",
@@ -164,8 +164,8 @@ def generate_launch_description() -> LaunchDescription:
                 name="factor_graph_node_tpi",
                 condition=IfCondition(loc_comparison),
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         **factor_graph_params,
                         "global_odom_topic": "odometry/global_tpi",
@@ -180,8 +180,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="dvl_a50_twist_beams",
                 name="dvl_a50_twist_beams_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "beam0_frame": beam0_link_frame,
@@ -197,8 +197,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="dvl_a50_odom",
                 name="dvl_a50_odom_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "odom_frame": "map",
@@ -212,8 +212,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="fluid_pressure_odom",
                 name="fluid_pressure_odom_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -226,8 +226,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="navsat_odom",
                 name="navsat_odom_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -240,8 +240,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="sbg_imu_mag",
                 name="sbg_imu_mag_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -252,8 +252,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="seatrac_x150_imu_depth",
                 name="seatrac_x150_imu_depth_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -266,8 +266,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="imu_ned_to_enu",
                 name="seatrac_imu_ned_to_enu_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -278,8 +278,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="odom_ned_to_enu",
                 name="seatrac_odom_ned_to_enu_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -290,8 +290,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="imu_ned_to_enu",
                 name="imu_ned_to_enu_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -302,8 +302,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="odom_ned_to_enu",
                 name="odom_ned_to_enu_node",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -314,8 +314,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="relay",
                 name="gps_to_truth_relay",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                     },
@@ -329,8 +329,8 @@ def generate_launch_description() -> LaunchDescription:
                 executable="ekf_node",
                 name="ekf_filter_node_odom",
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "odom_frame": odom_frame,
@@ -347,8 +347,8 @@ def generate_launch_description() -> LaunchDescription:
                 name="ekf_filter_node_map",
                 condition=IfCondition(loc_comparison),
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",
@@ -366,8 +366,8 @@ def generate_launch_description() -> LaunchDescription:
                 name="ukf_filter_node_map",
                 condition=IfCondition(loc_comparison),
                 parameters=[
-                    fleet_params,
-                    agent_params,
+                    fleet_param_file,
+                    agent_param_file,
                     {
                         "use_sim_time": use_sim_time,
                         "map_frame": "map",

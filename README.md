@@ -11,7 +11,7 @@ We **strongly recommend** using the [`cougars-dev`](https://github.com/cougars-a
 
 ## Releasing
 
-We adhere to the **Semantic Versioning (SemVer 2.0.0)** standard to release new versions of this repository:
+This repository follows the **Semantic Versioning (SemVer 2.0.0)** standard.
 > Given a version number **`MAJOR.MINOR.PATCH`**, increment the:
 > - **MAJOR** version when you make incompatible API changes
 > - **MINOR** version when you add functionality in a backward compatible manner
@@ -24,13 +24,13 @@ We adhere to the **Semantic Versioning (SemVer 2.0.0)** standard to release new 
   git push origin v1.2.3
   ```
 
-  Pushing the tag automatically opens a draft GitHub Release with auto-generated notes.
+  Pushing the tag automatically creates a draft GitHub Release with auto-generated notes.
 
 - **Publish a GitHub Release:** Review the draft release in GitHub and click **Publish**.
 
 ## Citations
 
-Please cite our relevant publications if you find this repository useful for your research:
+If you use this repository in your research, please cite the relevant publications:
 
 ### CoUGARs
 ```bibtex

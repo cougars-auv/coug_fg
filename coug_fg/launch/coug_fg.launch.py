@@ -34,8 +34,8 @@ def agent_frame(agent_ns: LaunchConfiguration, frame: str) -> PythonExpression:
 def generate_launch_description() -> LaunchDescription:
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_ns = LaunchConfiguration("agent_ns")
-    loc_comparison = LaunchConfiguration("loc_comparison")
     lead_agent = LaunchConfiguration("lead_agent")
+    loc_comparison = LaunchConfiguration("loc_comparison")
 
     is_lead_agent = EqualsSubstitution(agent_ns, lead_agent)
 
@@ -101,14 +101,14 @@ def generate_launch_description() -> LaunchDescription:
                 description="Namespace for the agent (e.g. auv0)",
             ),
             DeclareLaunchArgument(
-                "loc_comparison",
-                default_value="false",
-                description="Launch additional localization nodes if true",
-            ),
-            DeclareLaunchArgument(
                 "lead_agent",
                 default_value="",
                 description="Namespace of the lead agent (optional)",
+            ),
+            DeclareLaunchArgument(
+                "loc_comparison",
+                default_value="false",
+                description="Launch additional localization nodes if true",
             ),
             Node(
                 package="coug_fg",

@@ -323,7 +323,6 @@ def generate_launch_description() -> LaunchDescription:
                 condition=IfCondition(EqualsSubstitution(agent_ns, "bluerov2")),
             ),
             # --- Robot Localization Pipeline ---
-            # https://docs.ros.org/en/melodic/api/robot_localization/html/state_estimation_nodes.html
             Node(
                 package="robot_localization",
                 executable="ekf_node",
@@ -340,7 +339,6 @@ def generate_launch_description() -> LaunchDescription:
                 ],
                 remappings=[("odometry/filtered", "odometry/local")],
             ),
-            # https://docs.ros.org/en/melodic/api/robot_localization/html/state_estimation_nodes.html
             Node(
                 package="robot_localization",
                 executable="ekf_node",
@@ -359,7 +357,6 @@ def generate_launch_description() -> LaunchDescription:
                 ],
                 remappings=[("odometry/filtered", "odometry/global_ekf")],
             ),
-            # https://docs.ros.org/en/melodic/api/robot_localization/html/state_estimation_nodes.html
             Node(
                 package="robot_localization",
                 executable="ukf_node",

@@ -204,7 +204,6 @@ def generate_launch_description() -> LaunchDescription:
                     },
                 ],
             ),
-            # https://docs.ros.org/en/melodic/api/robot_localization/html/state_estimation_nodes.html
             Node(
                 package="robot_localization",
                 executable="ekf_node",

@@ -4,16 +4,16 @@ set -e
 # --- Selection ---
 leaf_dirs=$(cd "${BAGS_DIR}" && find . -name "metadata.yaml" -exec dirname {} \; | sed 's|^\./||')
 
-dir_list="bags\n"
+dir_list=("bags")
 for d in ${leaf_dirs}; do
   p="${d}"
   while [ "${p}" != "." ] && [ "${p}" != "" ]; do
-    dir_list="${dir_list}${p}\n"
+    dir_list+=("${p}")
     p=$(dirname "${p}")
   done
 done
 
-selected_dir=$(echo -e "${dir_list}" | sort -u | \
+selected_dir=$(printf '%s\n' "${dir_list[@]}" | sort -u | \
   gum filter --placeholder "Select directory or bag to evaluate ('bags' for all)...") || exit 0
 [ -z "${selected_dir}" ] && exit 0
 
@@ -34,7 +34,7 @@ done
 evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--align" \
   "--project_to_plane xy") || exit 0
-evo_flags=$(echo "${evo_options}" | tr '\n' ' ')
+evo_flags="${evo_options//$'\n'/ }"
 
 # --- Evaluate ---
 python3 "$(dirname "$0")/eval_bags.py" \

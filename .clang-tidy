@@ -1,0 +1,6 @@
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  -bugprone-easily-swappable-parameters
+FormatStyle: file

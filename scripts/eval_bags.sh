@@ -36,8 +36,13 @@ evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--project_to_plane xy") || exit 0
 evo_flags=$(echo "${evo_options}" | tr '\n' ' ')
 
+agent_list=()
+for a in ${agents}; do
+  agent_list+=("${a}")
+done
+
 # --- Evaluate ---
 python3 "$(dirname "$0")/eval_bags.py" \
   --target-dir "${target_dir}" \
-  --agents ${agents} \
+  --agents "${agent_list[@]}" \
   --evo-flags="${evo_flags}"

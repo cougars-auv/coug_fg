@@ -136,7 +136,7 @@ class OfflineFactorGraph:
     @property
     def topic_map(self) -> dict[str, list[str]]:
         sources = [(self.params["topics"][s], s) for s in SENSORS if self.enabled[s]]
-        sources += list(zip(self.multiagent_topics, self.multiagent_keys))
+        sources += list(zip(self.multiagent_topics, self.multiagent_keys, strict=True))
 
         prefix = f"/{self.namespace}/" if self.namespace else "/"
         topics: dict[str, list[str]] = {}
@@ -237,7 +237,7 @@ class OfflineFactorGraph:
     def _restore_all_queues(self, bundle: dict[str, list]) -> None:
         for sensor in SENSORS:
             self.queues[sensor][:0] = bundle[sensor]
-        for key, msgs in zip(self.multiagent_keys, bundle["multiagent"]):
+        for key, msgs in zip(self.multiagent_keys, bundle["multiagent"], strict=True):
             self.queues[key][:0] = msgs
 
     def _initialize_graph(self) -> None:

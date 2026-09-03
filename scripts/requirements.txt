@@ -1,9 +1,0 @@
-colorlog
-evo
-matplotlib
-numpy
-PyYAML
-rosbags
-scipy
-tqdm
-xacro

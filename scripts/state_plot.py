@@ -56,7 +56,7 @@ def plot_results(results: dict, pose_gt: dict, label: str = "") -> None:
 
     _, axes = plt.subplots(len(LAYOUT), 3, figsize=(15, 8), num=label or None)
     for row, (keys, axis_labels, show_gt) in enumerate(LAYOUT):
-        for col, (key, axis_label) in enumerate(zip(keys, axis_labels)):
+        for col, (key, axis_label) in enumerate(zip(keys, axis_labels, strict=True)):
             ax = axes[row, col]
             if show_gt and pose_gt:
                 gt_t, gt_vals = _mask_gaps(pose_gt["time"] - t0, pose_gt[key])

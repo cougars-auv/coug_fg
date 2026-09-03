@@ -15,13 +15,17 @@ namespace=$(basename -a "${CONFIG_DIR}"/*_params.yaml | \
 [ -z "${namespace}" ] && exit 0
 
 # --- Options ---
-tag=$(gum input --placeholder "Set output tag..." || true)
-tag="${tag:-offline}$(date +'_%Y-%m-%d-%H-%M-%S')"
+tag=$(gum input --placeholder "Set output tag..." || echo "")
+if [ -n "${tag}" ]; then
+  tag="${tag}$(date +'_%Y-%m-%d-%H-%M-%S')"
+else
+  tag="offline$(date +'_%Y-%m-%d-%H-%M-%S')"
+fi
 
 evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--align" \
   "--project_to_plane xy") || exit 0
-evo_flags="${evo_options//$'\n'/ }"
+evo_flags=$(echo "${evo_options}" | tr '\n' ' ')
 
 bag_paths=()
 for b in ${bags}; do

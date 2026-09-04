@@ -18,7 +18,7 @@ on:
   push:
     branches: ["main"]
     paths:
-      - ".github/workflows/docker_build.yml"
+      - ".github/workflows/docker_build.yaml"
       - "**/package.xml"
   workflow_dispatch:
 
@@ -37,5 +37,5 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
           repository: ${{ env.UPSTREAM_REPO }}
-          event-type: rebuild-images
+          event-type: docker-build
           client-payload: '{"repo": "${{ github.repository }}", "sha": "${{ github.sha }}"}'

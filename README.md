@@ -26,9 +26,7 @@ This repository follows the **Semantic Versioning (SemVer 2.0.0)** standard:
   git push origin v1.2.3
   ```
 
-  Pushing the tag automatically creates a draft GitHub Release with auto-generated notes.
-
-- **Publish a GitHub Release:** Review the draft release in GitHub and click **Publish**.
+  Pushing the tag will automatically publish a GitHub Release with auto-generated notes.
 
 ## Citations
 

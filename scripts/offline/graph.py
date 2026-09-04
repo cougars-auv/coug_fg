@@ -59,27 +59,27 @@ class OfflineFactorGraph:
         namespace: str = "",
         urdf: UrdfTree | None = None,
     ) -> None:
-        self.core = coug_fg_py.FactorGraphPy(config_paths, namespace)
-        self.params = self.core.get_params()
-        self.namespace = namespace
-        self.urdf = urdf
+        self._core = coug_fg_py.FactorGraphPy(config_paths, namespace)
+        self._params = self._core.get_params()
+        self._namespace = namespace
+        self._urdf = urdf
 
-        self.solver_type = coug_fg_py.parse_solver_type(self.params["solver_type"])
-        self.is_lm = self.solver_type == SolverType.LEVENBERG_MARQUARDT
-        if self.is_lm and not self.params["publish_smoothed_path"]:
+        self._solver_type = coug_fg_py.parse_solver_type(self._params["solver_type"])
+        self._is_lm = self._solver_type == SolverType.LEVENBERG_MARQUARDT
+        if self._is_lm and not self._params["publish_smoothed_path"]:
             raise RuntimeError(
                 "LevenbergMarquardt requires publish_smoothed_path to be set to true."
             )
 
-        self.keyframe_source = coug_fg_py.parse_keyframe_source(
-            self.params["keyframe_source"]
+        self._keyframe_source = coug_fg_py.parse_keyframe_source(
+            self._params["keyframe_source"]
         )
-        self.backup_keyframe_source = coug_fg_py.parse_keyframe_source(
-            self.params["backup_keyframe_source"]
+        self._backup_keyframe_source = coug_fg_py.parse_keyframe_source(
+            self._params["backup_keyframe_source"]
         )
 
-        sensors = self.params["sensors"]
-        loose_preint = self.params["comparison"]["enable_loose_dvl_preintegration"]
+        sensors = self._params["sensors"]
+        loose_preint = self._params["comparison"]["enable_loose_dvl_preintegration"]
 
         gps, depth, mag, ahrs, dvl, wrench = (
             sensors["gps"],
@@ -90,7 +90,7 @@ class OfflineFactorGraph:
             sensors["wrench"],
         )
 
-        self.enabled = {
+        self._enabled = {
             "imu": True,
             "gps": gps["enable"] or gps["enable_init_priors"],
             "depth": depth["enable"] or depth["enable_init_priors"],
@@ -100,32 +100,32 @@ class OfflineFactorGraph:
             "wrench": wrench["enable"] or wrench["enable_dropout_only"],
         }
 
-        multiagent = self.params["multiagent"]
-        self.multiagent_topics = (
+        multiagent = self._params["multiagent"]
+        self._multiagent_topics = (
             [f"/{ns}/{multiagent['status_topic']}" for ns in multiagent["namespaces"]]
             if multiagent["enable_multiagent"]
             else []
         )
-        self.multiagent_keys = [
-            f"multiagent_{i}" for i in range(len(self.multiagent_topics))
+        self._multiagent_keys = [
+            f"multiagent_{i}" for i in range(len(self._multiagent_topics))
         ]
 
-        for source in (self.keyframe_source, self.backup_keyframe_source):
+        for source in (self._keyframe_source, self._backup_keyframe_source):
             sensor = SOURCE_SENSORS.get(source)
             if sensor in ("dvl", "depth") and not sensors[sensor]["enable"]:
                 raise ValueError(
-                    f"Keyframe source '{self.keyframe_source}' or backup "
-                    f"'{self.backup_keyframe_source}' references a disabled sensor."
+                    f"Keyframe source '{self._keyframe_source}' or backup "
+                    f"'{self._backup_keyframe_source}' references a disabled sensor."
                 )
 
-        self.is_initialized = False
-        self.results: list[dict] = []
+        self._is_initialized = False
+        self._results: list[dict] = []
 
-        self.queues: dict[str, list[tuple]] = {
-            key: [] for key in (*SENSORS, *self.multiagent_keys)
+        self._queues: dict[str, list[tuple]] = {
+            key: [] for key in (*SENSORS, *self._multiagent_keys)
         }
 
-        self.tfs: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        self._tfs: dict[str, tuple[np.ndarray, np.ndarray]] = {}
 
         self._stream_time = 0.0
         self._last_msg_time: dict[str, float] = {}
@@ -134,11 +134,17 @@ class OfflineFactorGraph:
         self._rate_limits: dict[str, float] = {}
 
     @property
-    def topic_map(self) -> dict[str, list[str]]:
-        sources = [(self.params["topics"][s], s) for s in SENSORS if self.enabled[s]]
-        sources += list(zip(self.multiagent_topics, self.multiagent_keys, strict=True))
+    def is_initialized(self) -> bool:
+        return self._is_initialized
 
-        prefix = f"/{self.namespace}/" if self.namespace else "/"
+    @property
+    def topic_map(self) -> dict[str, list[str]]:
+        sources = [(self._params["topics"][s], s) for s in SENSORS if self._enabled[s]]
+        sources += list(
+            zip(self._multiagent_topics, self._multiagent_keys, strict=True)
+        )
+
+        prefix = f"/{self._namespace}/" if self._namespace else "/"
         topics: dict[str, list[str]] = {}
         for topic, key in sources:
             resolved = topic if topic.startswith("/") else prefix + topic
@@ -151,34 +157,34 @@ class OfflineFactorGraph:
 
         is_neighbor = sensor.startswith("multiagent_")
         self._resolve_sensor_tf("modem" if is_neighbor else sensor, frame_id)
-        self.queues[sensor].append(measurement)
+        self._queues[sensor].append(measurement)
         self._last_msg_time[sensor] = measurement[0]
         if is_neighbor:
             return
 
-        sources = (self.keyframe_source, self.backup_keyframe_source)
+        sources = (self._keyframe_source, self._backup_keyframe_source)
         if TRIGGER_SOURCES.get(sensor) in sources:
             self._notify_frontend()
         if KeyframeSource.TIMER in sources:
             self._tick_keyframe_timer()
 
     def finalize(self) -> None:
-        if self.is_lm and self.is_initialized:
-            result = self.core.optimize()
-            self.results = list(result.get("smoothed_path", [])) if result else []
+        if self._is_lm and self._is_initialized:
+            result = self._core.optimize()
+            self._results = list(result.get("smoothed_path", [])) if result else []
 
     def get_results(self) -> dict | None:
-        if not self.results:
+        if not self._results:
             return None
 
         results = {
-            k: np.array([r[k] for r in self.results])
-            for k in self.results[0]
+            k: np.array([r[k] for r in self._results])
+            for k in self._results[0]
             if k != "smoothed_path"
         }
 
         # Offline, pose covariance is just left at the target frame here
-        base_pos, base_quat = self.tfs["base"]
+        base_pos, base_quat = self._tfs["base"]
         base_rot = Rotation.from_quat(base_quat)
         target_positions = np.column_stack((results["x"], results["y"], results["z"]))
         target_quats = np.column_stack(
@@ -207,93 +213,93 @@ class OfflineFactorGraph:
         return True
 
     def _resolve_sensor_tf(self, sensor: str, frame_id: str) -> None:
-        if sensor in self.tfs:
+        if sensor in self._tfs:
             return
 
         cfg = (
-            self.params["multiagent"]
+            self._params["multiagent"]
             if sensor == "modem"
-            else self.params["sensors"][sensor]
+            else self._params["sensors"][sensor]
         )
         frame = cfg["parameter_frame"] if cfg["use_parameter_frame"] else frame_id
-        self.tfs[sensor] = self._lookup_static_tf(cfg, frame)
+        self._tfs[sensor] = self._lookup_static_tf(cfg, frame)
 
     def _lookup_static_tf(self, cfg: dict, frame: str) -> tuple[np.ndarray, np.ndarray]:
         # Offline, transforms come from the URDF instead of a live TF tree
         if cfg["use_parameter_tf"]:
             return np.array(cfg["tf_position"]), np.array(cfg["tf_orientation"])
-        if self.urdf is None:
+        if self._urdf is None:
             raise RuntimeError(
                 f"use_parameter_tf is false for frame '{frame}' but no URDF was found."
             )
-        return self.urdf.lookup(self.params["target_frame"], frame)
+        return self._urdf.lookup(self._params["target_frame"], frame)
 
     def _drain_all_queues(self) -> dict[str, list]:
-        bundle: dict[str, list] = {s: self.queues[s] for s in SENSORS}
-        bundle["multiagent"] = [self.queues[k] for k in self.multiagent_keys]
-        self.queues = {key: [] for key in self.queues}
+        bundle: dict[str, list] = {s: self._queues[s] for s in SENSORS}
+        bundle["multiagent"] = [self._queues[k] for k in self._multiagent_keys]
+        self._queues = {key: [] for key in self._queues}
         return bundle
 
     def _restore_all_queues(self, bundle: dict[str, list]) -> None:
         for sensor in SENSORS:
-            self.queues[sensor][:0] = bundle[sensor]
-        for key, msgs in zip(self.multiagent_keys, bundle["multiagent"], strict=True):
-            self.queues[key][:0] = msgs
+            self._queues[sensor][:0] = bundle[sensor]
+        for key, msgs in zip(self._multiagent_keys, bundle["multiagent"], strict=True):
+            self._queues[key][:0] = msgs
 
     def _initialize_graph(self) -> None:
-        if "base" not in self.tfs:
-            base = self.params["sensors"]["base"]
-            self.tfs["base"] = self._lookup_static_tf(base, self.params["base_frame"])
+        if "base" not in self._tfs:
+            base = self._params["sensors"]["base"]
+            self._tfs["base"] = self._lookup_static_tf(base, self._params["base_frame"])
 
         queues = self._drain_all_queues()
 
-        if self.core.initialize(self._stream_time, queues, self.tfs):
-            self.is_initialized = True
+        if self._core.initialize(self._stream_time, queues, self._tfs):
+            self._is_initialized = True
             logger.info("Graph initialized successfully.")
         else:
             self._restore_all_queues(queues)
 
     def _active_keyframe_source(self) -> KeyframeSource:
-        if self.keyframe_source == KeyframeSource.TIMER:
-            return self.keyframe_source
+        if self._keyframe_source == KeyframeSource.TIMER:
+            return self._keyframe_source
 
         sensor = SOURCE_SENSORS.get(
-            self.keyframe_source, SOURCE_SENSORS[KeyframeSource.DEPTH]
+            self._keyframe_source, SOURCE_SENSORS[KeyframeSource.DEPTH]
         )
         last_received = self._last_msg_time.get(sensor)
         newest_stamp = self._last_msg_time.get("imu")
 
         timed_out = last_received is None or (
             newest_stamp is not None
-            and newest_stamp - last_received > self.params["keyframe_timeout_sec"]
+            and newest_stamp - last_received > self._params["keyframe_timeout_sec"]
         )
         if not timed_out:
-            return self.keyframe_source
+            return self._keyframe_source
 
-        if self.backup_keyframe_source == KeyframeSource.NONE:
+        if self._backup_keyframe_source == KeyframeSource.NONE:
             logger.error(
-                f"Primary keyframe source '{self.keyframe_source}' timed out and no "
+                f"Primary keyframe source '{self._keyframe_source}' timed out and no "
                 "backup is configured. No new keyframes will be created."
             )
-            return self.keyframe_source
+            return self._keyframe_source
 
         logger.warning(
-            f"Primary keyframe source '{self.keyframe_source}' timed out. "
-            f"Using backup '{self.backup_keyframe_source}'."
+            f"Primary keyframe source '{self._keyframe_source}' timed out. "
+            f"Using backup '{self._backup_keyframe_source}'."
         )
-        return self.backup_keyframe_source
+        return self._backup_keyframe_source
 
     def _update_graph(self) -> None:
         sensor = SOURCE_SENSORS.get(self._active_keyframe_source())
         target_time = (
-            self._last_msg_time.get(sensor) if sensor and self.queues[sensor] else None
+            self._last_msg_time.get(sensor) if sensor and self._queues[sensor] else None
         )
         if target_time is None or (
             self._last_target_time is not None and target_time <= self._last_target_time
         ):
             return
 
-        min_interval = self.params["min_keyframe_interval_sec"]
+        min_interval = self._params["min_keyframe_interval_sec"]
         if (
             self._last_target_time is not None
             and target_time - self._last_target_time < min_interval
@@ -306,20 +312,20 @@ class OfflineFactorGraph:
         self._last_target_time = target_time
 
         queues = self._drain_all_queues()
-        leftover = self.core.update(target_time, queues, self.tfs)
+        leftover = self._core.update(target_time, queues, self._tfs)
         self._restore_all_queues(queues if leftover is None else leftover)
 
     def _notify_frontend(self) -> None:
-        if not self.is_initialized:
+        if not self._is_initialized:
             self._initialize_graph()
         elif self._check_and_update_rate_limit(
-            "update", self.params["max_update_rate_hz"]
+            "update", self._params["max_update_rate_hz"]
         ):
             self._update_graph()
             self._notify_backend()
 
     def _tick_keyframe_timer(self) -> None:
-        period = 1.0 / self.params["keyframe_timer_hz"]
+        period = 1.0 / self._params["keyframe_timer_hz"]
         if self._last_timer_time is None:
             self._last_timer_time = self._stream_time
         elif self._stream_time - self._last_timer_time >= period:
@@ -327,19 +333,19 @@ class OfflineFactorGraph:
             self._notify_frontend()
 
     def _optimize_graph(self) -> None:
-        if result := self.core.optimize():
+        if result := self._core.optimize():
             new_keyframes = result.pop("new_keyframes")
             if result.pop("processing_overflow"):
                 logger.warning(
                     f"Processing overflow. Batching {new_keyframes} keyframes."
                 )
-            self.results.append(result)
+            self._results.append(result)
 
     def _notify_backend(self) -> None:
         # Offline, LevenbergMarquardt batch optimizes once in finalize()
-        if self.is_lm:
+        if self._is_lm:
             return
-        if self.is_initialized and self._check_and_update_rate_limit(
-            "optimize", self.params["max_opt_rate_hz"]
+        if self._is_initialized and self._check_and_update_rate_limit(
+            "optimize", self._params["max_opt_rate_hz"]
         ):
             self._optimize_graph()

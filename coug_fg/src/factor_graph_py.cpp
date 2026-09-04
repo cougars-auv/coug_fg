@@ -27,7 +27,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
-#include <Eigen/Dense>
+#include <Eigen/Core>
 #include <cstddef>
 #include <memory>
 #include <optional>

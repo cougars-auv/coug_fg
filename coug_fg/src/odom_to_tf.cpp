@@ -14,7 +14,6 @@
 
 #include "coug_fg/odom_to_tf.hpp"
 
-#include <functional>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <memory>
 #include <rclcpp/logging.hpp>

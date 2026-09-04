@@ -14,7 +14,6 @@
 
 #include "coug_fg/sbg_imu_mag.hpp"
 
-#include <functional>
 #include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>

@@ -18,7 +18,7 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Rot3.h>
 
-#include <Eigen/Dense>
+#include <Eigen/Core>
 #include <deque>
 #include <memory>
 #include <vector>

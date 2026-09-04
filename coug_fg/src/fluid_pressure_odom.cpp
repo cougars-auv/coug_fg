@@ -15,7 +15,6 @@
 #include "coug_fg/fluid_pressure_odom.hpp"
 
 #include <cmath>
-#include <functional>
 #include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>

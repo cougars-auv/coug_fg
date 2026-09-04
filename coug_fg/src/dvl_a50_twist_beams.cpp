@@ -20,7 +20,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <limits>
 #include <memory>
 #include <rclcpp/logging.hpp>
@@ -103,7 +102,7 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
       if (in.id < 0 || static_cast<size_t>(in.id) >= range_pubs_.size()) {
         continue;
       }
-      range_pubs_[in.id]->publish(convertToRange(in, beam_frames_[in.id], stamp));
+      range_pubs_.at(in.id)->publish(convertToRange(in, beam_frames_.at(in.id), stamp));
     }
   }
 }
@@ -167,7 +166,7 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
     }
 
     DvlBeam beam;
-    beam.frame_id = beam_frames_[in.id];
+    beam.frame_id = beam_frames_.at(in.id);
     beam.valid = in.valid;
     beam.velocity = in.velocity;
     beam.distance = in.distance;

@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <chrono>
 #include <diagnostic_updater/diagnostic_status_wrapper.hpp>
-#include <functional>
 #include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>

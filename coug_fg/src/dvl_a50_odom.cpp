@@ -18,7 +18,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>

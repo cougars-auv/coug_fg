@@ -15,7 +15,6 @@
 #include "coug_fg/seatrac_x150_imu_depth.hpp"
 
 #include <cmath>
-#include <functional>
 #include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>

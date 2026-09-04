@@ -14,9 +14,8 @@
 
 #include "coug_fg/odom_ned_to_enu.hpp"
 
-#include <Eigen/Dense>
+#include <Eigen/Core>
 #include <cmath>
-#include <functional>
 #include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>

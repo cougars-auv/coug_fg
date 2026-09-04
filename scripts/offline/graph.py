@@ -118,7 +118,7 @@ class OfflineFactorGraph:
                     f"'{self._backup_keyframe_source}' references a disabled sensor."
                 )
 
-        self._is_initialized = False
+        self.is_initialized = False
         self._results: list[dict] = []
 
         self._queues: dict[str, list[tuple]] = {
@@ -135,7 +135,7 @@ class OfflineFactorGraph:
 
     @property
     def is_initialized(self) -> bool:
-        return self._is_initialized
+        return self.is_initialized
 
     @property
     def topic_map(self) -> dict[str, list[str]]:
@@ -169,7 +169,7 @@ class OfflineFactorGraph:
             self._tick_keyframe_timer()
 
     def finalize(self) -> None:
-        if self._is_lm and self._is_initialized:
+        if self._is_lm and self.is_initialized:
             result = self._core.optimize()
             self._results = list(result.get("smoothed_path", [])) if result else []
 
@@ -254,7 +254,7 @@ class OfflineFactorGraph:
         queues = self._drain_all_queues()
 
         if self._core.initialize(self._stream_time, queues, self._tfs):
-            self._is_initialized = True
+            self.is_initialized = True
             logger.info("Graph initialized successfully.")
         else:
             self._restore_all_queues(queues)
@@ -316,7 +316,7 @@ class OfflineFactorGraph:
         self._restore_all_queues(queues if leftover is None else leftover)
 
     def _notify_frontend(self) -> None:
-        if not self._is_initialized:
+        if not self.is_initialized:
             self._initialize_graph()
         elif self._check_and_update_rate_limit(
             "update", self._params["max_update_rate_hz"]
@@ -345,7 +345,7 @@ class OfflineFactorGraph:
         # Offline, LevenbergMarquardt batch optimizes once in finalize()
         if self._is_lm:
             return
-        if self._is_initialized and self._check_and_update_rate_limit(
+        if self.is_initialized and self._check_and_update_rate_limit(
             "optimize", self._params["max_opt_rate_hz"]
         ):
             self._optimize_graph()

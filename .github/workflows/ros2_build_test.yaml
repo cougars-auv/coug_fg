@@ -50,8 +50,9 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
           DOCKER_PULL: true
-          UPSTREAM_WORKSPACE: dependencies.repos
+          UPSTREAM_WORKSPACE: upstream.repos
           TARGET_WORKSPACE: .
+          DOWNSTREAM_WORKSPACE: downstream.repos
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           BASEDIR: ${{ github.workspace }}/.work
           CLANG_TIDY: true

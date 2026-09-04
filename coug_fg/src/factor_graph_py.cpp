@@ -14,13 +14,37 @@
 
 #include "coug_fg/factor_graph_py.hpp"
 
+#include <Eigen/src/Core/Matrix.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/geometry/Point3.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Quaternion.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/navigation/ImuBias.h>
+#include <pybind11/cast.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/gil.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 
+#include <cstddef>
+#include <memory>
 #include <optional>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/utilities.hpp>
 #include <stdexcept>
+#include <string>
+#include <tuple>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
+#include "coug_fg/factor_graph_core.hpp"
+#include "coug_fg/factor_graph_parameters.hpp"
+#include "coug_fg/utils/data_types.hpp"
+#include "coug_fg/utils/logger.hpp"
 #include "coug_fg/utils/param_enums.hpp"
 #include "coug_fg/utils/ros_conversions.hpp"
 
@@ -60,16 +84,16 @@ using AgentStatusMsg =
 using MultiAgentMsgs = std::vector<std::vector<AgentStatusMsg>>;
 using TfMap = std::unordered_map<std::string, std::pair<Eigen::Vector3d, Eigen::Vector4d>>;
 
-gtsam::Rot3 toRot3(const Eigen::Vector4d& q) {
+auto toRot3(const Eigen::Vector4d& q) -> gtsam::Rot3 {
   return gtsam::Rot3::Quaternion(q(3), q(0), q(1), q(2));
 }
 
-Eigen::Vector4d toQuatXyzw(const gtsam::Rot3& rot) {
+auto toQuatXyzw(const gtsam::Rot3& rot) -> Eigen::Vector4d {
   gtsam::Quaternion q = rot.toQuaternion();
   return Eigen::Vector4d(q.x(), q.y(), q.z(), q.w());
 }
 
-gtsam::Pose3 toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& q) {
+auto toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& q) -> gtsam::Pose3 {
   return gtsam::Pose3(toRot3(q), gtsam::Point3(position));
 }
 
@@ -89,14 +113,14 @@ void pyLogCallback(LogLevel level, const std::string& msg) {
       py_level = 40;
       break;
   }
-  pybind11::gil_scoped_acquire gil;
+  pybind11::gil_scoped_acquire const gil;
   pybind11::module_::import("logging").attr("getLogger")("coug_fg.core").attr("log")(py_level, msg);
 }
 
-pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
-                           const std::optional<gtsam::Vector3>& velocity,
-                           const std::optional<gtsam::imuBias::ConstantBias>& imu_bias,
-                           const std::optional<gtsam::Point3>& mag_bias) {
+auto toStateDict(double time, const gtsam::Pose3& pose,
+                 const std::optional<gtsam::Vector3>& velocity,
+                 const std::optional<gtsam::imuBias::ConstantBias>& imu_bias,
+                 const std::optional<gtsam::Point3>& mag_bias) -> pybind11::dict {
   pybind11::dict state;
   gtsam::Quaternion q = pose.rotation().toQuaternion();
 
@@ -130,7 +154,7 @@ pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
   return state;
 }
 
-TfBundle toTfBundle(const TfMap& tfs) {
+auto toTfBundle(const TfMap& tfs) -> TfBundle {
   static const std::unordered_map<std::string, gtsam::Pose3 TfBundle::*> kTransformFields = {
       {"base", &TfBundle::target_T_base},  {"imu", &TfBundle::target_T_imu},
       {"gps", &TfBundle::target_T_gps},    {"depth", &TfBundle::target_T_depth},
@@ -149,9 +173,9 @@ TfBundle toTfBundle(const TfMap& tfs) {
   return bundle;
 }
 
-QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& depth,
-                          const MagMsgs& mag, const AhrsMsgs& ahrs, const DvlMsgs& dvl,
-                          const WrenchMsgs& wrench, const MultiAgentMsgs& multiagent) {
+auto toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& depth,
+                   const MagMsgs& mag, const AhrsMsgs& ahrs, const DvlMsgs& dvl,
+                   const WrenchMsgs& wrench, const MultiAgentMsgs& multiagent) -> QueueBundle {
   QueueBundle queues;
 
   for (const auto& [t, accel, gyro, accel_cov, gyro_cov] : imu) {
@@ -238,11 +262,11 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
 }
 
 template <typename Msgs>
-Msgs queueOrEmpty(const pybind11::dict& queues, const char* name) {
+auto queueOrEmpty(const pybind11::dict& queues, const char* name) -> Msgs {
   return queues.contains(name) ? queues[name].cast<Msgs>() : Msgs{};
 }
 
-QueueBundle toQueueBundle(const pybind11::dict& queues) {
+auto toQueueBundle(const pybind11::dict& queues) -> QueueBundle {
   return toQueueBundle(queueOrEmpty<ImuMsgs>(queues, "imu"), queueOrEmpty<GpsMsgs>(queues, "gps"),
                        queueOrEmpty<DepthMsgs>(queues, "depth"),
                        queueOrEmpty<MagMsgs>(queues, "mag"), queueOrEmpty<AhrsMsgs>(queues, "ahrs"),
@@ -251,7 +275,7 @@ QueueBundle toQueueBundle(const pybind11::dict& queues) {
                        queueOrEmpty<MultiAgentMsgs>(queues, "multiagent"));
 }
 
-pybind11::dict toQueueDict(const QueueBundle& queue_bundle) {
+auto toQueueDict(const QueueBundle& queue_bundle) -> pybind11::dict {
   ImuMsgs imu;
   for (const auto& imu_msg : queue_bundle.imu) {
     imu.emplace_back(imu_msg->timestamp, imu_msg->linear_acceleration, imu_msg->angular_velocity,
@@ -299,6 +323,7 @@ pybind11::dict toQueueDict(const QueueBundle& queue_bundle) {
   multiagent.reserve(queue_bundle.multiagent.size());
   for (const auto& agent : queue_bundle.multiagent) {
     std::vector<AgentStatusMsg> neighbor;
+    neighbor.reserve(agent.size());
     for (const auto& status_msg : agent) {
       neighbor.emplace_back(
           status_msg->timestamp, status_msg->pose.translation(),
@@ -332,7 +357,7 @@ FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const
 
   std::vector<std::string> args = {"--ros-args"};
   for (const auto& path : config_paths) {
-    args.push_back("--params-file");
+    args.emplace_back("--params-file");
     args.push_back(path);
   }
 
@@ -340,14 +365,15 @@ FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const
   options.arguments(args);
   auto param_node = std::make_shared<rclcpp::Node>("factor_graph_node", ns, options);
 
-  factor_graph_node::ParamListener param_listener(param_node->get_node_parameters_interface());
+  factor_graph_node::ParamListener const param_listener(
+      param_node->get_node_parameters_interface());
   params_ = param_listener.get_params();
 
   core_ = std::make_unique<FactorGraphCore>(params_);
   core_->setLogCallback(&pyLogCallback);
 }
 
-pybind11::dict FactorGraphPy::get_params() const {
+auto FactorGraphPy::get_params() const -> pybind11::dict {
   pybind11::dict params;
 
   // --- Node Settings ---
@@ -449,19 +475,19 @@ pybind11::dict FactorGraphPy::get_params() const {
   return params;
 }
 
-bool FactorGraphPy::initialize(double init_time, const pybind11::dict& queues,
-                               const pybind11::dict& tfs) {
+auto FactorGraphPy::initialize(double init_time, const pybind11::dict& queues,
+                               const pybind11::dict& tfs) -> bool {
   if (is_initialized_) {
     return true;
   }
 
-  QueueBundle queue_bundle = toQueueBundle(queues);
+  QueueBundle const queue_bundle = toQueueBundle(queues);
   is_initialized_ = core_->initialize(init_time, queue_bundle, toTfBundle(tfs.cast<TfMap>()));
   return is_initialized_;
 }
 
-pybind11::object FactorGraphPy::update(double target_time, const pybind11::dict& queues,
-                                       const pybind11::dict& tfs) {
+auto FactorGraphPy::update(double target_time, const pybind11::dict& queues,
+                           const pybind11::dict& tfs) -> pybind11::object {
   if (!is_initialized_) {
     return pybind11::none();
   }
@@ -474,7 +500,7 @@ pybind11::object FactorGraphPy::update(double target_time, const pybind11::dict&
   return toQueueDict(*leftover);
 }
 
-pybind11::dict FactorGraphPy::optimize() {
+auto FactorGraphPy::optimize() -> pybind11::dict {
   if (!is_initialized_) {
     return {};
   }
@@ -492,9 +518,15 @@ pybind11::dict FactorGraphPy::optimize() {
   pybind11::dict result = toStateDict(opt_result->timestamp, opt_result->pose, opt_result->velocity,
                                       opt_result->imu_bias, mag_bias);
 
-  if (params_.publish_pose_cov) result["pose_cov"] = opt_result->pose_cov;
-  if (params_.publish_velocity_cov) result["velocity_cov"] = opt_result->velocity_cov;
-  if (params_.publish_imu_bias_cov) result["imu_bias_cov"] = opt_result->imu_bias_cov;
+  if (params_.publish_pose_cov) {
+    result["pose_cov"] = opt_result->pose_cov;
+  }
+  if (params_.publish_velocity_cov) {
+    result["velocity_cov"] = opt_result->velocity_cov;
+  }
+  if (params_.publish_imu_bias_cov) {
+    result["imu_bias_cov"] = opt_result->imu_bias_cov;
+  }
 
   result["processing_overflow"] = opt_result->processing_overflow;
   result["new_keyframes"] = opt_result->new_keyframes;
@@ -508,7 +540,7 @@ pybind11::dict FactorGraphPy::optimize() {
       if (!estimates.exists(x_key)) {
         continue;
       }
-      size_t step = gtsam::Symbol(x_key).index();
+      size_t const step = gtsam::Symbol(x_key).index();
 
       std::optional<gtsam::Point3> step_mag_bias;
       if (estimates.exists(M(0))) {

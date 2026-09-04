@@ -13,9 +13,14 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
+#include <math.h>
 
 #include <cmath>
 
@@ -34,14 +39,14 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(AhrsYawFactorArmTest, Jacobians) {
-  gtsam::Key pose_key = X(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Rot3 measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
-  double magnetic_declination = 0.05;
+  gtsam::Key const pose_key = X(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  gtsam::Rot3 const measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
+  double const magnetic_declination = 0.05;
 
-  AhrsYawFactorArm factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
-                          model);
+  AhrsYawFactorArm const factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
+                                model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -52,11 +57,11 @@ TEST(AhrsYawFactorArmTest, Jacobians) {
 }
 
 TEST(AhrsYawFactorArmTest, Residual) {
-  gtsam::Key pose_key = X(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  double magnetic_declination = 0.05;
+  gtsam::Key const pose_key = X(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  double const magnetic_declination = 0.05;
 
   // Heading the sensor holds in the map frame
   const double sensor_yaw = (pose.rotation() * target_T_sensor.rotation()).yaw();
@@ -66,8 +71,8 @@ TEST(AhrsYawFactorArmTest, Residual) {
   const gtsam::Rot3 measured_attitude =
       gtsam::Rot3::Yaw(magnetic_declination) * gtsam::Rot3::Yaw(sensor_yaw - kOffset);
 
-  AhrsYawFactorArm factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
-                          model);
+  AhrsYawFactorArm const factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
+                                model);
 
   EXPECT_NEAR(factor.evaluateError(pose)(0), kOffset, kResidualTol);
 
@@ -76,8 +81,8 @@ TEST(AhrsYawFactorArmTest, Residual) {
   const gtsam::Rot3 wrapped_attitude =
       gtsam::Rot3::Yaw(magnetic_declination) * gtsam::Rot3::Yaw(sensor_yaw - kWrappedOffset);
 
-  AhrsYawFactorArm wrapped(pose_key, wrapped_attitude, target_T_sensor, magnetic_declination,
-                           model);
+  AhrsYawFactorArm const wrapped(pose_key, wrapped_attitude, target_T_sensor, magnetic_declination,
+                                 model);
 
   EXPECT_NEAR(wrapped.evaluateError(pose)(0), kWrappedOffset - 2.0 * M_PI, kResidualTol);
 }

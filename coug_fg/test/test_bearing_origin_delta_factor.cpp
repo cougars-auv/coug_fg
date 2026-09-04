@@ -13,7 +13,13 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Point2.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
 
@@ -35,16 +41,18 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(BearingOriginDeltaFactorArmTest, Jacobians) {
-  gtsam::Key pose_key_l = X(1);
-  gtsam::Key delta_key_n = O(1);
-  gtsam::Key pose_key_n = X(2);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
-  gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.2, -0.4, 0.1));
-  gtsam::Point2 measured_azi_el(0.3, 0.2);
+  gtsam::Key const pose_key_l = X(1);
+  gtsam::Key const delta_key_n = O(1);
+  gtsam::Key const pose_key_n = X(2);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
+  gtsam::Pose3 const target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                       gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 const target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
+                                       gtsam::Point3(0.2, -0.4, 0.1));
+  gtsam::Point2 const measured_azi_el(0.3, 0.2);
 
-  BearingOriginDeltaFactorArm factor(pose_key_l, delta_key_n, pose_key_n, measured_azi_el,
-                                     target_T_sensor_l, target_T_sensor_n, model);
+  BearingOriginDeltaFactorArm const factor(pose_key_l, delta_key_n, pose_key_n, measured_azi_el,
+                                           target_T_sensor_l, target_T_sensor_n, model);
 
   gtsam::Values values;
   values.insert(pose_key_l,
@@ -59,15 +67,17 @@ TEST(BearingOriginDeltaFactorArmTest, Jacobians) {
 }
 
 TEST(BearingOriginDeltaFactorArmTest, Residual) {
-  gtsam::Key pose_key_l = X(1);
-  gtsam::Key delta_key_n = O(1);
-  gtsam::Key pose_key_n = X(2);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
-  gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.2, -0.4, 0.1));
-  gtsam::Pose3 pose_l(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Pose3 delta_n(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
-  gtsam::Pose3 pose_n(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0));
+  gtsam::Key const pose_key_l = X(1);
+  gtsam::Key const delta_key_n = O(1);
+  gtsam::Key const pose_key_n = X(2);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
+  gtsam::Pose3 const target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                       gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 const target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
+                                       gtsam::Point3(0.2, -0.4, 0.1));
+  gtsam::Pose3 const pose_l(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  gtsam::Pose3 const delta_n(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
+  gtsam::Pose3 const pose_n(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0));
 
   // Angles the local sensor sees the neighbor's sensor at, inverting the line of sight
   const gtsam::Pose3 map_T_sensor_l = pose_l * target_T_sensor_l;
@@ -78,9 +88,9 @@ TEST(BearingOriginDeltaFactorArmTest, Residual) {
   const double elevation = std::asin(los.z() / los.norm());
 
   // Matching the state exactly leaves no residual
-  BearingOriginDeltaFactorArm factor(pose_key_l, delta_key_n, pose_key_n,
-                                     gtsam::Point2(azimuth, elevation), target_T_sensor_l,
-                                     target_T_sensor_n, model);
+  BearingOriginDeltaFactorArm const factor(pose_key_l, delta_key_n, pose_key_n,
+                                           gtsam::Point2(azimuth, elevation), target_T_sensor_l,
+                                           target_T_sensor_n, model);
 
   const gtsam::Vector expected = gtsam::Vector2::Zero();
   EXPECT_TRUE(
@@ -88,9 +98,9 @@ TEST(BearingOriginDeltaFactorArmTest, Residual) {
 
   // Elevation is an arc length, so tilting by a known angle moves the residual by that angle
   constexpr double kOffset = 0.01;  // [rad]
-  BearingOriginDeltaFactorArm tilted(pose_key_l, delta_key_n, pose_key_n,
-                                     gtsam::Point2(azimuth, elevation - kOffset), target_T_sensor_l,
-                                     target_T_sensor_n, model);
+  BearingOriginDeltaFactorArm const tilted(pose_key_l, delta_key_n, pose_key_n,
+                                           gtsam::Point2(azimuth, elevation - kOffset),
+                                           target_T_sensor_l, target_T_sensor_n, model);
 
   EXPECT_NEAR(gtsam::Vector(tilted.evaluateError(pose_l, delta_n, pose_n)).norm(), kOffset, 1e-6);
 }

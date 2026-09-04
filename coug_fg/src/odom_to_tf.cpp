@@ -14,8 +14,17 @@
 
 #include "coug_fg/odom_to_tf.hpp"
 
+#include <functional>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <memory>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <tf2_ros/transform_broadcaster.hpp>
+
+#include "coug_fg/odom_to_tf_parameters.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 
 namespace coug_fg {
 
@@ -28,17 +37,17 @@ OdomToTfNode::OdomToTfNode(const rclcpp::NodeOptions& options) : Node("odom_to_t
 
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      std::bind(&OdomToTfNode::odomCallback, this, std::placeholders::_1));
+      [this](nav_msgs::msg::Odometry::SharedPtr msg) { odomCallback(msg); });
 
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr& msg) {
   tf_broadcaster_->sendTransform(convertToTf(msg));
 }
 
-geometry_msgs::msg::TransformStamped OdomToTfNode::convertToTf(
-    const nav_msgs::msg::Odometry::SharedPtr msg) {
+auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::SharedPtr& msg)
+    -> geometry_msgs::msg::TransformStamped {
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header = msg->header;
   tf_msg.child_frame_id = msg->child_frame_id;

@@ -13,7 +13,12 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
 
@@ -33,15 +38,15 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(AhrsOriginDeltaFactorArmTest, Jacobians) {
-  gtsam::Key delta_key = O(1);
-  gtsam::Key pose_key = X(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Rot3 measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
-  double magnetic_declination = 0.05;
+  gtsam::Key const delta_key = O(1);
+  gtsam::Key const pose_key = X(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  gtsam::Rot3 const measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
+  double const magnetic_declination = 0.05;
 
-  AhrsOriginDeltaFactorArm factor(delta_key, pose_key, measured_attitude, target_T_sensor,
-                                  magnetic_declination, model);
+  AhrsOriginDeltaFactorArm const factor(delta_key, pose_key, measured_attitude, target_T_sensor,
+                                        magnetic_declination, model);
 
   gtsam::Values values;
   values.insert(delta_key,
@@ -54,13 +59,13 @@ TEST(AhrsOriginDeltaFactorArmTest, Jacobians) {
 }
 
 TEST(AhrsOriginDeltaFactorArmTest, Residual) {
-  gtsam::Key delta_key = O(1);
-  gtsam::Key pose_key = X(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Pose3 delta(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
-  gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  double magnetic_declination = 0.05;
+  gtsam::Key const delta_key = O(1);
+  gtsam::Key const pose_key = X(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  gtsam::Pose3 const delta(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
+  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  double const magnetic_declination = 0.05;
 
   // The pose is in the agent's own frame, so the origin delta places it in the map frame
   const gtsam::Rot3 map_R_sensor = (delta * pose).rotation() * target_T_sensor.rotation();
@@ -70,8 +75,8 @@ TEST(AhrsOriginDeltaFactorArmTest, Residual) {
   const gtsam::Rot3 measured_attitude =
       gtsam::Rot3::Yaw(magnetic_declination) * map_R_sensor * gtsam::Rot3::Expmap(offset);
 
-  AhrsOriginDeltaFactorArm factor(delta_key, pose_key, measured_attitude, target_T_sensor,
-                                  magnetic_declination, model);
+  AhrsOriginDeltaFactorArm const factor(delta_key, pose_key, measured_attitude, target_T_sensor,
+                                        magnetic_declination, model);
 
   // Logmap(Expmap(-offset)) undoes the injected turn
   const gtsam::Vector expected = -offset;

@@ -14,11 +14,27 @@
 
 #include "coug_fg/dvl_a50_twist_beams.hpp"
 
+#include <rcl/time.h>
+
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <limits>
+#include <memory>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
-#include <vector>
+
+#include "coug_fg/dvl_a50_twist_beams_parameters.hpp"
+#include "coug_interfaces/msg/dvl_beam.hpp"
+#include "coug_interfaces/msg/dvl_beam_list.hpp"
+#include "dvl_msgs/msg/dvl.hpp"
+#include "dvl_msgs/msg/dvl_beam.hpp"
+#include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
+#include "sensor_msgs/msg/range.hpp"
 
 namespace coug_fg {
 
@@ -33,7 +49,7 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
 
   dvl_sub_ = create_subscription<dvl_msgs::msg::DVL>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      std::bind(&DvlA50TwistBeamsNode::dvlCallback, this, std::placeholders::_1));
+      [this](dvl_msgs::msg::DVL::SharedPtr msg) { dvlCallback(msg); });
 
   twist_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
       params_.twist_output_topic, rclcpp::SystemDefaultsQoS());
@@ -56,13 +72,13 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::SharedPtr msg) {
+void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::SharedPtr& msg) {
   const auto now = this->get_clock()->now();
   last_dvl_time_ = now.seconds();
 
   if (params_.simulate_dropout && params_.dropout_frequency_hz > 0.0) {
-    double cycle_period = 1.0 / params_.dropout_frequency_hz;
-    bool should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
+    double const cycle_period = 1.0 / params_.dropout_frequency_hz;
+    bool const should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
     if (should_drop) {
       if (!is_simulating_dropout_) {
         RCLCPP_WARN(get_logger(), "Simulating DVL dropout.");
@@ -92,20 +108,22 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::SharedPtr msg) 
   }
 }
 
-rclcpp::Time DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::SharedPtr msg) {
+auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::SharedPtr& msg) const
+    -> rclcpp::Time {
   if (params_.override_timestamp) {
     return rclcpp::Time(msg->header.stamp);
   }
 
   static constexpr uint64_t kMicrosecondsPerSecond = 1000000;
   static constexpr uint64_t kNanosecondsPerMicrosecond = 1000;
-  uint64_t sec = msg->time_of_validity / kMicrosecondsPerSecond;
-  uint64_t nanosec = (msg->time_of_validity % kMicrosecondsPerSecond) * kNanosecondsPerMicrosecond;
-  return rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
+  uint64_t const sec = msg->time_of_validity / kMicrosecondsPerSecond;
+  uint64_t const nanosec =
+      (msg->time_of_validity % kMicrosecondsPerSecond) * kNanosecondsPerMicrosecond;
+  return {sec, nanosec, RCL_ROS_TIME};
 }
 
-geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistBeamsNode::convertToTwist(
-    const dvl_msgs::msg::DVL::SharedPtr msg) {
+auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::SharedPtr& msg)
+    -> geometry_msgs::msg::TwistWithCovarianceStamped {
   geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
   twist_msg.header.frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
@@ -119,7 +137,7 @@ geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistBeamsNode::convertToTw
   twist_msg.twist.twist.linear.z = kFrdToFlu[2] * msg->velocity.z;
 
   if (params_.use_fom_covariance) {
-    double var_vel = msg->fom * params_.fom_covariance_scale;
+    double const var_vel = msg->fom * params_.fom_covariance_scale;
     twist_msg.twist.covariance[0] = var_vel;
     twist_msg.twist.covariance[7] = var_vel;
     twist_msg.twist.covariance[14] = var_vel;
@@ -134,7 +152,7 @@ geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistBeamsNode::convertToTw
   return twist_msg;
 }
 
-DvlBeamList DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::SharedPtr msg) {
+auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::SharedPtr& msg) -> DvlBeamList {
   DvlBeamList beams_msg;
   beams_msg.header.frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
@@ -157,9 +175,10 @@ DvlBeamList DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::Share
   return beams_msg;
 }
 
-sensor_msgs::msg::Range DvlA50TwistBeamsNode::convertToRange(const dvl_msgs::msg::DVLBeam& beam,
-                                                             const std::string& frame_id,
-                                                             const rclcpp::Time& stamp) {
+auto DvlA50TwistBeamsNode::convertToRange(const dvl_msgs::msg::DVLBeam& beam,
+                                          const std::string& frame_id,
+                                          const rclcpp::Time& stamp) const
+    -> sensor_msgs::msg::Range {
   sensor_msgs::msg::Range range_msg;
   range_msg.header.frame_id = frame_id;
   range_msg.header.stamp = stamp;

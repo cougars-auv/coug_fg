@@ -28,11 +28,11 @@ class SbgImuMagNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void magCallback(const sensor_msgs::msg::MagneticField::SharedPtr msg);
+  void magCallback(const sensor_msgs::msg::MagneticField::SharedPtr& msg);
 
   // --- Helpers ---
   sensor_msgs::msg::MagneticField convertToTesla(
-      const sensor_msgs::msg::MagneticField::SharedPtr msg);
+      const sensor_msgs::msg::MagneticField::SharedPtr& msg) const;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::MagneticField>::SharedPtr mag_sub_;

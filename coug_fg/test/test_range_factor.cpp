@@ -13,7 +13,11 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
 
@@ -32,15 +36,17 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(RangeFactorArmTest, Jacobians) {
-  gtsam::Key pose_key_l = X(1);
-  gtsam::Key pose_key_n = X(2);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.2, -0.4, 0.1));
-  double measured_range = 10.0;
+  gtsam::Key const pose_key_l = X(1);
+  gtsam::Key const pose_key_n = X(2);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                       gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 const target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
+                                       gtsam::Point3(0.2, -0.4, 0.1));
+  double const measured_range = 10.0;
 
-  RangeFactorArm factor(pose_key_l, pose_key_n, measured_range, target_T_sensor_l,
-                        target_T_sensor_n, model);
+  RangeFactorArm const factor(pose_key_l, pose_key_n, measured_range, target_T_sensor_l,
+                              target_T_sensor_n, model);
 
   gtsam::Values values;
   values.insert(pose_key_l,
@@ -53,13 +59,15 @@ TEST(RangeFactorArmTest, Jacobians) {
 }
 
 TEST(RangeFactorArmTest, Residual) {
-  gtsam::Key pose_key_l = X(1);
-  gtsam::Key pose_key_n = X(2);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.2, -0.4, 0.1));
-  gtsam::Pose3 pose_l(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Pose3 pose_n(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0));
+  gtsam::Key const pose_key_l = X(1);
+  gtsam::Key const pose_key_n = X(2);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                       gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 const target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
+                                       gtsam::Point3(0.2, -0.4, 0.1));
+  gtsam::Pose3 const pose_l(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  gtsam::Pose3 const pose_n(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0));
 
   // Separation of the two modems, not of the two targets
   const gtsam::Point3 map_p_sensor_l =
@@ -70,8 +78,8 @@ TEST(RangeFactorArmTest, Residual) {
 
   // Measured short of the prediction
   constexpr double kOffset = 0.4;
-  RangeFactorArm factor(pose_key_l, pose_key_n, sensor_range - kOffset, target_T_sensor_l,
-                        target_T_sensor_n, model);
+  RangeFactorArm const factor(pose_key_l, pose_key_n, sensor_range - kOffset, target_T_sensor_l,
+                              target_T_sensor_n, model);
 
   EXPECT_NEAR(factor.evaluateError(pose_l, pose_n)(0), kOffset, kResidualTol);
 }

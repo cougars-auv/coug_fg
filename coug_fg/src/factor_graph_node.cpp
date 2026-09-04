@@ -13,11 +13,12 @@
 // limitations under the License.
 
 #include <memory>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/executors/multi_threaded_executor.hpp>
+#include <rclcpp/utilities.hpp>
 
 #include "coug_fg/factor_graph.hpp"
 
-int main(int argc, char* argv[]) {
+auto main(int argc, char* argv[]) -> int {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::FactorGraphNode>(rclcpp::NodeOptions());
   rclcpp::executors::MultiThreadedExecutor executor;

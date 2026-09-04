@@ -28,10 +28,10 @@ class OdomNedToEnuNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr& msg);
 
   // --- Helpers ---
-  nav_msgs::msg::Odometry convertToEnu(const nav_msgs::msg::Odometry::SharedPtr msg);
+  static nav_msgs::msg::Odometry convertToEnu(const nav_msgs::msg::Odometry::SharedPtr& msg);
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;

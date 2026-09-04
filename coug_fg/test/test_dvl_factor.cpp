@@ -13,7 +13,12 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/NoiseModel.h>
 #include <gtsam/navigation/ImuBias.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
@@ -35,17 +40,18 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DvlFactorArmTest, Jacobians) {
-  gtsam::Key pose_key = X(1);
-  gtsam::Key vel_key = V(1);
-  gtsam::Key bias_key = B(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
-  gtsam::Vector3 measured_vel(1.0, 0.5, -0.2);
-  gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
+  gtsam::Key const pose_key = X(1);
+  gtsam::Key const vel_key = V(1);
+  gtsam::Key const bias_key = B(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                     gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 const target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
+  gtsam::Vector3 const measured_vel(1.0, 0.5, -0.2);
+  gtsam::Vector3 const measured_gyro(0.1, -0.3, 0.2);
 
-  DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu, measured_vel,
-                      measured_gyro, model);
+  DvlFactorArm const factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
+                            measured_vel, measured_gyro, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -59,18 +65,19 @@ TEST(DvlFactorArmTest, Jacobians) {
 }
 
 TEST(DvlFactorArmTest, Residual) {
-  gtsam::Key pose_key = X(1);
-  gtsam::Key vel_key = V(1);
-  gtsam::Key bias_key = B(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
-  gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
+  gtsam::Key const pose_key = X(1);
+  gtsam::Key const vel_key = V(1);
+  gtsam::Key const bias_key = B(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                     gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 const target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
+  gtsam::Vector3 const measured_gyro(0.1, -0.3, 0.2);
 
-  gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Vector3 map_v_target(1.5, -0.5, 0.2);
-  gtsam::imuBias::ConstantBias bias(gtsam::Vector3(0.01, -0.02, 0.03),
-                                    gtsam::Vector3(0.02, -0.01, 0.01));
+  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  gtsam::Vector3 const map_v_target(1.5, -0.5, 0.2);
+  gtsam::imuBias::ConstantBias const bias(gtsam::Vector3(0.01, -0.02, 0.03),
+                                          gtsam::Vector3(0.02, -0.01, 0.01));
 
   // Velocity the DVL would report: target motion plus lever arm rotation
   const gtsam::Vector3 target_omega =
@@ -82,8 +89,8 @@ TEST(DvlFactorArmTest, Residual) {
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(0.01, -0.02, 0.03);
-  DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
-                      sensor_vel - offset, measured_gyro, model);
+  DvlFactorArm const factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
+                            sensor_vel - offset, measured_gyro, model);
 
   const gtsam::Vector expected = offset;
   EXPECT_TRUE(

@@ -14,9 +14,30 @@
 
 #include "coug_fg/dvl_a50_odom.hpp"
 
+#include <math.h>
+#include <rcl/time.h>
+
 #include <cmath>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2/convert.hpp>
+#include <tf2/exceptions.hpp>
+#include <tf2/time.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
+
+#include "coug_fg/dvl_a50_odom_parameters.hpp"
+#include "dvl_msgs/msg/dvldr.hpp"
+#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 
 namespace coug_fg {
 
@@ -31,7 +52,7 @@ DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
 
   dvl_sub_ = create_subscription<dvl_msgs::msg::DVLDR>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      std::bind(&DvlA50OdomNode::dvlCallback, this, std::placeholders::_1));
+      [this](dvl_msgs::msg::DVLDR::SharedPtr msg) { dvlCallback(msg); });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -39,8 +60,8 @@ DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
-  std::string dvl_frame =
+void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr& msg) {
+  std::string const dvl_frame =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
 
   geometry_msgs::msg::TransformStamped dvl_T_base_tf;
@@ -55,9 +76,10 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr msg) {
   odom_pub_->publish(convertToOdom(msg, dvl_frame, dvl_T_base_tf));
 }
 
-nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
-    const dvl_msgs::msg::DVLDR::SharedPtr msg, const std::string& dvl_frame,
-    const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) {
+auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::SharedPtr& msg,
+                                   const std::string& dvl_frame,
+                                   const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) const
+    -> nav_msgs::msg::Odometry {
   // Transform the DVL pose to the base pose, both in the odom frame
   geometry_msgs::msg::Pose dvl_T_base;
   dvl_T_base.position.x = dvl_T_base_tf.transform.translation.x;
@@ -94,14 +116,14 @@ nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
     odom_msg.header.stamp = msg->header.stamp;
   } else {
     static constexpr double kSecondsToNanoseconds = 1e9;
-    uint64_t sec = static_cast<uint64_t>(msg->time);
-    uint64_t nanosec = static_cast<uint64_t>((msg->time - sec) * kSecondsToNanoseconds);
+    auto const sec = static_cast<uint64_t>(msg->time);
+    auto const nanosec = static_cast<uint64_t>((msg->time - sec) * kSecondsToNanoseconds);
     odom_msg.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 
   odom_msg.pose.pose = odom_T_base;
 
-  double var_pos = msg->pos_std * msg->pos_std;
+  double const var_pos = msg->pos_std * msg->pos_std;
   odom_msg.pose.covariance[0] = var_pos;
   odom_msg.pose.covariance[7] = var_pos;
   odom_msg.pose.covariance[14] = var_pos;

@@ -13,7 +13,11 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
 
@@ -32,12 +36,13 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DepthFactorArmTest, Jacobians) {
-  gtsam::Key pose_key = X(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  double measured_depth = 5.0;
+  gtsam::Key const pose_key = X(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                     gtsam::Point3(0.5, 0.5, 0.5));
+  double const measured_depth = 5.0;
 
-  DepthFactorArm factor(pose_key, measured_depth, target_T_sensor, model);
+  DepthFactorArm const factor(pose_key, measured_depth, target_T_sensor, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -48,10 +53,11 @@ TEST(DepthFactorArmTest, Jacobians) {
 }
 
 TEST(DepthFactorArmTest, Residual) {
-  gtsam::Key pose_key = X(1);
-  gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  gtsam::Key const pose_key = X(1);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                     gtsam::Point3(0.5, 0.5, 0.5));
+  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
 
   // Depth of the sensor itself, not of the target
   const double sensor_depth =
@@ -59,7 +65,7 @@ TEST(DepthFactorArmTest, Residual) {
 
   // Measured shallower than the state predicts
   constexpr double kOffset = 0.25;
-  DepthFactorArm factor(pose_key, sensor_depth - kOffset, target_T_sensor, model);
+  DepthFactorArm const factor(pose_key, sensor_depth - kOffset, target_T_sensor, model);
 
   EXPECT_NEAR(factor.evaluateError(pose)(0), kOffset, kResidualTol);
 }

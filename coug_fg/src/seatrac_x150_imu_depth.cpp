@@ -14,11 +14,22 @@
 
 #include "coug_fg/seatrac_x150_imu_depth.hpp"
 
-#include <tf2/LinearMath/Quaternion.h>
+#include <math.h>
 
 #include <cmath>
+#include <functional>
+#include <memory>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include "coug_fg/seatrac_x150_imu_depth_parameters.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "seatrac_interfaces/msg/modem_status.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 
 namespace coug_fg {
 
@@ -30,7 +41,7 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
 
   modem_sub_ = create_subscription<seatrac_interfaces::msg::ModemStatus>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      std::bind(&SeatracX150ImuDepthNode::modemStatusCallback, this, std::placeholders::_1));
+      [this](seatrac_interfaces::msg::ModemStatus::SharedPtr msg) { modemStatusCallback(msg); });
 
   imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(params_.imu_output_topic,
                                                      rclcpp::SystemDefaultsQoS());
@@ -42,7 +53,7 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
 }
 
 void SeatracX150ImuDepthNode::modemStatusCallback(
-    const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
+    const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg) {
   if (msg->includes_local_attitude) {
     imu_pub_->publish(convertToImu(msg));
   }
@@ -52,8 +63,8 @@ void SeatracX150ImuDepthNode::modemStatusCallback(
   }
 }
 
-sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
-    const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
+auto SeatracX150ImuDepthNode::convertToImu(
+    const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg) const -> sensor_msgs::msg::Imu {
   sensor_msgs::msg::Imu imu_msg;
   imu_msg.header = msg->header;
   if (params_.use_parameter_frame) {
@@ -61,9 +72,9 @@ sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
   }
 
   static constexpr double kSeatracToRad = M_PI / 1800.0;
-  double roll_rad = msg->attitude_roll * kSeatracToRad;
-  double pitch_rad = msg->attitude_pitch * kSeatracToRad;
-  double yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
+  double const roll_rad = msg->attitude_roll * kSeatracToRad;
+  double const pitch_rad = msg->attitude_pitch * kSeatracToRad;
+  double const yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
 
   tf2::Quaternion q;
   q.setRPY(roll_rad, pitch_rad, yaw_rad);
@@ -86,8 +97,8 @@ sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
   return imu_msg;
 }
 
-nav_msgs::msg::Odometry SeatracX150ImuDepthNode::convertToOdom(
-    const seatrac_interfaces::msg::ModemStatus::SharedPtr msg) {
+auto SeatracX150ImuDepthNode::convertToOdom(
+    const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg) -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;
@@ -99,7 +110,7 @@ nav_msgs::msg::Odometry SeatracX150ImuDepthNode::convertToOdom(
   odom_msg.pose.pose.position.z = msg->depth_local * kSeatracToMeters;
   odom_msg.pose.pose.orientation.w = 1.0;
 
-  double var_depth = params_.depth_noise_sigma * params_.depth_noise_sigma;
+  double const var_depth = params_.depth_noise_sigma * params_.depth_noise_sigma;
   odom_msg.pose.covariance[14] = var_depth;
 
   return odom_msg;

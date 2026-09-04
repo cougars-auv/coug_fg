@@ -34,18 +34,19 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void dvlCallback(const dvl_msgs::msg::DVL::SharedPtr msg);
+  void dvlCallback(const dvl_msgs::msg::DVL::SharedPtr& msg);
 
   // --- Helpers ---
-  rclcpp::Time resolveStamp(const dvl_msgs::msg::DVL::SharedPtr msg);
+  rclcpp::Time resolveStamp(const dvl_msgs::msg::DVL::SharedPtr& msg) const;
 
   geometry_msgs::msg::TwistWithCovarianceStamped convertToTwist(
-      const dvl_msgs::msg::DVL::SharedPtr msg);
+      const dvl_msgs::msg::DVL::SharedPtr& msg);
 
-  coug_interfaces::msg::DvlBeamList convertToBeams(const dvl_msgs::msg::DVL::SharedPtr msg);
+  coug_interfaces::msg::DvlBeamList convertToBeams(const dvl_msgs::msg::DVL::SharedPtr& msg);
 
   sensor_msgs::msg::Range convertToRange(const dvl_msgs::msg::DVLBeam& beam,
-                                         const std::string& frame_id, const rclcpp::Time& stamp);
+                                         const std::string& frame_id,
+                                         const rclcpp::Time& stamp) const;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvl_sub_;

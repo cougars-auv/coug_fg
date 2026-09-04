@@ -76,7 +76,7 @@ struct OptimizeResult {
 
 class FactorGraphCore {
  public:
-  explicit FactorGraphCore(const factor_graph_node::Params& params);
+  explicit FactorGraphCore(factor_graph_node::Params params);
 
   void setLogCallback(utils::LogCallback callback);
 
@@ -213,7 +213,8 @@ class FactorGraphCore {
   void addNeighborPriorFactor(gtsam::NonlinearFactorGraph& graph, const NeighborState& neighbor,
                               size_t agent_queue_idx);
 
-  void addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& graph, const NeighborState& neighbor);
+  static void addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& graph,
+                                       const NeighborState& neighbor);
 
   void addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph, const utils::AgentStatusData& msg,
                               const NeighborState& neighbor, size_t agent_queue_idx);

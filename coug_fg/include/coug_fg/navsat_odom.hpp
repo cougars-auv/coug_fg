@@ -32,14 +32,14 @@ class NavsatOdomNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void originCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+  void originCallback(const sensor_msgs::msg::NavSatFix::SharedPtr& msg);
 
-  void navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+  void navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr& msg);
 
   // --- Helpers ---
   void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
 
-  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::NavSatFix::SharedPtr& msg);
 
   // --- Diagnostics ---
   void checkOriginStatus(diagnostic_updater::DiagnosticStatusWrapper& stat);

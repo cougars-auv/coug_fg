@@ -14,12 +14,19 @@
 
 #include "coug_fg/imu_ned_to_enu.hpp"
 
-#include <tf2/LinearMath/Quaternion.h>
-
-#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <cmath>
+#include <functional>
+#include <memory>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include "coug_fg/imu_ned_to_enu_parameters.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 
 namespace coug_fg {
 
@@ -31,7 +38,7 @@ ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
 
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      std::bind(&ImuNedToEnuNode::imuCallback, this, std::placeholders::_1));
+      [this](sensor_msgs::msg::Imu::SharedPtr msg) { imuCallback(msg); });
 
   imu_pub_ =
       create_publisher<sensor_msgs::msg::Imu>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -39,11 +46,12 @@ ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
+void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr& msg) {
   imu_pub_->publish(convertToEnu(msg));
 }
 
-sensor_msgs::msg::Imu ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu::SharedPtr msg) {
+auto ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu::SharedPtr& msg)
+    -> sensor_msgs::msg::Imu {
   sensor_msgs::msg::Imu imu_msg = *msg;
 
   // Convert NED -> ENU

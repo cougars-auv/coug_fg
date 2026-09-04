@@ -14,7 +14,15 @@
 
 #include "coug_fg/sbg_imu_mag.hpp"
 
+#include <functional>
+#include <memory>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+
+#include "coug_fg/sbg_imu_mag_parameters.hpp"
+#include "sensor_msgs/msg/magnetic_field.hpp"
 
 namespace coug_fg {
 
@@ -26,7 +34,7 @@ SbgImuMagNode::SbgImuMagNode(const rclcpp::NodeOptions& options)
 
   mag_sub_ = create_subscription<sensor_msgs::msg::MagneticField>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      std::bind(&SbgImuMagNode::magCallback, this, std::placeholders::_1));
+      [this](sensor_msgs::msg::MagneticField::SharedPtr msg) { magCallback(msg); });
 
   mag_pub_ = create_publisher<sensor_msgs::msg::MagneticField>(params_.output_topic,
                                                                rclcpp::SystemDefaultsQoS());
@@ -34,12 +42,12 @@ SbgImuMagNode::SbgImuMagNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void SbgImuMagNode::magCallback(const sensor_msgs::msg::MagneticField::SharedPtr msg) {
+void SbgImuMagNode::magCallback(const sensor_msgs::msg::MagneticField::SharedPtr& msg) {
   mag_pub_->publish(convertToTesla(msg));
 }
 
-sensor_msgs::msg::MagneticField SbgImuMagNode::convertToTesla(
-    const sensor_msgs::msg::MagneticField::SharedPtr msg) {
+auto SbgImuMagNode::convertToTesla(const sensor_msgs::msg::MagneticField::SharedPtr& msg) const
+    -> sensor_msgs::msg::MagneticField {
   sensor_msgs::msg::MagneticField mag_msg = *msg;
 
   const double scale = params_.au_to_tesla;

@@ -42,7 +42,7 @@ class NavsatOdomNode : public rclcpp::Node {
   nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg);
 
   // --- Diagnostics ---
-  void checkOriginStatus(diagnostic_updater::DiagnosticStatusWrapper& stat);
+  void checkOriginStatus(diagnostic_updater::DiagnosticStatusWrapper& stat) const;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr navsat_sub_;

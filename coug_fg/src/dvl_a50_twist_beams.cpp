@@ -130,7 +130,7 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   twist_msg.header.stamp = resolveStamp(msg);
 
   // Convert FRD -> FLU
-  static constexpr double kFrdToFlu[3] = {1.0, -1.0, -1.0};
+  static constexpr std::array<double, 3> kFrdToFlu = {1.0, -1.0, -1.0};
 
   twist_msg.twist.twist.linear.x = kFrdToFlu[0] * msg->velocity.x;
   twist_msg.twist.twist.linear.y = kFrdToFlu[1] * msg->velocity.y;

@@ -407,13 +407,13 @@ void FactorGraphNode::multiAgentCallback(const AgentStatus::ConstSharedPtr& msg,
 }
 
 FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
-    : Node("factor_graph_node", options), diagnostic_updater_(this) {
-  param_listener_ =
-      std::make_shared<factor_graph_node::ParamListener>(get_node_parameters_interface());
-  params_ = param_listener_->get_params();
-  keyframe_source_ = parseKeyframeSource(params_.keyframe_source);
-  backup_keyframe_source_ = parseKeyframeSource(params_.backup_keyframe_source);
-
+    : Node("factor_graph_node", options),
+      diagnostic_updater_(this),
+      param_listener_(
+          std::make_shared<factor_graph_node::ParamListener>(get_node_parameters_interface())),
+      params_(param_listener_->get_params()),
+      keyframe_source_(parseKeyframeSource(params_.keyframe_source)),
+      backup_keyframe_source_(parseKeyframeSource(params_.backup_keyframe_source)) {
   // Ensure the keyframe sources are valid
   auto source_enabled = [this](KeyframeSource source) {
     switch (source) {

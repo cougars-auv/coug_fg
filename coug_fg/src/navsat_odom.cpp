@@ -83,7 +83,9 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
     std::string const prefix = clean_ns.empty() ? "" : "[" + clean_ns + "] ";
 
     std::string const origin_task = prefix + "Origin Status";
-    diagnostic_updater_.add(origin_task, this, &NavsatOdomNode::checkOriginStatus);
+    diagnostic_updater_.add(origin_task, [this](diagnostic_updater::DiagnosticStatusWrapper& stat) {
+      checkOriginStatus(stat);
+    });
   }
 
   RCLCPP_INFO(get_logger(), "Initialization complete.");
@@ -175,7 +177,7 @@ auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstShare
   return odom_msg;
 }
 
-void NavsatOdomNode::checkOriginStatus(diagnostic_updater::DiagnosticStatusWrapper& stat) {
+void NavsatOdomNode::checkOriginStatus(diagnostic_updater::DiagnosticStatusWrapper& stat) const {
   if (origin_set_) {
     stat.add("Origin Latitude", origin_navsat_.latitude);
     stat.add("Origin Longitude", origin_navsat_.longitude);

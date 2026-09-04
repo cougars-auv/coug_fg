@@ -37,6 +37,7 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -409,13 +410,13 @@ auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& q
   const bool start_depth = params_.depth.enable_depth && keyframed_by(KeyframeSource::kDepth);
   const bool start_dvl = params_.dvl.enable_dvl && keyframed_by(KeyframeSource::kDvl);
 
-  const std::pair<bool, const char*> requirements[] = {
+  const std::array<std::pair<bool, const char*>, 5> requirements = {{
       {queues.imu.empty(), "IMU"},
       {use_gps && queues.gps.empty(), "GPS"},
       {use_depth && queues.depth.empty(), "depth"},
       {(use_ahrs || need_ahrs) && queues.ahrs.empty(), "AHRS"},
       {(use_dvl || need_dvl) && queues.dvl.empty(), "DVL"},
-  };
+  }};
   std::string missing;
   for (const auto& [is_missing, name] : requirements) {
     if (is_missing) {

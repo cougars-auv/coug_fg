@@ -38,7 +38,7 @@ class FluidPressureOdomNode : public rclcpp::Node {
 
   // --- Helpers ---
   nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg,
-                                        double pressure, double reference_pressure);
+                                        double pressure, double reference_pressure) const;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::FluidPressure>::SharedPtr pressure_sub_;

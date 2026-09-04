@@ -115,8 +115,9 @@ auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& m
     odom_msg.header.stamp = msg->header.stamp;
   } else {
     static constexpr double kSecondsToNanoseconds = 1e9;
-    auto const sec = static_cast<uint64_t>(msg->time);
-    auto const nanosec = static_cast<uint64_t>((msg->time - sec) * kSecondsToNanoseconds);
+    double const whole_sec = std::floor(msg->time);
+    auto const sec = static_cast<int32_t>(whole_sec);
+    auto const nanosec = static_cast<uint32_t>((msg->time - whole_sec) * kSecondsToNanoseconds);
     odom_msg.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 

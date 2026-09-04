@@ -90,11 +90,11 @@ auto toRot3(const Eigen::Vector4d& q) -> gtsam::Rot3 {
 
 auto toQuatXyzw(const gtsam::Rot3& rot) -> Eigen::Vector4d {
   gtsam::Quaternion q = rot.toQuaternion();
-  return Eigen::Vector4d(q.x(), q.y(), q.z(), q.w());
+  return {q.x(), q.y(), q.z(), q.w()};
 }
 
 auto toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& q) -> gtsam::Pose3 {
-  return gtsam::Pose3(toRot3(q), gtsam::Point3(position));
+  return {toRot3(q), gtsam::Point3(position)};
 }
 
 void pyLogCallback(LogLevel level, const std::string& msg) {

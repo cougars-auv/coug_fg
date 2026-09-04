@@ -99,7 +99,8 @@ auto SeatracX150ImuDepthNode::convertToImu(
 }
 
 auto SeatracX150ImuDepthNode::convertToOdom(
-    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) -> nav_msgs::msg::Odometry {
+    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const
+    -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;

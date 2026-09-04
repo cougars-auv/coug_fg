@@ -111,14 +111,14 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
 auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
     -> rclcpp::Time {
   if (params_.override_timestamp) {
-    return rclcpp::Time(msg->header.stamp);
+    return {msg->header.stamp};
   }
 
   static constexpr uint64_t kMicrosecondsPerSecond = 1000000;
   static constexpr uint64_t kNanosecondsPerMicrosecond = 1000;
-  uint64_t const sec = msg->time_of_validity / kMicrosecondsPerSecond;
-  uint64_t const nanosec =
-      (msg->time_of_validity % kMicrosecondsPerSecond) * kNanosecondsPerMicrosecond;
+  auto const sec = static_cast<int32_t>(msg->time_of_validity / kMicrosecondsPerSecond);
+  auto const nanosec = static_cast<uint32_t>((msg->time_of_validity % kMicrosecondsPerSecond) *
+                                             kNanosecondsPerMicrosecond);
   return {sec, nanosec, RCL_ROS_TIME};
 }
 

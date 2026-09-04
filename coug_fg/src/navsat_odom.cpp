@@ -146,9 +146,9 @@ auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstShare
   odom_msg.child_frame_id =
       params_.use_parameter_child_frame ? params_.parameter_child_frame : msg->header.frame_id;
 
-  double east;
-  double north;
-  double up;
+  double east = 0.0;
+  double north = 0.0;
+  double up = 0.0;
   local_cartesian_.Forward(msg->latitude, msg->longitude, msg->altitude, east, north, up);
 
   odom_msg.pose.pose.position.x = east;

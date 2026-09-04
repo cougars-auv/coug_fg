@@ -99,7 +99,7 @@ void FluidPressureOdomNode::calibrateCallback(
 
 auto FluidPressureOdomNode::convertToOdom(
     const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg, double pressure,
-    double reference_pressure) -> nav_msgs::msg::Odometry {
+    double reference_pressure) const -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;

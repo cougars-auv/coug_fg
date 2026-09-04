@@ -25,11 +25,12 @@ fi
 evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--align" \
   "--project_to_plane xy") || exit 0
-evo_flags=$(echo "${evo_options}" | tr '\n' ' ')
+evo_flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')
 
+mapfile -t selected_bags <<< "${bags}"
 bag_paths=()
-for b in ${bags}; do
-  bag_paths+=("${BAGS_DIR}/${b}")
+for bag in "${selected_bags[@]}"; do
+  bag_paths+=("${BAGS_DIR}/${bag}")
 done
 
 # --- Process ---

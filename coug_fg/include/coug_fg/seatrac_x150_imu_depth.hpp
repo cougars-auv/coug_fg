@@ -30,13 +30,14 @@ class SeatracX150ImuDepthNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void modemStatusCallback(const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg);
+  void modemStatusCallback(const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg);
 
   // --- Helpers ---
   sensor_msgs::msg::Imu convertToImu(
-      const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg) const;
+      const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const;
 
-  nav_msgs::msg::Odometry convertToOdom(const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg);
+  nav_msgs::msg::Odometry convertToOdom(
+      const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg);
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<seatrac_interfaces::msg::ModemStatus>::SharedPtr modem_sub_;

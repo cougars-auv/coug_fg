@@ -14,7 +14,6 @@
 
 #include "coug_fg/factor_graph_py.hpp"
 
-#include <Eigen/src/Core/Matrix.h>
 #include <gtsam/base/Vector.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
@@ -28,6 +27,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
+#include <Eigen/Dense>
 #include <cstddef>
 #include <memory>
 #include <optional>

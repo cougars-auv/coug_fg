@@ -37,15 +37,17 @@ FluidPressureOdomNode::FluidPressureOdomNode(const rclcpp::NodeOptions& options)
 
   pressure_sub_ = create_subscription<sensor_msgs::msg::FluidPressure>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](sensor_msgs::msg::FluidPressure::SharedPtr msg) { pressureCallback(msg); });
+      [this](const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg) {
+        pressureCallback(msg);
+      });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
 
   calibrate_srv_ = create_service<std_srvs::srv::Trigger>(
       params_.calibrate_service,
-      [this](std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-             std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+      [this](const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
+             const std::shared_ptr<std_srvs::srv::Trigger::Response>& response) {
         calibrateCallback(request, response);
       });
 
@@ -53,7 +55,7 @@ FluidPressureOdomNode::FluidPressureOdomNode(const rclcpp::NodeOptions& options)
 }
 
 void FluidPressureOdomNode::pressureCallback(
-    const sensor_msgs::msg::FluidPressure::SharedPtr& msg) {
+    const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg) {
   double const pressure = msg->fluid_pressure * params_.pressure_scale;
 
   if (params_.max_pressure_delta > 0.0 && last_pressure_ >= 0.0 &&
@@ -95,9 +97,9 @@ void FluidPressureOdomNode::calibrateCallback(
               calibrated_pressure_);
 }
 
-auto FluidPressureOdomNode::convertToOdom(const sensor_msgs::msg::FluidPressure::SharedPtr& msg,
-                                          double pressure, double reference_pressure)
-    -> nav_msgs::msg::Odometry {
+auto FluidPressureOdomNode::convertToOdom(
+    const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg, double pressure,
+    double reference_pressure) -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;

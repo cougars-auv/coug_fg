@@ -34,11 +34,11 @@ class DvlA50OdomNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr& msg);
+  void dvlCallback(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg);
 
   // --- Helpers ---
   nav_msgs::msg::Odometry convertToOdom(
-      const dvl_msgs::msg::DVLDR::SharedPtr& msg, const std::string& dvl_frame,
+      const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg, const std::string& dvl_frame,
       const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) const;
 
   // --- ROS Interfaces ---

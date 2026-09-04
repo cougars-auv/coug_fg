@@ -31,13 +31,13 @@ class FluidPressureOdomNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void pressureCallback(const sensor_msgs::msg::FluidPressure::SharedPtr& msg);
+  void pressureCallback(const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg);
 
   void calibrateCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
                          const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
 
   // --- Helpers ---
-  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::FluidPressure::SharedPtr& msg,
+  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg,
                                         double pressure, double reference_pressure);
 
   // --- ROS Interfaces ---

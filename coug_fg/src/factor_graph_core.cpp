@@ -14,8 +14,6 @@
 
 #include "coug_fg/factor_graph_core.hpp"
 
-#include <Eigen/src/Core/Map.h>
-#include <Eigen/src/Core/Matrix.h>
 #include <gtsam/base/Matrix.h>
 #include <gtsam/base/Vector.h>
 #include <gtsam/base/types.h>
@@ -37,6 +35,7 @@
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/slam/BetweenFactor.h>
 
+#include <Eigen/Dense>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -612,7 +611,7 @@ auto FactorGraphCore::initialize(double init_time, const QueueBundle& queues, co
 
   gtsam::ISAM2Params isam2_params;
   isam2_params.relinearizeThreshold = params_.relinearize_threshold;
-  isam2_params.relinearizeSkip = params_.relinearize_skip;
+  isam2_params.relinearizeSkip = static_cast<int>(params_.relinearize_skip);
 
   switch (parseSolverType(params_.solver_type)) {
     case SolverType::kIsam2:
@@ -852,7 +851,6 @@ void FactorGraphCore::addImuPreintFactor(gtsam::NonlinearFactorGraph& graph,
     if (dt > kMinIntegrationDt) {
       imu_preintegrator_->integrateMeasurement(last_imu_accel_, last_imu_gyro_, dt);
     }
-    last_imu_time = target_time;
   }
 
   graph.emplace_shared<gtsam::CombinedImuFactor>(X(prev_step_), V(prev_step_), X(curr_step_),
@@ -919,7 +917,6 @@ void FactorGraphCore::addDvlLoosePreintFactor(
       gtsam::Rot3 const map_R_dvl = map_R_ahrs * ahrs_R_target * target_R_dvl;
       dvl_loose_preintegrator_->integrateMeasurement(last_dvl_vel_, map_R_dvl, dt, last_dvl_cov_);
     }
-    last_dvl_time = target_time;
   }
 
   gtsam::SharedNoiseModel preint_noise =
@@ -1046,7 +1043,6 @@ void FactorGraphCore::addDvlTightPreintFactor(
     if (dt > kMinIntegrationDt) {
       integrate_dvl_measurement(last_dvl_time, target_time, last_dvl_vel_);
     }
-    last_dvl_time = target_time;
   }
 
   gtsam::SharedNoiseModel preint_noise =

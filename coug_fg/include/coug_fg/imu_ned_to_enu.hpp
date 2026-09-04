@@ -28,10 +28,10 @@ class ImuNedToEnuNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void imuCallback(const sensor_msgs::msg::Imu::SharedPtr& msg);
+  void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  static sensor_msgs::msg::Imu convertToEnu(const sensor_msgs::msg::Imu::SharedPtr& msg);
+  static sensor_msgs::msg::Imu convertToEnu(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;

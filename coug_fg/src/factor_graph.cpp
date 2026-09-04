@@ -14,15 +14,13 @@
 
 #include "coug_fg/factor_graph.hpp"
 
-#include <Eigen/src/Core/Map.h>
-#include <Eigen/src/Core/Matrix.h>
-#include <Eigen/src/Core/util/Constants.h>
 #include <gtsam/base/Matrix.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/navigation/ImuBias.h>
 #include <gtsam/nonlinear/Values.h>
 #include <rcl/time.h>
 
+#include <Eigen/Dense>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -148,9 +146,9 @@ void FactorGraphNode::setupRosInterfaces() {
   reset_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   reset_srv_ = create_service<std_srvs::srv::Trigger>(
       params_.reset_service,
-      [this](const std_srvs::srv::Trigger::Request::SharedPtr req,
-             std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
-        resetGraph(req, std::move(res));
+      [this](const std_srvs::srv::Trigger::Request::SharedPtr& req,
+             const std::shared_ptr<std_srvs::srv::Trigger::Response>& res) {
+        resetGraph(req, res);
       },
       rclcpp::ServicesQoS(), reset_cb_group_);
 
@@ -160,24 +158,27 @@ void FactorGraphNode::setupRosInterfaces() {
 
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       params_.imu_topic, rclcpp::SensorDataQoS().keep_last(kSensorQueueDepth),
-      [this](sensor_msgs::msg::Imu::SharedPtr msg) { imuCallback(msg); }, sensor_options);
+      [this](const sensor_msgs::msg::Imu::ConstSharedPtr& msg) { imuCallback(msg); },
+      sensor_options);
 
   if (params_.gps.enable_gps || params_.gps.enable_gps_init_priors) {
     gps_sub_ = create_subscription<nav_msgs::msg::Odometry>(
         params_.gps_odom_topic, rclcpp::SensorDataQoS(),
-        [this](nav_msgs::msg::Odometry::SharedPtr msg) { gpsCallback(msg); }, sensor_options);
+        [this](const nav_msgs::msg::Odometry::ConstSharedPtr& msg) { gpsCallback(msg); },
+        sensor_options);
   }
 
   if (params_.depth.enable_depth || params_.depth.enable_depth_init_priors) {
     depth_sub_ = create_subscription<nav_msgs::msg::Odometry>(
         params_.depth_odom_topic, rclcpp::SensorDataQoS(),
-        [this](nav_msgs::msg::Odometry::SharedPtr msg) { depthCallback(msg); }, sensor_options);
+        [this](const nav_msgs::msg::Odometry::ConstSharedPtr& msg) { depthCallback(msg); },
+        sensor_options);
   }
 
   if (params_.mag.enable_mag) {
     mag_sub_ = create_subscription<sensor_msgs::msg::MagneticField>(
         params_.mag_topic, rclcpp::SensorDataQoS(),
-        [this](sensor_msgs::msg::MagneticField::SharedPtr msg) { magCallback(msg); },
+        [this](const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) { magCallback(msg); },
         sensor_options);
   }
 
@@ -185,20 +186,25 @@ void FactorGraphNode::setupRosInterfaces() {
       params_.comparison.enable_loose_dvl_preintegration) {
     ahrs_sub_ = create_subscription<sensor_msgs::msg::Imu>(
         params_.ahrs_topic, rclcpp::SensorDataQoS().keep_last(kSensorQueueDepth),
-        [this](sensor_msgs::msg::Imu::SharedPtr msg) { ahrsCallback(msg); }, sensor_options);
+        [this](const sensor_msgs::msg::Imu::ConstSharedPtr& msg) { ahrsCallback(msg); },
+        sensor_options);
   }
 
   if (params_.dvl.enable_dvl || params_.dvl.enable_dvl_init_priors) {
     dvl_sub_ = create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
         params_.dvl_topic, rclcpp::SensorDataQoS(),
-        [this](geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) { dvlCallback(msg); },
+        [this](const geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr& msg) {
+          dvlCallback(msg);
+        },
         sensor_options);
   }
 
   if (params_.wrench.enable_wrench || params_.wrench.enable_wrench_dropout_only) {
     wrench_sub_ = create_subscription<geometry_msgs::msg::WrenchStamped>(
         params_.wrench_topic, rclcpp::SensorDataQoS(),
-        [this](geometry_msgs::msg::WrenchStamped::SharedPtr msg) { wrenchCallback(msg); },
+        [this](const geometry_msgs::msg::WrenchStamped::ConstSharedPtr& msg) {
+          wrenchCallback(msg);
+        },
         sensor_options);
   }
 
@@ -212,10 +218,10 @@ void FactorGraphNode::setupRosInterfaces() {
 
       multiagent_queues_.push_back(
           std::make_unique<ThreadSafeQueue<std::shared_ptr<AgentStatusData>>>());
-      std::function<void(AgentStatus::SharedPtr)> const callback = [this,
-                                                                    agent_queue_idx](auto&& PH1) {
-        multiAgentCallback(std::forward<decltype(PH1)>(PH1), agent_queue_idx);
-      };
+      std::function<void(AgentStatus::ConstSharedPtr)> const callback =
+          [this, agent_queue_idx](auto&& PH1) {
+            multiAgentCallback(std::forward<decltype(PH1)>(PH1), agent_queue_idx);
+          };
       multiagent_subs_.push_back(create_subscription<AgentStatus>(
           status_topic, rclcpp::SystemDefaultsQoS(), callback, sensor_options));
     }
@@ -254,7 +260,7 @@ void FactorGraphNode::setupRosInterfaces() {
   }
 }
 
-void FactorGraphNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr& msg) {
+void FactorGraphNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
   std::string const child_frame =
       params_.imu.use_parameter_frame ? params_.imu.parameter_frame : msg->header.frame_id;
   if (!loadOrLookupTf(target_T_imu_tf_, child_frame, params_.imu.use_parameter_tf,
@@ -274,7 +280,7 @@ void FactorGraphNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr& msg) {
   imu_queue_.push(imu_msg);
 }
 
-void FactorGraphNode::gpsCallback(const nav_msgs::msg::Odometry::SharedPtr& msg) {
+void FactorGraphNode::gpsCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) {
   std::string const child_frame =
       params_.gps.use_parameter_frame ? params_.gps.parameter_frame : msg->child_frame_id;
   if (!loadOrLookupTf(target_T_gps_tf_, child_frame, params_.gps.use_parameter_tf,
@@ -288,7 +294,7 @@ void FactorGraphNode::gpsCallback(const nav_msgs::msg::Odometry::SharedPtr& msg)
   gps_queue_.push(gps_msg);
 }
 
-void FactorGraphNode::depthCallback(const nav_msgs::msg::Odometry::SharedPtr& msg) {
+void FactorGraphNode::depthCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) {
   std::string const child_frame =
       params_.depth.use_parameter_frame ? params_.depth.parameter_frame : msg->child_frame_id;
   if (!loadOrLookupTf(target_T_depth_tf_, child_frame, params_.depth.use_parameter_tf,
@@ -308,7 +314,7 @@ void FactorGraphNode::depthCallback(const nav_msgs::msg::Odometry::SharedPtr& ms
   }
 }
 
-void FactorGraphNode::magCallback(const sensor_msgs::msg::MagneticField::SharedPtr& msg) {
+void FactorGraphNode::magCallback(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) {
   std::string const child_frame =
       params_.mag.use_parameter_frame ? params_.mag.parameter_frame : msg->header.frame_id;
   if (!loadOrLookupTf(target_T_mag_tf_, child_frame, params_.mag.use_parameter_tf,
@@ -326,7 +332,7 @@ void FactorGraphNode::magCallback(const sensor_msgs::msg::MagneticField::SharedP
   mag_queue_.push(mag_msg);
 }
 
-void FactorGraphNode::ahrsCallback(const sensor_msgs::msg::Imu::SharedPtr& msg) {
+void FactorGraphNode::ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
   std::string const child_frame =
       params_.ahrs.use_parameter_frame ? params_.ahrs.parameter_frame : msg->header.frame_id;
   if (!loadOrLookupTf(target_T_ahrs_tf_, child_frame, params_.ahrs.use_parameter_tf,
@@ -341,7 +347,7 @@ void FactorGraphNode::ahrsCallback(const sensor_msgs::msg::Imu::SharedPtr& msg) 
 }
 
 void FactorGraphNode::dvlCallback(
-    const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr& msg) {
+    const geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr& msg) {
   std::string const child_frame =
       params_.dvl.use_parameter_frame ? params_.dvl.parameter_frame : msg->header.frame_id;
   if (!loadOrLookupTf(target_T_dvl_tf_, child_frame, params_.dvl.use_parameter_tf,
@@ -359,7 +365,7 @@ void FactorGraphNode::dvlCallback(
   }
 }
 
-void FactorGraphNode::wrenchCallback(const geometry_msgs::msg::WrenchStamped::SharedPtr& msg) {
+void FactorGraphNode::wrenchCallback(const geometry_msgs::msg::WrenchStamped::ConstSharedPtr& msg) {
   std::string const child_frame =
       params_.wrench.use_parameter_frame ? params_.wrench.parameter_frame : msg->header.frame_id;
   if (!loadOrLookupTf(target_T_wrench_tf_, child_frame, params_.wrench.use_parameter_tf,
@@ -374,7 +380,7 @@ void FactorGraphNode::wrenchCallback(const geometry_msgs::msg::WrenchStamped::Sh
   wrench_queue_.push(wrench_msg);
 }
 
-void FactorGraphNode::multiAgentCallback(const AgentStatus::SharedPtr& msg,
+void FactorGraphNode::multiAgentCallback(const AgentStatus::ConstSharedPtr& msg,
                                          size_t agent_queue_idx) {
   std::string const child_frame = params_.multiagent.use_parameter_frame
                                       ? params_.multiagent.parameter_frame
@@ -401,13 +407,12 @@ void FactorGraphNode::multiAgentCallback(const AgentStatus::SharedPtr& msg,
 }
 
 FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
-    : Node("factor_graph_node", options),
-      diagnostic_updater_(this),
-      backup_keyframe_source_(parseKeyframeSource(params_.backup_keyframe_source)),
-      keyframe_source_(parseKeyframeSource(params_.keyframe_source)) {
+    : Node("factor_graph_node", options), diagnostic_updater_(this) {
   param_listener_ =
       std::make_shared<factor_graph_node::ParamListener>(get_node_parameters_interface());
   params_ = param_listener_->get_params();
+  keyframe_source_ = parseKeyframeSource(params_.keyframe_source);
+  backup_keyframe_source_ = parseKeyframeSource(params_.backup_keyframe_source);
 
   // Ensure the keyframe sources are valid
   auto source_enabled = [this](KeyframeSource source) {

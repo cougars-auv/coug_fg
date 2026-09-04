@@ -37,16 +37,16 @@ OdomToTfNode::OdomToTfNode(const rclcpp::NodeOptions& options) : Node("odom_to_t
 
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](nav_msgs::msg::Odometry::SharedPtr msg) { odomCallback(msg); });
+      [this](const nav_msgs::msg::Odometry::ConstSharedPtr& msg) { odomCallback(msg); });
 
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr& msg) {
+void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) {
   tf_broadcaster_->sendTransform(convertToTf(msg));
 }
 
-auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::SharedPtr& msg)
+auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
     -> geometry_msgs::msg::TransformStamped {
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header = msg->header;

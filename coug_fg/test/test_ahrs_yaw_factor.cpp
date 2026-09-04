@@ -20,7 +20,6 @@
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/nonlinear/factorTesting.h>
-#include <math.h>
 
 #include <cmath>
 

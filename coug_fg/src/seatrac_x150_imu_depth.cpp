@@ -14,8 +14,6 @@
 
 #include "coug_fg/seatrac_x150_imu_depth.hpp"
 
-#include <math.h>
-
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -41,7 +39,9 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
 
   modem_sub_ = create_subscription<seatrac_interfaces::msg::ModemStatus>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](seatrac_interfaces::msg::ModemStatus::SharedPtr msg) { modemStatusCallback(msg); });
+      [this](const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) {
+        modemStatusCallback(msg);
+      });
 
   imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(params_.imu_output_topic,
                                                      rclcpp::SystemDefaultsQoS());
@@ -53,7 +53,7 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
 }
 
 void SeatracX150ImuDepthNode::modemStatusCallback(
-    const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg) {
+    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) {
   if (msg->includes_local_attitude) {
     imu_pub_->publish(convertToImu(msg));
   }
@@ -64,7 +64,8 @@ void SeatracX150ImuDepthNode::modemStatusCallback(
 }
 
 auto SeatracX150ImuDepthNode::convertToImu(
-    const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg) const -> sensor_msgs::msg::Imu {
+    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const
+    -> sensor_msgs::msg::Imu {
   sensor_msgs::msg::Imu imu_msg;
   imu_msg.header = msg->header;
   if (params_.use_parameter_frame) {
@@ -98,7 +99,7 @@ auto SeatracX150ImuDepthNode::convertToImu(
 }
 
 auto SeatracX150ImuDepthNode::convertToOdom(
-    const seatrac_interfaces::msg::ModemStatus::SharedPtr& msg) -> nav_msgs::msg::Odometry {
+    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;

@@ -9,7 +9,8 @@ Checks: >
   openmp-*,
   performance-*,
   portability-*,
-  readability-*
+  readability-*,
+  -bugprone-easily-swappable-parameters
 WarningsAsErrors: >
   bugprone-*,
   clang-analyzer-*,

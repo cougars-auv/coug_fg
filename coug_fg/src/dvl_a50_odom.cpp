@@ -14,7 +14,6 @@
 
 #include "coug_fg/dvl_a50_odom.hpp"
 
-#include <math.h>
 #include <rcl/time.h>
 
 #include <cmath>
@@ -52,7 +51,7 @@ DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
 
   dvl_sub_ = create_subscription<dvl_msgs::msg::DVLDR>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](dvl_msgs::msg::DVLDR::SharedPtr msg) { dvlCallback(msg); });
+      [this](const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg) { dvlCallback(msg); });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -60,7 +59,7 @@ DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr& msg) {
+void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg) {
   std::string const dvl_frame =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
 
@@ -76,7 +75,7 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::SharedPtr& msg) {
   odom_pub_->publish(convertToOdom(msg, dvl_frame, dvl_T_base_tf));
 }
 
-auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::SharedPtr& msg,
+auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg,
                                    const std::string& dvl_frame,
                                    const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) const
     -> nav_msgs::msg::Odometry {

@@ -39,7 +39,7 @@ OdomNedToEnuNode::OdomNedToEnuNode(const rclcpp::NodeOptions& options)
 
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](nav_msgs::msg::Odometry::SharedPtr msg) { odomCallback(msg); });
+      [this](const nav_msgs::msg::Odometry::ConstSharedPtr& msg) { odomCallback(msg); });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -47,11 +47,11 @@ OdomNedToEnuNode::OdomNedToEnuNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void OdomNedToEnuNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr& msg) {
+void OdomNedToEnuNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) {
   odom_pub_->publish(convertToEnu(msg));
 }
 
-auto OdomNedToEnuNode::convertToEnu(const nav_msgs::msg::Odometry::SharedPtr& msg)
+auto OdomNedToEnuNode::convertToEnu(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
     -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg = *msg;
 

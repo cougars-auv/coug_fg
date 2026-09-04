@@ -34,7 +34,7 @@ SbgImuMagNode::SbgImuMagNode(const rclcpp::NodeOptions& options)
 
   mag_sub_ = create_subscription<sensor_msgs::msg::MagneticField>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](sensor_msgs::msg::MagneticField::SharedPtr msg) { magCallback(msg); });
+      [this](const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) { magCallback(msg); });
 
   mag_pub_ = create_publisher<sensor_msgs::msg::MagneticField>(params_.output_topic,
                                                                rclcpp::SystemDefaultsQoS());
@@ -42,11 +42,11 @@ SbgImuMagNode::SbgImuMagNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void SbgImuMagNode::magCallback(const sensor_msgs::msg::MagneticField::SharedPtr& msg) {
+void SbgImuMagNode::magCallback(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) {
   mag_pub_->publish(convertToTesla(msg));
 }
 
-auto SbgImuMagNode::convertToTesla(const sensor_msgs::msg::MagneticField::SharedPtr& msg) const
+auto SbgImuMagNode::convertToTesla(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) const
     -> sensor_msgs::msg::MagneticField {
   sensor_msgs::msg::MagneticField mag_msg = *msg;
 

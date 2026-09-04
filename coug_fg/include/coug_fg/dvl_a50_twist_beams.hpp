@@ -34,15 +34,15 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
 
  private:
   // --- Callbacks ---
-  void dvlCallback(const dvl_msgs::msg::DVL::SharedPtr& msg);
+  void dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  rclcpp::Time resolveStamp(const dvl_msgs::msg::DVL::SharedPtr& msg) const;
+  rclcpp::Time resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const;
 
   geometry_msgs::msg::TwistWithCovarianceStamped convertToTwist(
-      const dvl_msgs::msg::DVL::SharedPtr& msg);
+      const dvl_msgs::msg::DVL::ConstSharedPtr& msg);
 
-  coug_interfaces::msg::DvlBeamList convertToBeams(const dvl_msgs::msg::DVL::SharedPtr& msg);
+  coug_interfaces::msg::DvlBeamList convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg);
 
   sensor_msgs::msg::Range convertToRange(const dvl_msgs::msg::DVLBeam& beam,
                                          const std::string& frame_id,

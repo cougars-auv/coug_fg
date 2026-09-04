@@ -38,7 +38,7 @@ ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
 
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](sensor_msgs::msg::Imu::SharedPtr msg) { imuCallback(msg); });
+      [this](const sensor_msgs::msg::Imu::ConstSharedPtr& msg) { imuCallback(msg); });
 
   imu_pub_ =
       create_publisher<sensor_msgs::msg::Imu>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -46,11 +46,11 @@ ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr& msg) {
+void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
   imu_pub_->publish(convertToEnu(msg));
 }
 
-auto ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu::SharedPtr& msg)
+auto ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
     -> sensor_msgs::msg::Imu {
   sensor_msgs::msg::Imu imu_msg = *msg;
 

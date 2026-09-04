@@ -43,7 +43,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
 
   navsat_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](sensor_msgs::msg::NavSatFix::SharedPtr msg) { navsatCallback(msg); });
+      [this](const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) { navsatCallback(msg); });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -60,7 +60,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   } else {
     origin_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
         params_.origin_topic, rclcpp::SystemDefaultsQoS(),
-        [this](sensor_msgs::msg::NavSatFix::SharedPtr msg) { originCallback(msg); });
+        [this](const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) { originCallback(msg); });
   }
 
   if (params_.set_origin && params_.use_parameter_origin) {
@@ -89,7 +89,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::SharedPtr& msg) {
+void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
   if (!origin_set_ && msg->status.status >= sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
     setOrigin(*msg);
     RCLCPP_INFO(get_logger(), "GPS origin received: Lat %.6f, Lon %.6f, Alt %.2f",
@@ -97,7 +97,7 @@ void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::SharedPtr
   }
 }
 
-void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::SharedPtr& msg) {
+void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
   if (msg->status.status == sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX) {
     RCLCPP_WARN(get_logger(), "Received NavSatFix with no fix.");
     return;
@@ -138,7 +138,7 @@ void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
   origin_set_ = true;
 }
 
-auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::SharedPtr& msg)
+auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg)
     -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;

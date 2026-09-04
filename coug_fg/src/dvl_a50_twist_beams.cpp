@@ -49,7 +49,7 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
 
   dvl_sub_ = create_subscription<dvl_msgs::msg::DVL>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](dvl_msgs::msg::DVL::SharedPtr msg) { dvlCallback(msg); });
+      [this](const dvl_msgs::msg::DVL::ConstSharedPtr& msg) { dvlCallback(msg); });
 
   twist_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
       params_.twist_output_topic, rclcpp::SystemDefaultsQoS());
@@ -72,7 +72,7 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::SharedPtr& msg) {
+void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
   const auto now = this->get_clock()->now();
   last_dvl_time_ = now.seconds();
 
@@ -108,7 +108,7 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::SharedPtr& msg)
   }
 }
 
-auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::SharedPtr& msg) const
+auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
     -> rclcpp::Time {
   if (params_.override_timestamp) {
     return rclcpp::Time(msg->header.stamp);
@@ -122,7 +122,7 @@ auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::SharedPtr& msg
   return {sec, nanosec, RCL_ROS_TIME};
 }
 
-auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::SharedPtr& msg)
+auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
     -> geometry_msgs::msg::TwistWithCovarianceStamped {
   geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
   twist_msg.header.frame_id =
@@ -152,7 +152,8 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::SharedPtr& m
   return twist_msg;
 }
 
-auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::SharedPtr& msg) -> DvlBeamList {
+auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
+    -> DvlBeamList {
   DvlBeamList beams_msg;
   beams_msg.header.frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;

@@ -6,17 +6,17 @@ while true; do
   bags=$(cd "${BAGS_DIR}" && find . -name "metadata.yaml" -exec dirname {} \; | \
     sed 's|^\./||' | sort -r | \
     gum choose --no-limit --header "Select bags to process offline...") || exit 0
-  [ -n "${bags}" ] && break
+  [[ -n ${bags} ]] && break
 done
 
 namespace=$(basename -a "${CONFIG_DIR}"/*_params.yaml | \
   sed 's/_params.yaml$//' | sort | \
   gum filter --placeholder "Select an agent namespace...") || exit 0
-[ -z "${namespace}" ] && exit 0
+[[ -z ${namespace} ]] && exit 0
 
 # --- Options ---
 tag=$(gum input --placeholder "Set output tag..." || echo "")
-if [ -n "${tag}" ]; then
+if [[ -n ${tag} ]]; then
   tag="${tag}$(date +'_%Y-%m-%d-%H-%M-%S')"
 else
   tag="offline$(date +'_%Y-%m-%d-%H-%M-%S')"

@@ -16,25 +16,26 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 def _stamp(m: Any) -> float:
-    return m.header.stamp.sec + m.header.stamp.nanosec * 1e-9
+    return float(m.header.stamp.sec + m.header.stamp.nanosec * 1e-9)
 
 
-def _vec3(v: Any) -> np.ndarray:
+def _vec3(v: Any) -> npt.NDArray[np.float64]:
     return np.array([v.x, v.y, v.z])
 
 
-def _quat(q: Any) -> np.ndarray:
+def _quat(q: Any) -> npt.NDArray[np.float64]:
     return np.array([q.x, q.y, q.z, q.w])
 
 
-def _cov(arr: Any, n: int) -> np.ndarray:
+def _cov(arr: Any, n: int) -> npt.NDArray[np.float64]:
     return np.array(arr).reshape(n, n)
 
 
-EXTRACTORS: dict[str, Callable[[Any], tuple[str, tuple]]] = {
+EXTRACTORS: dict[str, Callable[[Any], tuple[str, tuple[Any, ...]]]] = {
     "imu": lambda m: (
         m.header.frame_id,
         (

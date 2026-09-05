@@ -18,6 +18,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
+import numpy.typing as npt
 import xacro
 import yaml
 from scipy.spatial.transform import Rotation
@@ -29,11 +30,16 @@ class UrdfTree:
     def __init__(self, urdf_path: str) -> None:
         xml_text = xacro.process_file(urdf_path).toxml()
 
-        self._joints: dict[str, tuple[str, np.ndarray, Rotation]] = {}
+        self._joints: dict[str, tuple[str, npt.NDArray[np.float64], Rotation]] = {}
         self._links: set[str] = set()
         for joint in ET.fromstring(xml_text).findall("joint"):
-            parent = joint.find("parent").attrib["link"]
-            child = joint.find("child").attrib["link"]
+            parent_el = joint.find("parent")
+            child_el = joint.find("child")
+            if parent_el is None or child_el is None:
+                name = joint.attrib.get("name", "<unnamed>")
+                raise ValueError(f"URDF joint '{name}' is missing a parent or child.")
+            parent = parent_el.attrib["link"]
+            child = child_el.attrib["link"]
             origin = joint.find("origin")
             attrib = origin.attrib if origin is not None else {}
             pos = np.array([float(v) for v in attrib.get("xyz", "0 0 0").split()])
@@ -43,14 +49,14 @@ class UrdfTree:
 
     def lookup(
         self, target_frame: str, source_frame: str
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         target_pos, target_rot = self._root_tf(target_frame)
         source_pos, source_rot = self._root_tf(source_frame)
         pos = target_rot.inv().apply(source_pos - target_pos)
         rot = target_rot.inv() * source_rot
         return pos, rot.as_quat()
 
-    def _root_tf(self, frame: str) -> tuple[np.ndarray, Rotation]:
+    def _root_tf(self, frame: str) -> tuple[npt.NDArray[np.float64], Rotation]:
         link = frame.split("/")[-1]  # Strip robot_state_publisher frame_prefix
         if link not in self._links:
             raise KeyError(f"Frame '{frame}' not found in the URDF.")
@@ -74,9 +80,9 @@ def _read_urdf_param(yaml_path: Path, top_keys: list[str]) -> str | None:
 
     for top_key in top_keys:
         try:
-            return data[top_key]["coug_description_launch"]["ros__parameters"][
-                "urdf_file"
-            ]
+            return str(
+                data[top_key]["coug_description_launch"]["ros__parameters"]["urdf_file"]
+            )
         except (KeyError, TypeError):
             continue
     return None

@@ -130,7 +130,7 @@ def generate_launch_description() -> LaunchDescription:
                     fleet_param_file,
                     agent_param_file,
                     {
-                        **factor_graph_params,
+                        **factor_graph_params,  # type: ignore[dict-item]
                         "global_odom_topic": "odometry/global_isam2",
                         "smoothed_path_topic": "smoothed_path_isam2",
                         "publish_global_tf": False,
@@ -149,7 +149,7 @@ def generate_launch_description() -> LaunchDescription:
                     fleet_param_file,
                     agent_param_file,
                     {
-                        **factor_graph_params,
+                        **factor_graph_params,  # type: ignore[dict-item]
                         "global_odom_topic": "odometry/global_lpi",
                         "smoothed_path_topic": "smoothed_path_lpi",
                         "publish_global_tf": False,
@@ -167,7 +167,7 @@ def generate_launch_description() -> LaunchDescription:
                     fleet_param_file,
                     agent_param_file,
                     {
-                        **factor_graph_params,
+                        **factor_graph_params,  # type: ignore[dict-item]
                         "global_odom_topic": "odometry/global_tpi",
                         "smoothed_path_topic": "smoothed_path_tpi",
                         "publish_global_tf": False,

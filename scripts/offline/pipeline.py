@@ -14,6 +14,7 @@
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from rosbags.highlevel import AnyReader
 from rosbags.typesys import Stores, get_typestore
@@ -58,7 +59,7 @@ def _replay_messages(
 
 def process_bag_offline(
     bag_path: str, config_paths: list[str], namespace: str
-) -> dict | None:
+) -> dict[str, Any] | None:
     urdf_path = resolve_urdf_path(namespace, config_paths)
 
     cfg_str = "\n".join(f"  - {p}" for p in config_paths)

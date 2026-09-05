@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 
 GT_COLOR = "#000000"
 FG_COLOR = "#55A868"
@@ -40,7 +43,9 @@ LAYOUT = [
 ]
 
 
-def _mask_gaps(t: np.ndarray, vals: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _mask_gaps(
+    t: npt.NDArray[np.float64], vals: npt.NDArray[np.float64]
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     if len(t) < 2:
         return t, vals
     dts = np.diff(t)
@@ -50,7 +55,9 @@ def _mask_gaps(t: np.ndarray, vals: np.ndarray) -> tuple[np.ndarray, np.ndarray]
     return np.insert(t, gaps, np.nan), np.insert(vals, gaps, np.nan)
 
 
-def plot_results(results: dict, pose_gt: dict, label: str = "") -> None:
+def plot_results(
+    results: dict[str, Any], pose_gt: dict[str, Any], label: str = ""
+) -> None:
     t0 = results["time"][0]
     t_fg = results["time"] - t0
 

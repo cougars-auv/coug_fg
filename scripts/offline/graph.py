@@ -16,8 +16,10 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any, TypeAlias
 
 import numpy as np
+import numpy.typing as npt
 from scipy.spatial.transform import Rotation
 
 from offline.urdf import UrdfTree
@@ -34,8 +36,8 @@ import coug_fg_py
 
 logger = logging.getLogger(__name__)
 
-SolverType = coug_fg_py.SolverType
-KeyframeSource = coug_fg_py.KeyframeSource
+SolverType: TypeAlias = coug_fg_py.SolverType
+KeyframeSource: TypeAlias = coug_fg_py.KeyframeSource
 
 SENSORS = ("imu", "gps", "depth", "mag", "ahrs", "dvl", "wrench")
 
@@ -118,14 +120,16 @@ class OfflineFactorGraph:
                     f"'{self._backup_keyframe_source}' references a disabled sensor."
                 )
 
-        self.is_initialized = False
-        self._results: list[dict] = []
+        self._is_initialized = False
+        self._results: list[dict[str, Any]] = []
 
-        self._queues: dict[str, list[tuple]] = {
+        self._queues: dict[str, list[tuple[Any, ...]]] = {
             key: [] for key in (*SENSORS, *self._multiagent_keys)
         }
 
-        self._tfs: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        self._tfs: dict[
+            str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
+        ] = {}
 
         self._stream_time = 0.0
         self._last_msg_time: dict[str, float] = {}
@@ -135,7 +139,7 @@ class OfflineFactorGraph:
 
     @property
     def is_initialized(self) -> bool:
-        return self.is_initialized
+        return self._is_initialized
 
     @property
     def topic_map(self) -> dict[str, list[str]]:
@@ -151,7 +155,9 @@ class OfflineFactorGraph:
             topics.setdefault(resolved, []).append(key)
         return topics
 
-    def add_message(self, sensor: str, frame_id: str, measurement: tuple) -> None:
+    def add_message(
+        self, sensor: str, frame_id: str, measurement: tuple[Any, ...]
+    ) -> None:
         # Offline, the graph/timer fires on message stamps instead of the wall clock
         self._stream_time = max(self._stream_time, measurement[0])
 
@@ -173,7 +179,7 @@ class OfflineFactorGraph:
             result = self._core.optimize()
             self._results = list(result.get("smoothed_path", [])) if result else []
 
-    def get_results(self) -> dict | None:
+    def get_results(self) -> dict[str, Any] | None:
         if not self._results:
             return None
 
@@ -224,7 +230,9 @@ class OfflineFactorGraph:
         frame = cfg["parameter_frame"] if cfg["use_parameter_frame"] else frame_id
         self._tfs[sensor] = self._lookup_static_tf(cfg, frame)
 
-    def _lookup_static_tf(self, cfg: dict, frame: str) -> tuple[np.ndarray, np.ndarray]:
+    def _lookup_static_tf(
+        self, cfg: dict[str, Any], frame: str
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         # Offline, transforms come from the URDF instead of a live TF tree
         if cfg["use_parameter_tf"]:
             return np.array(cfg["tf_position"]), np.array(cfg["tf_orientation"])
@@ -234,13 +242,13 @@ class OfflineFactorGraph:
             )
         return self._urdf.lookup(self._params["target_frame"], frame)
 
-    def _drain_all_queues(self) -> dict[str, list]:
-        bundle: dict[str, list] = {s: self._queues[s] for s in SENSORS}
+    def _drain_all_queues(self) -> dict[str, list[Any]]:
+        bundle: dict[str, list[Any]] = {s: self._queues[s] for s in SENSORS}
         bundle["multiagent"] = [self._queues[k] for k in self._multiagent_keys]
         self._queues = {key: [] for key in self._queues}
         return bundle
 
-    def _restore_all_queues(self, bundle: dict[str, list]) -> None:
+    def _restore_all_queues(self, bundle: dict[str, list[Any]]) -> None:
         for sensor in SENSORS:
             self._queues[sensor][:0] = bundle[sensor]
         for key, msgs in zip(self._multiagent_keys, bundle["multiagent"], strict=True):
@@ -254,7 +262,7 @@ class OfflineFactorGraph:
         queues = self._drain_all_queues()
 
         if self._core.initialize(self._stream_time, queues, self._tfs):
-            self.is_initialized = True
+            self._is_initialized = True
             logger.info("Graph initialized successfully.")
         else:
             self._restore_all_queues(queues)

@@ -15,6 +15,7 @@
 import logging
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -62,12 +63,12 @@ def _latest_tum(directory: Path) -> Path | None:
     return max(directory.glob("*.tum"), key=lambda p: p.stat().st_mtime, default=None)
 
 
-def save_tum(path: Path, pose: dict) -> None:
+def save_tum(path: Path, pose: dict[str, Any]) -> None:
     np.savetxt(path, np.column_stack([pose[k] for k in TUM_KEYS]), fmt="%.9f")
     logger.info(f"Saved TUM trajectory: {path}")
 
 
-def _load_tum(path: Path) -> dict:
+def _load_tum(path: Path) -> dict[str, Any]:
     data = np.loadtxt(path, ndmin=2)
     pose = {k: data[:, i] for i, k in enumerate(TUM_KEYS)}
     pose["roll"], pose["pitch"], pose["yaw"] = (
@@ -100,7 +101,9 @@ def resolve_tum(
     return _export_bag_tum(bag_path, out_dir, topic)
 
 
-def load_ground_truth(bag_path: str | Path, namespace: str) -> tuple[dict, Path | None]:
+def load_ground_truth(
+    bag_path: str | Path, namespace: str
+) -> tuple[dict[str, Any], Path | None]:
     agent_dir = evo_agent_dir(bag_path, namespace)
     truth_topic = f"/{namespace}/{TRUTH_TOPIC}"
     tum_path = resolve_tum(bag_path, agent_dir, truth_topic)

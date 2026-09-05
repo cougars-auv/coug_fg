@@ -14,7 +14,7 @@ repos:
     rev: v1.2.0
     hooks:
       - id: addlicense
-        args: ["-c", "BYU FROST Lab", "-v"]
+        args: ["-l", "apache", "-c", "BYU FROST Lab", "-v"]
         exclude: |
           (?x)^(
             (.*/)?(config|params)/.*\.ya?ml|

@@ -40,7 +40,7 @@
 namespace coug_fg {
 
 struct NeighborResult {
-  size_t agent_queue_idx;
+  size_t agent_queue_idx{};
   double timestamp{0.0};
   gtsam::Key pose_key{0};
 

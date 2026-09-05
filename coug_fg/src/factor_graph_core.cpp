@@ -138,7 +138,7 @@ constexpr double kSecondsToNanoseconds = 1e9;
 constexpr double kInitWaitThrottleSeconds = 5.0;
 
 template <int N = 3>
-auto sigmasSquaredDiag(const std::vector<double>& sigmas) -> Eigen::Matrix<double, N, N> {
+Eigen::Matrix<double, N, N> sigmasSquaredDiag(const std::vector<double>& sigmas) {
   return Eigen::Matrix<double, N, N>(Eigen::Map<const Eigen::Matrix<double, N, 1>>(sigmas.data())
                                          .array()
                                          .square()
@@ -154,10 +154,10 @@ void warnCovFallback(const Logger& logger, const std::string& sensor) {
 }
 
 template <int N>
-auto resolveCov(bool use_param, const std::vector<double>& sigmas, double scalar,
-                const Eigen::Matrix<double, N, N>& msg_cov, const std::string& sensor,
-                const Logger& logger, double sensor_unit_scale = 1.0)
-    -> Eigen::Matrix<double, N, N> {
+Eigen::Matrix<double, N, N> resolveCov(bool use_param, const std::vector<double>& sigmas,
+                                       double scalar, const Eigen::Matrix<double, N, N>& msg_cov,
+                                       const std::string& sensor, const Logger& logger,
+                                       double sensor_unit_scale = 1.0) {
   if (use_param) {
     return sigmasSquaredDiag<N>(sigmas) * scalar;
   }
@@ -168,8 +168,8 @@ auto resolveCov(bool use_param, const std::vector<double>& sigmas, double scalar
   return msg_cov * scalar * sensor_unit_scale;
 }
 
-auto resolveVar(bool use_param, double sigma, double scalar, double msg_var,
-                const std::string& sensor, const Logger& logger) -> double {
+double resolveVar(bool use_param, double sigma, double scalar, double msg_var,
+                  const std::string& sensor, const Logger& logger) {
   if (use_param) {
     return sigma * sigma * scalar;
   }
@@ -180,8 +180,8 @@ auto resolveVar(bool use_param, double sigma, double scalar, double msg_var,
   return msg_var * scalar;
 }
 
-auto applyRobustKernel(const gtsam::SharedNoiseModel& noise, const std::string& kernel, double k)
-    -> gtsam::SharedNoiseModel {
+gtsam::SharedNoiseModel applyRobustKernel(const gtsam::SharedNoiseModel& noise,
+                                          const std::string& kernel, double k) {
   switch (parseRobustKernel(kernel)) {
     case RobustKernel::kHuber:
       return gtsam::noiseModel::Robust::Create(gtsam::noiseModel::mEstimator::Huber::Create(k),
@@ -195,8 +195,8 @@ auto applyRobustKernel(const gtsam::SharedNoiseModel& noise, const std::string& 
   return noise;
 }
 
-auto getInterpolatedOrientation(const std::deque<std::shared_ptr<AhrsData>>& ahrs_msgs,
-                                double target_time) -> gtsam::Rot3 {
+gtsam::Rot3 getInterpolatedOrientation(const std::deque<std::shared_ptr<AhrsData>>& ahrs_msgs,
+                                       double target_time) {
   if (ahrs_msgs.empty()) {
     return {};
   }
@@ -216,15 +216,15 @@ auto getInterpolatedOrientation(const std::deque<std::shared_ptr<AhrsData>>& ahr
     it_after--;
   }
 
-  double const t1 = (*(it_after - 1))->timestamp;
-  double const t2 = (*it_after)->timestamp;
-  double const denominator = t2 - t1;
+  const double t1 = (*(it_after - 1))->timestamp;
+  const double t2 = (*it_after)->timestamp;
+  const double denominator = t2 - t1;
 
   if (std::abs(denominator) < kMinInterpDt) {
     return (*(it_after - 1))->orientation;
   }
 
-  double const alpha = (target_time - t1) / denominator;
+  const double alpha = (target_time - t1) / denominator;
 
   // Use Slerp for quaternion interpolation (handles alpha > 1.0 for extrapolation)
   return (*(it_after - 1))->orientation.slerp(alpha, (*it_after)->orientation);
@@ -244,38 +244,37 @@ void FactorGraphCore::setLogCallback(LogCallback callback) {
   logger_.setCallback(std::move(callback));
 }
 
-auto FactorGraphCore::computeInitialOrientation(const std::shared_ptr<AhrsData>& ahrs) const
-    -> gtsam::Rot3 {
+gtsam::Rot3 FactorGraphCore::computeInitialOrientation(
+    const std::shared_ptr<AhrsData>& ahrs) const {
   if (ahrs) {
     // Account for AHRS rotation
-    gtsam::Rot3 const target_R_ahrs = tfs_.target_T_ahrs.rotation();
-    gtsam::Rot3 const map_R_target_measured = ahrs->orientation * target_R_ahrs.inverse();
+    const gtsam::Rot3 target_R_ahrs = tfs_.target_T_ahrs.rotation();
+    const gtsam::Rot3 map_R_target_measured = ahrs->orientation * target_R_ahrs.inverse();
     return AhrsFactorArm::trueNorthOrientation(map_R_target_measured,
                                                params_.ahrs.mag_declination_radians);
   }
 
-  double const roll = params_.priors.parameter_priors.initial_orientation[0];
-  double const pitch = params_.priors.parameter_priors.initial_orientation[1];
-  double const yaw = params_.priors.parameter_priors.initial_orientation[2];
+  const double roll = params_.priors.parameter_priors.initial_orientation[0];
+  const double pitch = params_.priors.parameter_priors.initial_orientation[1];
+  const double yaw = params_.priors.parameter_priors.initial_orientation[2];
 
-  gtsam::Rot3 const base_R_target = tfs_.target_T_base.rotation().inverse();
+  const gtsam::Rot3 base_R_target = tfs_.target_T_base.rotation().inverse();
   return gtsam::Rot3::Ypr(yaw, pitch, roll) * base_R_target;
 }
 
-auto FactorGraphCore::computeInitialPosition(const gtsam::Rot3& map_R_target,
-                                             const std::shared_ptr<OdometryData>& gps,
-                                             const std::shared_ptr<OdometryData>& depth) const
-    -> gtsam::Point3 {
-  gtsam::Point3 const map_p_base(params_.priors.parameter_priors.initial_position[0],
+gtsam::Point3 FactorGraphCore::computeInitialPosition(
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<OdometryData>& gps,
+    const std::shared_ptr<OdometryData>& depth) const {
+  const gtsam::Point3 map_p_base(params_.priors.parameter_priors.initial_position[0],
                                  params_.priors.parameter_priors.initial_position[1],
                                  params_.priors.parameter_priors.initial_position[2]);
 
-  gtsam::Point3 const target_p_base = tfs_.target_T_base.translation();
+  const gtsam::Point3 target_p_base = tfs_.target_T_base.translation();
   gtsam::Point3 map_p_target = map_p_base - map_R_target.rotate(target_p_base);
 
   if (gps) {
     // Account for GPS lever arm
-    gtsam::Point3 const map_p_target_gps = map_R_target.rotate(tfs_.target_T_gps.translation());
+    const gtsam::Point3 map_p_target_gps = map_R_target.rotate(tfs_.target_T_gps.translation());
     map_p_target = gps->pose.translation() - map_p_target_gps;
   }
 
@@ -288,26 +287,23 @@ auto FactorGraphCore::computeInitialPosition(const gtsam::Rot3& map_R_target,
   return map_p_target;
 }
 
-auto FactorGraphCore::computeInitialVelocity(const gtsam::Rot3& map_R_target,
-                                             const std::shared_ptr<TwistData>& dvl) const
-    -> gtsam::Vector3 {
+gtsam::Vector3 FactorGraphCore::computeInitialVelocity(
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<TwistData>& dvl) const {
   if (dvl) {
     // Account for DVL rotation
-    gtsam::Vector3 const target_v_dvl = tfs_.target_T_dvl.rotation().rotate(dvl->linear_velocity);
+    const gtsam::Vector3 target_v_dvl = tfs_.target_T_dvl.rotation().rotate(dvl->linear_velocity);
     return map_R_target.rotate(target_v_dvl);
   }
 
-  gtsam::Vector3 const base_v_base =
+  const gtsam::Vector3 base_v_base =
       Eigen::Map<const Eigen::Vector3d>(params_.priors.parameter_priors.initial_velocity.data());
-  gtsam::Vector3 const target_v_base = tfs_.target_T_base.rotation().rotate(base_v_base);
+  const gtsam::Vector3 target_v_base = tfs_.target_T_base.rotation().rotate(base_v_base);
   return map_R_target.rotate(target_v_base);
 }
 
-auto FactorGraphCore::computeInitialPoseCovariance(const gtsam::Rot3& map_R_target,
-                                                   const std::shared_ptr<OdometryData>& gps,
-                                                   const std::shared_ptr<OdometryData>& depth,
-                                                   const std::shared_ptr<AhrsData>& ahrs) const
-    -> gtsam::Matrix6 {
+gtsam::Matrix6 FactorGraphCore::computeInitialPoseCovariance(
+    const gtsam::Rot3& map_R_target, const std::shared_ptr<OdometryData>& gps,
+    const std::shared_ptr<OdometryData>& depth, const std::shared_ptr<AhrsData>& ahrs) const {
   const auto& sigmas = params_.priors.parameter_priors_covariance;
   gtsam::Matrix3 map_orientation_cov = sigmasSquaredDiag(sigmas.initial_orientation_sigmas);
   gtsam::Matrix3 map_position_cov = sigmasSquaredDiag(sigmas.initial_position_sigmas);
@@ -356,9 +352,9 @@ auto FactorGraphCore::computeInitialPoseCovariance(const gtsam::Rot3& map_R_targ
   return J_tangent_pose * map_pose_cov * J_tangent_pose.transpose();
 }
 
-auto FactorGraphCore::computeInitialVelocityCovariance(
+gtsam::Matrix3 FactorGraphCore::computeInitialVelocityCovariance(
     const gtsam::Rot3& map_R_target, const std::shared_ptr<TwistData>& dvl,
-    const gtsam::Matrix3& target_orientation_cov) const -> gtsam::Matrix3 {
+    const gtsam::Matrix3& target_orientation_cov) const {
   gtsam::Matrix3 map_velocity_cov;
 
   if (!params_.priors.use_parameter_priors && !params_.priors.use_parameter_priors_covariance &&
@@ -388,8 +384,8 @@ auto FactorGraphCore::computeInitialVelocityCovariance(
   return map_velocity_cov + J_vel_rot * target_orientation_cov * J_vel_rot.transpose();
 }
 
-auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& queues) const
-    -> std::optional<FactorGraphCore::InitialState> {
+std::optional<FactorGraphCore::InitialState> FactorGraphCore::computeInitialState(
+    double init_time, const QueueBundle& queues) const {
   const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
   const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
 
@@ -442,7 +438,7 @@ auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& q
   auto imu = queues.imu.back();
 
   InitialState state;
-  gtsam::Rot3 const map_R_target = computeInitialOrientation(ahrs);
+  const gtsam::Rot3 map_R_target = computeInitialOrientation(ahrs);
   state.pose = gtsam::Pose3(map_R_target, computeInitialPosition(map_R_target, gps, depth));
   state.velocity = computeInitialVelocity(map_R_target, dvl);
   state.imu_bias = gtsam::imuBias::ConstantBias(
@@ -473,8 +469,8 @@ auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& q
   return state;
 }
 
-auto FactorGraphCore::configureImuPreintegration(const InitialState& init_state) const
-    -> std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params> {
+std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params>
+FactorGraphCore::configureImuPreintegration(const InitialState& init_state) const {
   auto imu_params = gtsam::PreintegratedCombinedMeasurements::Params::MakeSharedU();
   imu_params->n_gravity =
       gtsam::Vector3(params_.imu.gravity[0], params_.imu.gravity[1], params_.imu.gravity[2]);
@@ -546,8 +542,7 @@ void FactorGraphCore::addPriorFactors(const InitialState& init_state,
   logger_.log(LogLevel::kInfo, oss.str());
 }
 
-auto FactorGraphCore::initialize(double init_time, const QueueBundle& queues, const TfBundle& tfs)
-    -> bool {
+bool FactorGraphCore::initialize(double init_time, const QueueBundle& queues, const TfBundle& tfs) {
   tfs_ = tfs;
 
   // --- Compute Initial State ---
@@ -679,7 +674,7 @@ void FactorGraphCore::addMagFactor(gtsam::NonlinearFactorGraph& graph,
 
   const auto& mag_msg = mag_msgs.back();
 
-  gtsam::Point3 const ref_vec(params_.mag.reference_field[0], params_.mag.reference_field[1],
+  const gtsam::Point3 ref_vec(params_.mag.reference_field[0], params_.mag.reference_field[1],
                               params_.mag.reference_field[2]);
 
   gtsam::SharedNoiseModel mag_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
@@ -769,12 +764,12 @@ void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,
 }
 
 void FactorGraphCore::addConstVelFactor(gtsam::NonlinearFactorGraph& graph, double target_time) {
-  double const dt = target_time - prev_time_;
-  Eigen::Vector3d const vel_random_walk =
+  const double dt = target_time - prev_time_;
+  const Eigen::Vector3d vel_random_walk =
       Eigen::Map<const Eigen::Vector3d>(params_.const_vel.prediction_noise_sigmas.data()) *
       std::sqrt(params_.const_vel.covariance_scalar);
-  double const sqrt_dt = std::sqrt(std::max(dt, kMinRandomWalkDt));
-  Eigen::Vector3d const scaled_sigma = vel_random_walk * sqrt_dt;
+  const double sqrt_dt = std::sqrt(std::max(dt, kMinRandomWalkDt));
+  const Eigen::Vector3d scaled_sigma = vel_random_walk * sqrt_dt;
 
   gtsam::SharedNoiseModel const_vel_noise = gtsam::noiseModel::Diagonal::Sigmas(scaled_sigma);
 
@@ -799,9 +794,9 @@ void FactorGraphCore::addWrenchDynamicsFactor(
 
   const auto& wrench_msg = last_wrench_msg_;
 
-  double const dt = target_time - prev_time_;
-  double const sqrt_dt = std::sqrt(std::max(dt, kMinRandomWalkDt));
-  gtsam::Vector3 const wrench_sigmas =
+  const double dt = target_time - prev_time_;
+  const double sqrt_dt = std::sqrt(std::max(dt, kMinRandomWalkDt));
+  const gtsam::Vector3 wrench_sigmas =
       Eigen::Map<const Eigen::Vector3d>(params_.wrench.prediction_noise_sigmas.data()) *
       std::sqrt(params_.wrench.covariance_scalar) * sqrt_dt;
   gtsam::SharedNoiseModel wrench_noise = gtsam::noiseModel::Diagonal::Sigmas(wrench_sigmas);
@@ -830,13 +825,13 @@ void FactorGraphCore::addImuPreintFactor(gtsam::NonlinearFactorGraph& graph,
   double last_imu_time = prev_time_;
 
   for (const auto& imu_msg : imu_msgs) {
-    double const curr_imu_time = imu_msg->timestamp;
+    const double curr_imu_time = imu_msg->timestamp;
 
     if (curr_imu_time <= last_imu_time) {
       continue;
     }
 
-    double const dt = curr_imu_time - last_imu_time;
+    const double dt = curr_imu_time - last_imu_time;
     if (dt > kMinIntegrationDt) {
       imu_preintegrator_->integrateMeasurement(last_imu_accel_, last_imu_gyro_, dt);
     }
@@ -848,7 +843,7 @@ void FactorGraphCore::addImuPreintFactor(gtsam::NonlinearFactorGraph& graph,
 
   // Extra measurement to reach exact target time
   if (last_imu_time < target_time) {
-    double const dt = target_time - last_imu_time;
+    const double dt = target_time - last_imu_time;
     if (dt > kMinIntegrationDt) {
       imu_preintegrator_->integrateMeasurement(last_imu_accel_, last_imu_gyro_, dt);
     }
@@ -868,9 +863,9 @@ void FactorGraphCore::addDvlLoosePreintFactor(
 
   double last_dvl_time = prev_time_;
 
-  gtsam::Rot3 const target_R_ahrs = tfs_.target_T_ahrs.rotation();
-  gtsam::Rot3 const ahrs_R_target = target_R_ahrs.inverse();
-  gtsam::Rot3 const target_R_dvl = tfs_.target_T_dvl.rotation();
+  const gtsam::Rot3 target_R_ahrs = tfs_.target_T_ahrs.rotation();
+  const gtsam::Rot3 ahrs_R_target = target_R_ahrs.inverse();
+  const gtsam::Rot3 target_R_dvl = tfs_.target_T_dvl.rotation();
 
   // Propagate AHRS orientation uncertainty into the preintegrated translation covariance
   const gtsam::Matrix3 map_ahrs_cov = resolveCov<3>(
@@ -878,25 +873,25 @@ void FactorGraphCore::addDvlLoosePreintFactor(
       params_.ahrs.parameter_covariance.orientation_noise_sigmas, params_.ahrs.covariance_scalar,
       ahrs_msgs.back()->orientation_covariance, "AHRS", logger_);
 
-  gtsam::Rot3 const map_R_ahrs_prev = getInterpolatedOrientation(ahrs_msgs, prev_time_);
+  const gtsam::Rot3 map_R_ahrs_prev = getInterpolatedOrientation(ahrs_msgs, prev_time_);
 
   // Conjugate map-frame orientation covariance into the window-start AHRS-frame tangent space
   const gtsam::Matrix3 ahrs_tangent_cov =
       AhrsFactorArm::sensorTangentCovariance(map_ahrs_cov, map_R_ahrs_prev);
-  gtsam::Rot3 const map_R_target_prev = map_R_ahrs_prev * ahrs_R_target;
+  const gtsam::Rot3 map_R_target_prev = map_R_ahrs_prev * ahrs_R_target;
   dvl_loose_preintegrator_->reset(map_R_target_prev, target_R_ahrs, target_R_dvl, ahrs_tangent_cov);
 
   for (const auto& dvl_msg : dvl_msgs) {
-    double const curr_dvl_time = dvl_msg->timestamp;
+    const double curr_dvl_time = dvl_msg->timestamp;
     if (curr_dvl_time <= last_dvl_time) {
       continue;
     }
 
-    double const dt = curr_dvl_time - last_dvl_time;
+    const double dt = curr_dvl_time - last_dvl_time;
     if (dt > kMinIntegrationDt) {
       // Integrate DVL measurement alongside the interpolated AHRS attitude
-      gtsam::Rot3 const map_R_ahrs = getInterpolatedOrientation(ahrs_msgs, last_dvl_time);
-      gtsam::Rot3 const map_R_dvl = map_R_ahrs * ahrs_R_target * target_R_dvl;
+      const gtsam::Rot3 map_R_ahrs = getInterpolatedOrientation(ahrs_msgs, last_dvl_time);
+      const gtsam::Rot3 map_R_dvl = map_R_ahrs * ahrs_R_target * target_R_dvl;
 
       dvl_loose_preintegrator_->integrateMeasurement(last_dvl_vel_, map_R_dvl, dt, last_dvl_cov_);
     }
@@ -912,10 +907,10 @@ void FactorGraphCore::addDvlLoosePreintFactor(
 
   // Extra measurement to reach exact target time
   if (last_dvl_time < target_time) {
-    double const dt = target_time - last_dvl_time;
+    const double dt = target_time - last_dvl_time;
     if (dt > kMinIntegrationDt) {
-      gtsam::Rot3 const map_R_ahrs = getInterpolatedOrientation(ahrs_msgs, last_dvl_time);
-      gtsam::Rot3 const map_R_dvl = map_R_ahrs * ahrs_R_target * target_R_dvl;
+      const gtsam::Rot3 map_R_ahrs = getInterpolatedOrientation(ahrs_msgs, last_dvl_time);
+      const gtsam::Rot3 map_R_dvl = map_R_ahrs * ahrs_R_target * target_R_dvl;
       dvl_loose_preintegrator_->integrateMeasurement(last_dvl_vel_, map_R_dvl, dt, last_dvl_cov_);
     }
   }
@@ -953,12 +948,12 @@ void FactorGraphCore::addDvlTightPreintFactor(
 
   auto step_imu_preintegrator = [&](double t_end) {
     while (imu_it != imu_msgs.end()) {
-      double const imu_time = (*imu_it)->timestamp;
+      const double imu_time = (*imu_it)->timestamp;
       if (imu_time > t_end) {
         break;
       }
       if (imu_time > last_imu_time) {
-        double const dt_imu = imu_time - last_imu_time;
+        const double dt_imu = imu_time - last_imu_time;
         temp_imu_preint.integrateMeasurement(curr_imu_accel, curr_imu_gyro, dt_imu);
         last_imu_time = imu_time;
       }
@@ -969,7 +964,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
 
     // Extra measurement to reach exact target time
     if (last_imu_time < t_end) {
-      double const dt_rem = t_end - last_imu_time;
+      const double dt_rem = t_end - last_imu_time;
       if (dt_rem > kMinIntegrationDt) {
         temp_imu_preint.integrateMeasurement(curr_imu_accel, curr_imu_gyro, dt_rem);
       }
@@ -989,27 +984,27 @@ void FactorGraphCore::addDvlTightPreintFactor(
         sub_imu_it++;
       }
 
-      double const curr_sub_time =
+      const double curr_sub_time =
           (sub_imu_it != imu_msgs.end() && (*sub_imu_it)->timestamp < t_end)
               ? (*sub_imu_it)->timestamp
               : t_end;
 
-      double const dt = curr_sub_time - last_sub_time;
+      const double dt = curr_sub_time - last_sub_time;
       if (dt > kMinIntegrationDt) {
         step_imu_preintegrator(last_sub_time);
 
-        gtsam::Rot3 const delta_R_ik = temp_imu_preint.deltaRij();
+        const gtsam::Rot3 delta_R_ik = temp_imu_preint.deltaRij();
         gtsam::Matrix3 Jr = gtsam::Rot3::ExpmapDerivative(gtsam::Vector3(temp_imu_preint.theta()));
-        gtsam::Matrix3 const rot_cov_k =
+        const gtsam::Matrix3 rot_cov_k =
             Jr * temp_imu_preint.preintMeasCov().block<3, 3>(0, 0) * Jr.transpose();
         gtsam::Matrix3 const J_bg_k = Jr * temp_imu_preint.preintegrated_H_biasOmega().topRows<3>();
 
         // Linearly interpolate the DVL velocity onto the IMU timestamp
-        double const alpha = (last_sub_time - t_start) / (t_end - t_start);
-        gtsam::Vector3 const interp_dvl_vel =
+        const double alpha = (last_sub_time - t_start) / (t_end - t_start);
+        const gtsam::Vector3 interp_dvl_vel =
             last_dvl_vel_ + alpha * (curr_dvl_vel - last_dvl_vel_);
 
-        gtsam::Matrix3 const sub_dvl_cov = last_dvl_cov_ * ((t_end - t_start) / dt);
+        const gtsam::Matrix3 sub_dvl_cov = last_dvl_cov_ * ((t_end - t_start) / dt);
 
         dvl_tight_preintegrator_->integrateMeasurement(interp_dvl_vel, delta_R_ik, target_R_dvl, dt,
                                                        sub_dvl_cov, rot_cov_k, J_bg_k);
@@ -1020,12 +1015,12 @@ void FactorGraphCore::addDvlTightPreintFactor(
   };
 
   for (const auto& dvl_msg : dvl_msgs) {
-    double const curr_dvl_time = dvl_msg->timestamp;
+    const double curr_dvl_time = dvl_msg->timestamp;
     if (curr_dvl_time <= last_dvl_time) {
       continue;
     }
 
-    double const dt = curr_dvl_time - last_dvl_time;
+    const double dt = curr_dvl_time - last_dvl_time;
     if (dt > kMinIntegrationDt) {
       integrate_dvl_measurement(last_dvl_time, curr_dvl_time, dvl_msg->linear_velocity);
     }
@@ -1040,7 +1035,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
 
   // Extra measurement to reach exact target time
   if (last_dvl_time < target_time) {
-    double const dt = target_time - last_dvl_time;
+    const double dt = target_time - last_dvl_time;
     if (dt > kMinIntegrationDt) {
       integrate_dvl_measurement(last_dvl_time, target_time, last_dvl_vel_);
     }
@@ -1062,16 +1057,16 @@ void FactorGraphCore::addOriginDeltaPriorFactor(gtsam::NonlinearFactorGraph& gra
                                                 const AgentStatusData& msg) {
   const auto& priors = params_.priors;
 
-  gtsam::Rot3 const map_R_delta =
+  const gtsam::Rot3 map_R_delta =
       gtsam::Rot3::Ypr(priors.origin_delta_orientation[2], priors.origin_delta_orientation[1],
                        priors.origin_delta_orientation[0]);
   gtsam::Point3 map_p_delta(priors.origin_delta_position[0], priors.origin_delta_position[1],
                             priors.origin_delta_position[2]);
-  gtsam::Pose3 const delta_prior(map_R_delta, map_p_delta);
+  const gtsam::Pose3 delta_prior(map_R_delta, map_p_delta);
 
-  gtsam::Matrix3 const map_orientation_cov =
+  const gtsam::Matrix3 map_orientation_cov =
       sigmasSquaredDiag(priors.origin_delta_orientation_sigmas);
-  gtsam::Matrix3 const map_position_cov = sigmasSquaredDiag(priors.origin_delta_position_sigmas);
+  const gtsam::Matrix3 map_position_cov = sigmasSquaredDiag(priors.origin_delta_position_sigmas);
 
   const gtsam::Matrix3 delta_R_map = map_R_delta.inverse().matrix();
 
@@ -1132,10 +1127,10 @@ void FactorGraphCore::addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& grap
   // Origin state method derived from Walls et al., IEEE ICRA 2015
   gtsam::Matrix66 H_prev;
   gtsam::Matrix66 H_curr;
-  gtsam::Pose3 const prev_T_curr = neighbor.prev_pose.between(neighbor.curr_pose, H_prev, H_curr);
+  const gtsam::Pose3 prev_T_curr = neighbor.prev_pose.between(neighbor.curr_pose, H_prev, H_curr);
 
   // Approximate relative covariance (ignores cross-correlation between the two chain poses)
-  gtsam::Matrix66 const between_cov = H_prev * neighbor.prev_cov * H_prev.transpose() +
+  const gtsam::Matrix66 between_cov = H_prev * neighbor.prev_cov * H_prev.transpose() +
                                       H_curr * neighbor.curr_cov * H_curr.transpose();
 
   graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
@@ -1354,8 +1349,8 @@ void FactorGraphCore::addMultiAgentFactors(
   }
 }
 
-auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBundle& tfs)
-    -> std::optional<QueueBundle> {
+std::optional<QueueBundle> FactorGraphCore::update(double target_time, QueueBundle& queues,
+                                                   const TfBundle& tfs) {
   if (target_time <= prev_time_ + kMinIntegrationDt) {
     return std::nullopt;
   }
@@ -1386,7 +1381,7 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
 
   QueueBundle leftover;
 
-  std::scoped_lock const state_lock(state_mutex_);
+  const std::scoped_lock state_lock(state_mutex_);
 
   // Update lazily-resolved transforms
   tfs_ = tfs;
@@ -1433,9 +1428,9 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
 
   // Handle DVL dropouts
   auto add_dropout_factors = [&](gtsam::NonlinearFactorGraph& g) {
-    bool const use_wrench =
+    const bool use_wrench =
         params_.wrench.enable_wrench || params_.wrench.enable_wrench_dropout_only;
-    bool const use_const_vel =
+    const bool use_const_vel =
         params_.const_vel.enable_const_vel || params_.const_vel.enable_const_vel_dropout_only;
 
     if (use_wrench) {
@@ -1525,7 +1520,7 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
   return leftover;
 }
 
-auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
+std::optional<OptimizeResult> FactorGraphCore::optimize() {
   // --- Load Graph from Buffer ---
   gtsam::NonlinearFactorGraph batch_graph;
   gtsam::Values batch_values;
@@ -1535,7 +1530,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   size_t batch_keyframes = 0;
 
   {
-    std::scoped_lock const state_lock(state_mutex_);
+    const std::scoped_lock state_lock(state_mutex_);
     if (!has_buffer_) {
       return std::nullopt;
     }
@@ -1574,7 +1569,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
     result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
 
     {
-      std::scoped_lock const state_lock(state_mutex_);
+      const std::scoped_lock state_lock(state_mutex_);
       prev_pose_ = inc_smoother_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
       prev_vel_ = inc_smoother_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
       prev_imu_bias_ =
@@ -1599,7 +1594,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
     result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
 
     {
-      std::scoped_lock const state_lock(state_mutex_);
+      const std::scoped_lock state_lock(state_mutex_);
       prev_pose_ = isam_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
       prev_vel_ = isam_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
       prev_imu_bias_ = isam_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
@@ -1627,7 +1622,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
     result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
 
     {
-      std::scoped_lock const state_lock(state_mutex_);
+      const std::scoped_lock state_lock(state_mutex_);
       prev_pose_ = lm_values_.at<gtsam::Pose3>(X(batch_prev_step));
       prev_vel_ = lm_values_.at<gtsam::Vector3>(V(batch_prev_step));
       prev_imu_bias_ = lm_values_.at<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
@@ -1646,7 +1641,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   }
 
   {
-    std::scoped_lock const state_lock(state_mutex_);
+    const std::scoped_lock state_lock(state_mutex_);
 
     result.pose = prev_pose_;
     result.velocity = prev_vel_;
@@ -1684,7 +1679,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   // --- Calculate Covariances ---
   auto cov_start = std::chrono::steady_clock::now();
 
-  auto marginal_cov = [&](bool enabled, gtsam::Key key, int dim) -> gtsam::Matrix {
+  gtsam::Matrix marginal_cov = [&](bool enabled, gtsam::Key key, int dim) {
     if (enabled) {
       if (inc_smoother_) {
         return inc_smoother_->marginalCovariance(key);
@@ -1720,7 +1715,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
     }
   }
 
-  auto neighbor_cov = [&](gtsam::Key pose_key, size_t agent_queue_idx) -> gtsam::Matrix {
+  gtsam::Matrix neighbor_cov = [&](gtsam::Key pose_key, size_t agent_queue_idx) {
     const gtsam::Key delta_key = O(agent_queue_idx);
 
     if (!cov_marginals || !cov_values->exists(delta_key) || !cov_values->exists(pose_key)) {
@@ -1766,8 +1761,8 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   return result;
 }
 
-auto FactorGraphCore::snapshotTimeKeys() const -> std::map<int64_t, gtsam::Key> {
-  std::scoped_lock const lock(state_mutex_);
+std::map<int64_t, gtsam::Key> FactorGraphCore::snapshotTimeKeys() const {
+  const std::scoped_lock lock(state_mutex_);
   return time_to_key_;
 }
 

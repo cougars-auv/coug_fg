@@ -18,7 +18,7 @@
 
 #include "coug_fg/dvl_a50_twist_beams.hpp"
 
-auto main(int argc, char* argv[]) -> int {
+int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::DvlA50TwistBeamsNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);

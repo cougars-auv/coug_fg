@@ -18,7 +18,7 @@
 
 #include "coug_fg/odom_ned_to_enu.hpp"
 
-auto main(int argc, char* argv[]) -> int {
+int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::OdomNedToEnuNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);

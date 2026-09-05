@@ -57,7 +57,8 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
                                              H_pose ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_rotation = gtsam::Matrix36::Zero();
-    gtsam::Rot3 map_R_agent = map_T_agent.rotation((H_delta || H_pose) ? &H_rotation : nullptr);
+    const gtsam::Rot3& map_R_agent =
+        map_T_agent.rotation((H_delta || H_pose) ? &H_rotation : nullptr);
 
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
     gtsam::Rot3 predicted_orientation =

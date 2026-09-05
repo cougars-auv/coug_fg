@@ -39,21 +39,21 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(WrenchDynamicsFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key_i = X(1);
-  gtsam::Key const vel_key_i = V(1);
-  gtsam::Key const pose_key_j = X(2);
-  gtsam::Key const vel_key_j = V(2);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Key pose_key_i = X(1);
+  const gtsam::Key vel_key_i = V(1);
+  const gtsam::Key pose_key_j = X(2);
+  const gtsam::Key vel_key_j = V(2);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
 
-  double const dt = 0.5;
-  gtsam::Matrix33 const mass = gtsam::Matrix33::Identity() * 5.0;
-  gtsam::Matrix33 const linear_drag = gtsam::Matrix33::Identity() * 1.0;
-  gtsam::Matrix33 const quad_drag = gtsam::Matrix33::Identity() * 0.5;
-  gtsam::Vector3 const control_force(2.0, -1.0, 0.5);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const double dt = 0.5;
+  const gtsam::Matrix33 mass = gtsam::Matrix33::Identity() * 5.0;
+  const gtsam::Matrix33 linear_drag = gtsam::Matrix33::Identity() * 1.0;
+  const gtsam::Matrix33 quad_drag = gtsam::Matrix33::Identity() * 0.5;
+  const gtsam::Vector3 control_force(2.0, -1.0, 0.5);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
 
-  WrenchDynamicsFactorArm const factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
+  const WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
                                        control_force, target_T_sensor, mass, linear_drag, quad_drag,
                                        model);
 
@@ -70,27 +70,27 @@ TEST(WrenchDynamicsFactorArmTest, Jacobians) {
 }
 
 TEST(WrenchDynamicsFactorArmTest, Residual) {
-  gtsam::Key const pose_key_i = X(1);
-  gtsam::Key const vel_key_i = V(1);
-  gtsam::Key const pose_key_j = X(2);
-  gtsam::Key const vel_key_j = V(2);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Key pose_key_i = X(1);
+  const gtsam::Key vel_key_i = V(1);
+  const gtsam::Key pose_key_j = X(2);
+  const gtsam::Key vel_key_j = V(2);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
 
-  double const dt = 0.5;
-  gtsam::Matrix33 const mass = gtsam::Matrix33::Identity() * 5.0;
-  gtsam::Matrix33 const linear_drag = gtsam::Matrix33::Identity() * 1.0;
-  gtsam::Matrix33 const quad_drag = gtsam::Matrix33::Identity() * 0.5;
-  gtsam::Vector3 const control_force(2.0, -1.0, 0.5);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const double dt = 0.5;
+  const gtsam::Matrix33 mass = gtsam::Matrix33::Identity() * 5.0;
+  const gtsam::Matrix33 linear_drag = gtsam::Matrix33::Identity() * 1.0;
+  const gtsam::Matrix33 quad_drag = gtsam::Matrix33::Identity() * 0.5;
+  const gtsam::Vector3 control_force(2.0, -1.0, 0.5);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
 
-  WrenchDynamicsFactorArm const factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
+  const WrenchDynamicsFactorArm factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, dt,
                                        control_force, target_T_sensor, mass, linear_drag, quad_drag,
                                        model);
 
-  gtsam::Pose3 const pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Pose3 const pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));
-  gtsam::Vector3 const vel_i(1.0, -0.5, 0.2);
+  const gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));
+  const gtsam::Vector3 vel_i(1.0, -0.5, 0.2);
 
   // Step the Fossen model forward once
   const gtsam::Vector3 target_force = target_T_sensor.rotation().matrix() * control_force;

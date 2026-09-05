@@ -56,11 +56,11 @@ class DvlTightPreintegrator {
     prev_delta_R_ik_ = delta_R_ik;
   }
 
-  gtsam::Vector3 delta() const { return measured_translation_; }
+  [[nodiscard]] gtsam::Vector3 delta() const { return measured_translation_; }
 
-  gtsam::Matrix3 covariance() const { return translation_cov_; }
+  [[nodiscard]] gtsam::Matrix3 covariance() const { return translation_cov_; }
 
-  gtsam::Matrix3 preintMeasDerivativeWrtBias() const { return J_p_bg_; }
+  [[nodiscard]] gtsam::Matrix3 preintMeasDerivativeWrtBias() const { return J_p_bg_; }
 
  private:
   gtsam::Vector3 measured_translation_;

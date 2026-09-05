@@ -45,8 +45,8 @@ void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& m
   tf_broadcaster_->sendTransform(convertToTf(msg));
 }
 
-auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
-    -> geometry_msgs::msg::TransformStamped {
+geometry_msgs::msg::TransformStamped OdomToTfNode::convertToTf(
+    const nav_msgs::msg::Odometry::ConstSharedPtr& msg) {
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header = msg->header;
   tf_msg.child_frame_id = msg->child_frame_id;

@@ -94,7 +94,7 @@ inline geometry_msgs::msg::Pose toPoseMsg(const gtsam::Pose3& pose) {
 }
 
 inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix33& cov) {
-  std::array<double, 36> cov_msg;
+  std::array<double, 36> cov_msg{};
   cov_msg.fill(0.0);
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
@@ -105,7 +105,7 @@ inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix33& cov) {
 }
 
 inline std::array<double, 9> toCovariance9Msg(const gtsam::Matrix33& cov) {
-  std::array<double, 9> cov_msg;
+  std::array<double, 9> cov_msg{};
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
       cov_msg[i * 3 + j] = cov(i, j);
@@ -115,7 +115,7 @@ inline std::array<double, 9> toCovariance9Msg(const gtsam::Matrix33& cov) {
 }
 
 inline std::array<double, 36> toCovariance36Msg(const gtsam::Matrix66& cov) {
-  std::array<double, 36> cov_msg;
+  std::array<double, 36> cov_msg{};
   for (int i = 0; i < 6; ++i) {
     for (int j = 0; j < 6; ++j) {
       cov_msg[i * 6 + j] = cov(i, j);

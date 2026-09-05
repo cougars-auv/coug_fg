@@ -18,7 +18,7 @@
 
 #include "coug_fg/navsat_odom.hpp"
 
-auto main(int argc, char* argv[]) -> int {
+int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::NavsatOdomNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);

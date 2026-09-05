@@ -37,14 +37,14 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DvlLoosePreintFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key_i = X(1);
-  gtsam::Key const pose_key_j = X(2);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key_i = X(1);
+  const gtsam::Key pose_key_j = X(2);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Vector3 const measured_translation(1.0, 0.5, -0.2);
+  const gtsam::Vector3 measured_translation(1.0, 0.5, -0.2);
 
-  DvlLoosePreintFactorArm const factor(pose_key_i, pose_key_j, target_T_sensor,
+  const DvlLoosePreintFactorArm factor(pose_key_i, pose_key_j, target_T_sensor,
                                        measured_translation, model);
 
   gtsam::Values values;
@@ -58,13 +58,13 @@ TEST(DvlLoosePreintFactorArmTest, Jacobians) {
 }
 
 TEST(DvlLoosePreintFactorArmTest, Residual) {
-  gtsam::Key const pose_key_i = X(1);
-  gtsam::Key const pose_key_j = X(2);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key_i = X(1);
+  const gtsam::Key pose_key_j = X(2);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 const pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Pose3 const pose_j(gtsam::Rot3::Ypr(-0.2, 0.4, 0.1), gtsam::Point3(2.0, 3.0, 2.5));
+  const gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(-0.2, 0.4, 0.1), gtsam::Point3(2.0, 3.0, 2.5));
 
   // Sensor travel between the poses, in the target frame at i
   const gtsam::Point3 sensor_map_j =
@@ -75,7 +75,7 @@ TEST(DvlLoosePreintFactorArmTest, Residual) {
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(0.01, -0.02, 0.03);
-  DvlLoosePreintFactorArm const factor(pose_key_i, pose_key_j, target_T_sensor,
+  const DvlLoosePreintFactorArm factor(pose_key_i, pose_key_j, target_T_sensor,
                                        predicted_translation - offset, model);
 
   const gtsam::Vector expected = offset;

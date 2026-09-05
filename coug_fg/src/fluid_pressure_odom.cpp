@@ -55,7 +55,7 @@ FluidPressureOdomNode::FluidPressureOdomNode(const rclcpp::NodeOptions& options)
 
 void FluidPressureOdomNode::pressureCallback(
     const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg) {
-  double const pressure = msg->fluid_pressure * params_.pressure_scale;
+  const double pressure = msg->fluid_pressure * params_.pressure_scale;
 
   if (params_.max_pressure_delta > 0.0 && last_pressure_ >= 0.0 &&
       std::abs(pressure - last_pressure_) > params_.max_pressure_delta) {
@@ -70,7 +70,7 @@ void FluidPressureOdomNode::pressureCallback(
   rejected_count_ = 0;
   last_pressure_ = pressure;
 
-  double const reference_pressure =
+  const double reference_pressure =
       calibrated_ ? calibrated_pressure_ : params_.atmospheric_pressure;
   odom_pub_->publish(convertToOdom(msg, pressure, reference_pressure));
 }
@@ -96,9 +96,9 @@ void FluidPressureOdomNode::calibrateCallback(
               calibrated_pressure_);
 }
 
-auto FluidPressureOdomNode::convertToOdom(
+nav_msgs::msg::Odometry FluidPressureOdomNode::convertToOdom(
     const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg, double pressure,
-    double reference_pressure) const -> nav_msgs::msg::Odometry {
+    double reference_pressure) const {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;
@@ -107,14 +107,14 @@ auto FluidPressureOdomNode::convertToOdom(
       params_.use_parameter_child_frame ? params_.parameter_child_frame : msg->header.frame_id;
 
   // depth [m] = (pressure [Pa] - reference_pressure [Pa]) / (water_density [kg/m^3] * g [m/s^2])
-  double const pressure_to_depth = 1.0 / (params_.water_density * params_.gravity);
-  double const gauge_pressure = pressure - reference_pressure;
+  const double pressure_to_depth = 1.0 / (params_.water_density * params_.gravity);
+  const double gauge_pressure = pressure - reference_pressure;
   odom_msg.pose.pose.position.z = -gauge_pressure * pressure_to_depth;
   odom_msg.pose.pose.orientation.w = 1.0;
 
   // var_depth = var_pressure / (rho*g)^2
-  double const var_pressure = msg->variance * params_.pressure_scale * params_.pressure_scale;
-  double const var_depth = var_pressure * pressure_to_depth * pressure_to_depth;
+  const double var_pressure = msg->variance * params_.pressure_scale * params_.pressure_scale;
+  const double var_depth = var_pressure * pressure_to_depth * pressure_to_depth;
   odom_msg.pose.covariance[14] = var_depth;
 
   return odom_msg;

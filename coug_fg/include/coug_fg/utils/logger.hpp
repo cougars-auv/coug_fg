@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -23,7 +24,7 @@
 
 namespace coug_fg::utils {
 
-enum class LogLevel { kDebug, kInfo, kWarn, kError };
+enum class LogLevel : std::uint8_t { kDebug, kInfo, kWarn, kError };
 
 using LogCallback = std::function<void(LogLevel, const std::string&)>;
 

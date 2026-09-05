@@ -37,13 +37,13 @@ constexpr double kResidualTol = 1e-15;
 }  // namespace
 
 TEST(MagFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Point3 const reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
-  gtsam::Point3 const measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  const gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  const gtsam::Point3 measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
 
-  MagFactorArm const factor(pose_key, measured_field, reference_field, target_T_sensor, model);
+  const MagFactorArm factor(pose_key, measured_field, reference_field, target_T_sensor, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -54,11 +54,11 @@ TEST(MagFactorArmTest, Jacobians) {
 }
 
 TEST(MagFactorArmTest, Residual) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Point3 const reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
 
   // Field the sensor would report if the state were exact
   const gtsam::Rot3 map_R_sensor = pose.rotation() * target_T_sensor.rotation();
@@ -66,7 +66,7 @@ TEST(MagFactorArmTest, Residual) {
 
   // Measured short of the prediction
   const gtsam::Vector3 offset(1.0e-7, -2.0e-7, 3.0e-7);
-  MagFactorArm const factor(pose_key, sensor_field - offset, reference_field, target_T_sensor,
+  const MagFactorArm factor(pose_key, sensor_field - offset, reference_field, target_T_sensor,
                             model);
 
   const gtsam::Vector expected = offset;

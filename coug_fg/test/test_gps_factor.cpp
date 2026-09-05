@@ -37,13 +37,13 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(Gps2dFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Point3 const measured_position(5.0, 5.0, 5.0);
+  const gtsam::Point3 measured_position(5.0, 5.0, 5.0);
 
-  Gps2dFactorArm const factor(pose_key, measured_position, target_T_sensor, model);
+  const Gps2dFactorArm factor(pose_key, measured_position, target_T_sensor, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -54,11 +54,11 @@ TEST(Gps2dFactorArmTest, Jacobians) {
 }
 
 TEST(Gps2dFactorArmTest, Residual) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(2, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
 
   // Position of the sensor itself, not of the target
   const gtsam::Point3 sensor_position =
@@ -66,7 +66,7 @@ TEST(Gps2dFactorArmTest, Residual) {
 
   // Large Z offset: the factor constrains X and Y only
   const gtsam::Point3 offset(0.3, -0.2, 7.0);
-  Gps2dFactorArm const factor(pose_key, sensor_position - offset, target_T_sensor, model);
+  const Gps2dFactorArm factor(pose_key, sensor_position - offset, target_T_sensor, model);
 
   const gtsam::Vector expected = offset.head<2>();
   EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose), kResidualTol));

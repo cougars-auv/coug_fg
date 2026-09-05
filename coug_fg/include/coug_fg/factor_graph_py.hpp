@@ -31,7 +31,7 @@ class FactorGraphPy {
  public:
   explicit FactorGraphPy(const std::vector<std::string>& config_paths, const std::string& ns = "");
 
-  pybind11::dict get_params() const;
+  [[nodiscard]] pybind11::dict get_params() const;
 
   bool initialize(double init_time, const pybind11::dict& queues, const pybind11::dict& tfs);
 

@@ -62,9 +62,8 @@ void SeatracX150ImuDepthNode::modemStatusCallback(
   }
 }
 
-auto SeatracX150ImuDepthNode::convertToImu(
-    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const
-    -> sensor_msgs::msg::Imu {
+sensor_msgs::msg::Imu SeatracX150ImuDepthNode::convertToImu(
+    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const {
   sensor_msgs::msg::Imu imu_msg;
   imu_msg.header = msg->header;
   if (params_.use_parameter_frame) {
@@ -72,9 +71,9 @@ auto SeatracX150ImuDepthNode::convertToImu(
   }
 
   static constexpr double kSeatracToRad = M_PI / 1800.0;
-  double const roll_rad = msg->attitude_roll * kSeatracToRad;
-  double const pitch_rad = msg->attitude_pitch * kSeatracToRad;
-  double const yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
+  const double roll_rad = msg->attitude_roll * kSeatracToRad;
+  const double pitch_rad = msg->attitude_pitch * kSeatracToRad;
+  const double yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
 
   tf2::Quaternion q;
   q.setRPY(roll_rad, pitch_rad, yaw_rad);
@@ -97,9 +96,8 @@ auto SeatracX150ImuDepthNode::convertToImu(
   return imu_msg;
 }
 
-auto SeatracX150ImuDepthNode::convertToOdom(
-    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const
-    -> nav_msgs::msg::Odometry {
+nav_msgs::msg::Odometry SeatracX150ImuDepthNode::convertToOdom(
+    const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;
@@ -111,7 +109,7 @@ auto SeatracX150ImuDepthNode::convertToOdom(
   odom_msg.pose.pose.position.z = msg->depth_local * kSeatracToMeters;
   odom_msg.pose.pose.orientation.w = 1.0;
 
-  double const var_depth = params_.depth_noise_sigma * params_.depth_noise_sigma;
+  const double var_depth = params_.depth_noise_sigma * params_.depth_noise_sigma;
   odom_msg.pose.covariance[14] = var_depth;
 
   return odom_msg;

@@ -50,15 +50,15 @@ void OdomNedToEnuNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPt
   odom_pub_->publish(convertToEnu(msg));
 }
 
-auto OdomNedToEnuNode::convertToEnu(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
-    -> nav_msgs::msg::Odometry {
+nav_msgs::msg::Odometry OdomNedToEnuNode::convertToEnu(
+    const nav_msgs::msg::Odometry::ConstSharedPtr& msg) {
   nav_msgs::msg::Odometry odom_msg = *msg;
 
   // Convert NED -> ENU
   static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
 
   const auto& ned_position = msg->pose.pose.position;
-  tf2::Vector3 const enu_position =
+  const tf2::Vector3 enu_position =
       tf2::quatRotate(kNedToEnu, tf2::Vector3(ned_position.x, ned_position.y, ned_position.z));
   odom_msg.pose.pose.position.x = enu_position.x();
   odom_msg.pose.pose.position.y = enu_position.y();

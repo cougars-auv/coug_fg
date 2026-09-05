@@ -49,8 +49,8 @@ void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& m
   imu_pub_->publish(convertToEnu(msg));
 }
 
-auto ImuNedToEnuNode::convertToEnu(const sensor_msgs::msg::Imu::ConstSharedPtr& msg)
-    -> sensor_msgs::msg::Imu {
+sensor_msgs::msg::Imu ImuNedToEnuNode::convertToEnu(
+    const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
   sensor_msgs::msg::Imu imu_msg = *msg;
 
   // Convert NED -> ENU

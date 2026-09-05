@@ -75,13 +75,13 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   }
 
   if (params_.publish_diagnostics) {
-    std::string const ns = this->get_namespace();
-    std::string const clean_ns = (ns == "/") ? "" : ns;
+    const std::string ns = this->get_namespace();
+    const std::string clean_ns = (ns == "/") ? "" : ns;
     diagnostic_updater_.setHardwareID(clean_ns + "/navsat_odom_node");
 
-    std::string const prefix = clean_ns.empty() ? "" : "[" + clean_ns + "] ";
+    const std::string prefix = clean_ns.empty() ? "" : "[" + clean_ns + "] ";
 
-    std::string const origin_task = prefix + "Origin Status";
+    const std::string origin_task = prefix + "Origin Status";
     diagnostic_updater_.add(origin_task, [this](diagnostic_updater::DiagnosticStatusWrapper& stat) {
       checkOriginStatus(stat);
     });
@@ -139,8 +139,8 @@ void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
   origin_set_ = true;
 }
 
-auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg)
-    -> nav_msgs::msg::Odometry {
+nav_msgs::msg::Odometry NavsatOdomNode::convertToOdom(
+    const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;

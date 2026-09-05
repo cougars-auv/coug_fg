@@ -57,6 +57,11 @@ class FactorGraphNode : public rclcpp::Node {
 
   ~FactorGraphNode() override;
 
+  FactorGraphNode(const FactorGraphNode&) = delete;
+  FactorGraphNode& operator=(const FactorGraphNode&) = delete;
+  FactorGraphNode(FactorGraphNode&&) = delete;
+  FactorGraphNode& operator=(FactorGraphNode&&) = delete;
+
  private:
   // --- Initialization ---
   void setupRosInterfaces();

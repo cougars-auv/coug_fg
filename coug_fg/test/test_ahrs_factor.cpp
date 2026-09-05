@@ -37,13 +37,13 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(AhrsFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Rot3 const measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
-  double const magnetic_declination = 0.05;
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  const gtsam::Rot3 measured_attitude = gtsam::Rot3::Ypr(0.5, 0.1, -0.1);
+  const double magnetic_declination = 0.05;
 
-  AhrsFactorArm const factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
+  const AhrsFactorArm factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
                              model);
 
   gtsam::Values values;
@@ -55,11 +55,11 @@ TEST(AhrsFactorArmTest, Jacobians) {
 }
 
 TEST(AhrsFactorArmTest, Residual) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  double const magnetic_declination = 0.05;
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const double magnetic_declination = 0.05;
 
   // Orientation the sensor holds in the map frame
   const gtsam::Rot3 map_R_sensor = pose.rotation() * target_T_sensor.rotation();
@@ -69,7 +69,7 @@ TEST(AhrsFactorArmTest, Residual) {
   const gtsam::Rot3 measured_attitude =
       gtsam::Rot3::Yaw(magnetic_declination) * map_R_sensor * gtsam::Rot3::Expmap(offset);
 
-  AhrsFactorArm const factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
+  const AhrsFactorArm factor(pose_key, measured_attitude, target_T_sensor, magnetic_declination,
                              model);
 
   // Logmap(Expmap(-offset)) undoes the injected turn

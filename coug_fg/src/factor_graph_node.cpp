@@ -18,7 +18,7 @@
 
 #include "coug_fg/factor_graph.hpp"
 
-auto main(int argc, char* argv[]) -> int {
+int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::FactorGraphNode>(rclcpp::NodeOptions());
   rclcpp::executors::MultiThreadedExecutor executor;

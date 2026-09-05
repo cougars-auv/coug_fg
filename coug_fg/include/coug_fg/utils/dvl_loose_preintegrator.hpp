@@ -52,9 +52,9 @@ class DvlLoosePreintegrator {
                      i_R_k.matrix() * gtsam::skewSymmetric(measured_velocity) * dvl_R_ahrs_);
   }
 
-  gtsam::Vector3 delta() const { return measured_translation_; }
+  [[nodiscard]] gtsam::Vector3 delta() const { return measured_translation_; }
 
-  gtsam::Matrix3 covariance() const {
+  [[nodiscard]] gtsam::Matrix3 covariance() const {
     return velocity_noise_cov_ + J_ahrs_ * ahrs_tangent_cov_ * J_ahrs_.transpose();
   }
 

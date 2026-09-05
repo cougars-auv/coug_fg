@@ -59,7 +59,7 @@ DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
 }
 
 void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg) {
-  std::string const dvl_frame =
+  const std::string dvl_frame =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
 
   geometry_msgs::msg::TransformStamped dvl_T_base_tf;
@@ -74,10 +74,9 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg
   odom_pub_->publish(convertToOdom(msg, dvl_frame, dvl_T_base_tf));
 }
 
-auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg,
-                                   const std::string& dvl_frame,
-                                   const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) const
-    -> nav_msgs::msg::Odometry {
+nav_msgs::msg::Odometry DvlA50OdomNode::convertToOdom(
+    const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg, const std::string& dvl_frame,
+    const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) const {
   // Transform the DVL pose to the base pose, both in the odom frame
   geometry_msgs::msg::Pose dvl_T_base;
   dvl_T_base.position.x = dvl_T_base_tf.transform.translation.x;
@@ -114,15 +113,15 @@ auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& m
     odom_msg.header.stamp = msg->header.stamp;
   } else {
     static constexpr double kSecondsToNanoseconds = 1e9;
-    double const whole_sec = std::floor(msg->time);
-    auto const sec = static_cast<int32_t>(whole_sec);
-    auto const nanosec = static_cast<uint32_t>((msg->time - whole_sec) * kSecondsToNanoseconds);
+    const double whole_sec = std::floor(msg->time);
+    const auto sec = static_cast<int32_t>(whole_sec);
+    const auto nanosec = static_cast<uint32_t>((msg->time - whole_sec) * kSecondsToNanoseconds);
     odom_msg.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 
   odom_msg.pose.pose = odom_T_base;
 
-  double const var_pos = msg->pos_std * msg->pos_std;
+  const double var_pos = msg->pos_std * msg->pos_std;
   odom_msg.pose.covariance[0] = var_pos;
   odom_msg.pose.covariance[7] = var_pos;
   odom_msg.pose.covariance[14] = var_pos;

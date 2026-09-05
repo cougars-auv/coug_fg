@@ -76,8 +76,8 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
   last_dvl_time_ = now.seconds();
 
   if (params_.simulate_dropout && params_.dropout_frequency_hz > 0.0) {
-    double const cycle_period = 1.0 / params_.dropout_frequency_hz;
-    bool const should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
+    const double cycle_period = 1.0 / params_.dropout_frequency_hz;
+    const bool should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
     if (should_drop) {
       if (!is_simulating_dropout_) {
         RCLCPP_WARN(get_logger(), "Simulating DVL dropout.");
@@ -102,27 +102,27 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
       if (in.id < 0 || static_cast<size_t>(in.id) >= range_pubs_.size()) {
         continue;
       }
-      range_pubs_.at(in.id)->publish(convertToRange(in, beam_frames_.at(in.id), stamp));
+      range_pubs_[in.id]->publish(convertToRange(in, beam_frames_[in.id], stamp));
     }
   }
 }
 
-auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
-    -> rclcpp::Time {
+rclcpp::Time DvlA50TwistBeamsNode::resolveStamp(
+    const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const {
   if (params_.override_timestamp) {
     return {msg->header.stamp};
   }
 
   static constexpr uint64_t kMicrosecondsPerSecond = 1000000;
   static constexpr uint64_t kNanosecondsPerMicrosecond = 1000;
-  auto const sec = static_cast<int32_t>(msg->time_of_validity / kMicrosecondsPerSecond);
-  auto const nanosec = static_cast<uint32_t>((msg->time_of_validity % kMicrosecondsPerSecond) *
+  const auto sec = static_cast<int32_t>(msg->time_of_validity / kMicrosecondsPerSecond);
+  const auto nanosec = static_cast<uint32_t>((msg->time_of_validity % kMicrosecondsPerSecond) *
                                              kNanosecondsPerMicrosecond);
   return {sec, nanosec, RCL_ROS_TIME};
 }
 
-auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
-    -> geometry_msgs::msg::TwistWithCovarianceStamped {
+geometry_msgs::msg::TwistWithCovarianceStamped DvlA50TwistBeamsNode::convertToTwist(
+    const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
   geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
   twist_msg.header.frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
@@ -136,7 +136,7 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   twist_msg.twist.twist.linear.z = kFrdToFlu[2] * msg->velocity.z;
 
   if (params_.use_fom_covariance) {
-    double const var_vel = msg->fom * params_.fom_covariance_scale;
+    const double var_vel = msg->fom * params_.fom_covariance_scale;
     twist_msg.twist.covariance[0] = var_vel;
     twist_msg.twist.covariance[7] = var_vel;
     twist_msg.twist.covariance[14] = var_vel;
@@ -151,8 +151,7 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   return twist_msg;
 }
 
-auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
-    -> DvlBeamList {
+DvlBeamList DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
   DvlBeamList beams_msg;
   beams_msg.header.frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
@@ -166,7 +165,7 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
     }
 
     DvlBeam beam;
-    beam.frame_id = beam_frames_.at(in.id);
+    beam.frame_id = beam_frames_[in.id];
     beam.valid = in.valid;
     beam.velocity = in.velocity;
     beam.distance = in.distance;
@@ -175,10 +174,9 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
   return beams_msg;
 }
 
-auto DvlA50TwistBeamsNode::convertToRange(const dvl_msgs::msg::DVLBeam& beam,
-                                          const std::string& frame_id,
-                                          const rclcpp::Time& stamp) const
-    -> sensor_msgs::msg::Range {
+sensor_msgs::msg::Range DvlA50TwistBeamsNode::convertToRange(const dvl_msgs::msg::DVLBeam& beam,
+                                                             const std::string& frame_id,
+                                                             const rclcpp::Time& stamp) const {
   sensor_msgs::msg::Range range_msg;
   range_msg.header.frame_id = frame_id;
   range_msg.header.stamp = stamp;

@@ -13,6 +13,7 @@ We **strongly recommend** using the [`cougars-dev`](https://github.com/cougars-a
 
 This repository follows the **Semantic Versioning (SemVer 2.0.0)** standard:
 > Given a version number **`MAJOR.MINOR.PATCH`**, increment the:
+>
 > - **MAJOR** version when you make incompatible API changes
 > - **MINOR** version when you add functionality in a backward compatible manner
 > - **PATCH** version when you make backward compatible bug fixes
@@ -33,6 +34,7 @@ This repository follows the **Semantic Versioning (SemVer 2.0.0)** standard:
 If you use this repository in your research, please cite the following publications:
 
 ### CoUGARs
+
 ```bibtex
 @misc{durrant2025lowcostmultiagentfleetacoustic,
   title={Low-cost Multi-agent Fleet for Acoustic Cooperative Localization Research},

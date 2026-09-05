@@ -39,7 +39,7 @@
 
 namespace coug_fg {
 
-DvlA50OdomNode::DvlA50OdomNode(rclcpp::NodeOptions const& options)
+DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
     : Node("dvl_a50_odom_node", options) {
   param_listener_ =
       std::make_shared<dvl_a50_odom_node::ParamListener>(get_node_parameters_interface());
@@ -50,7 +50,7 @@ DvlA50OdomNode::DvlA50OdomNode(rclcpp::NodeOptions const& options)
 
   dvl_sub_ = create_subscription<dvl_msgs::msg::DVLDR>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](dvl_msgs::msg::DVLDR::ConstSharedPtr const& msg) { dvlCallback(msg); });
+      [this](const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg) { dvlCallback(msg); });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -58,14 +58,14 @@ DvlA50OdomNode::DvlA50OdomNode(rclcpp::NodeOptions const& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void DvlA50OdomNode::dvlCallback(dvl_msgs::msg::DVLDR::ConstSharedPtr const& msg) {
-  std::string const dvl_frame =
+void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg) {
+  const std::string dvl_frame =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
 
   geometry_msgs::msg::TransformStamped dvl_T_base_tf;
   try {
     dvl_T_base_tf = tf_buffer_->lookupTransform(dvl_frame, params_.base_frame, tf2::TimePointZero);
-  } catch (tf2::TransformException const& ex) {
+  } catch (const tf2::TransformException& ex) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
                          dvl_frame.c_str(), params_.base_frame.c_str(), ex.what());
     return;
@@ -74,9 +74,9 @@ void DvlA50OdomNode::dvlCallback(dvl_msgs::msg::DVLDR::ConstSharedPtr const& msg
   odom_pub_->publish(convertToOdom(msg, dvl_frame, dvl_T_base_tf));
 }
 
-auto DvlA50OdomNode::convertToOdom(dvl_msgs::msg::DVLDR::ConstSharedPtr const& msg,
-                                   std::string const& dvl_frame,
-                                   geometry_msgs::msg::TransformStamped const& dvl_T_base_tf) const
+auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg,
+                                   const std::string& dvl_frame,
+                                   const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) const
     -> nav_msgs::msg::Odometry {
   // Transform the DVL pose to the base pose, both in the odom frame
   geometry_msgs::msg::Pose dvl_T_base;
@@ -97,7 +97,7 @@ auto DvlA50OdomNode::convertToOdom(dvl_msgs::msg::DVLDR::ConstSharedPtr const& m
   q.setRPY(msg->roll * kDegToRad, msg->pitch * kDegToRad, msg->yaw * kDegToRad);
 
   // Convert FRD -> FLU
-  static tf2::Quaternion const kFrdToFlu(1.0, 0.0, 0.0, 0.0);
+  static const tf2::Quaternion kFrdToFlu(1.0, 0.0, 0.0, 0.0);
   q *= kFrdToFlu;
 
   odom_T_dvl_tf.transform.rotation = tf2::toMsg(q);
@@ -114,20 +114,20 @@ auto DvlA50OdomNode::convertToOdom(dvl_msgs::msg::DVLDR::ConstSharedPtr const& m
     odom_msg.header.stamp = msg->header.stamp;
   } else {
     static constexpr double kSecondsToNanoseconds = 1e9;
-    double const whole_sec = std::floor(msg->time);
-    auto const sec = static_cast<int32_t>(whole_sec);
-    auto const nanosec = static_cast<uint32_t>((msg->time - whole_sec) * kSecondsToNanoseconds);
+    const double whole_sec = std::floor(msg->time);
+    const auto sec = static_cast<int32_t>(whole_sec);
+    const auto nanosec = static_cast<uint32_t>((msg->time - whole_sec) * kSecondsToNanoseconds);
     odom_msg.header.stamp = rclcpp::Time(sec, nanosec, RCL_ROS_TIME);
   }
 
   odom_msg.pose.pose = odom_T_base;
 
-  double const var_pos = msg->pos_std * msg->pos_std;
+  const double var_pos = msg->pos_std * msg->pos_std;
   odom_msg.pose.covariance[0] = var_pos;
   odom_msg.pose.covariance[7] = var_pos;
   odom_msg.pose.covariance[14] = var_pos;
 
-  auto const& sigmas = params_.orientation_noise_sigmas;
+  const auto& sigmas = params_.orientation_noise_sigmas;
   odom_msg.pose.covariance[21] = sigmas[0] * sigmas[0];
   odom_msg.pose.covariance[28] = sigmas[1] * sigmas[1];
   odom_msg.pose.covariance[35] = sigmas[2] * sigmas[2];

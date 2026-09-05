@@ -38,14 +38,14 @@ constexpr double kResidualTol = 1e-15;
 }  // namespace
 
 TEST(MagCalibFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::Key const bias_key = M(0);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Point3 const reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
-  gtsam::Point3 const measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
+  const gtsam::Key pose_key = X(1);
+  const gtsam::Key bias_key = M(0);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  const gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  const gtsam::Point3 measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
 
-  MagCalibFactorArm const factor(pose_key, bias_key, measured_field, reference_field,
+  const MagCalibFactorArm factor(pose_key, bias_key, measured_field, reference_field,
                                  target_T_sensor, model);
 
   gtsam::Values values;
@@ -58,23 +58,23 @@ TEST(MagCalibFactorArmTest, Jacobians) {
 }
 
 TEST(MagCalibFactorArmTest, Residual) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::Key const bias_key = M(0);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Point3 const reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
-  gtsam::Point3 const bias(-3.3e-06, 6.5e-07, 1.16e-05);
+  const gtsam::Key pose_key = X(1);
+  const gtsam::Key bias_key = M(0);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  const gtsam::Point3 bias(-3.3e-06, 6.5e-07, 1.16e-05);
 
   // Field the sensor would report if the state were exact
-  gtsam::Rot3 const map_R_sensor = pose.rotation() * target_T_sensor.rotation();
-  gtsam::Point3 const sensor_field = map_R_sensor.matrix().transpose() * reference_field;
+  const gtsam::Rot3 map_R_sensor = pose.rotation() * target_T_sensor.rotation();
+  const gtsam::Point3 sensor_field = map_R_sensor.matrix().transpose() * reference_field;
 
   // A true reading carries the hard-iron bias too
-  gtsam::Vector3 const offset(1.0e-7, -2.0e-7, 3.0e-7);
-  MagCalibFactorArm const factor(pose_key, bias_key, sensor_field + bias - offset, reference_field,
+  const gtsam::Vector3 offset(1.0e-7, -2.0e-7, 3.0e-7);
+  const MagCalibFactorArm factor(pose_key, bias_key, sensor_field + bias - offset, reference_field,
                                  target_T_sensor, model);
 
-  gtsam::Vector const expected = offset;
+  const gtsam::Vector expected = offset;
   EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose, bias), kResidualTol));
 }

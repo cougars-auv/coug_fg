@@ -28,18 +28,18 @@ namespace coug_fg {
 
 class NavsatOdomNode : public rclcpp::Node {
  public:
-  explicit NavsatOdomNode(rclcpp::NodeOptions const& options);
+  explicit NavsatOdomNode(const rclcpp::NodeOptions& options);
 
  private:
   // --- Callbacks ---
-  void originCallback(sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg);
+  void originCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg);
 
-  void navsatCallback(sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg);
+  void navsatCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  void setOrigin(sensor_msgs::msg::NavSatFix const& msg);
+  void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
 
-  auto convertToOdom(sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg)
+  auto convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg)
       -> nav_msgs::msg::Odometry;
 
   // --- Diagnostics ---

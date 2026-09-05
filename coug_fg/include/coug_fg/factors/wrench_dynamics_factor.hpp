@@ -33,10 +33,10 @@ class WrenchDynamicsFactorArm
 
  public:
   WrenchDynamicsFactorArm(gtsam::Key pose_key_i, gtsam::Key vel_key_i, gtsam::Key pose_key_j,
-                          gtsam::Key vel_key_j, double dt, gtsam::Vector3 const& control_force,
-                          gtsam::Pose3 const& target_T_sensor, gtsam::Matrix33 const& mass,
-                          gtsam::Matrix33 const& linear_drag, gtsam::Matrix33 const& quad_drag,
-                          gtsam::SharedNoiseModel const& noise_model)
+                          gtsam::Key vel_key_j, double dt, const gtsam::Vector3& control_force,
+                          const gtsam::Pose3& target_T_sensor, const gtsam::Matrix33& mass,
+                          const gtsam::Matrix33& linear_drag, const gtsam::Matrix33& quad_drag,
+                          const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3>(
             noise_model, pose_key_i, vel_key_i, pose_key_j, vel_key_j),
         dt_(dt),
@@ -46,8 +46,8 @@ class WrenchDynamicsFactorArm
         quad_drag_(quad_drag),
         mass_inv_(mass.inverse()) {}
 
-  auto evaluateError(gtsam::Pose3 const& pose_i, gtsam::Vector3 const& vel_i,
-                     gtsam::Pose3 const& pose_j, gtsam::Vector3 const& vel_j,
+  auto evaluateError(const gtsam::Pose3& pose_i, const gtsam::Vector3& vel_i,
+                     const gtsam::Pose3& pose_j, const gtsam::Vector3& vel_j,
                      gtsam::OptionalMatrixType H_pose_i = nullptr,
                      gtsam::OptionalMatrixType H_vel_i = nullptr,
                      gtsam::OptionalMatrixType H_pose_j = nullptr,
@@ -56,28 +56,28 @@ class WrenchDynamicsFactorArm
     gtsam::Matrix33 H_unrotate_vi = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_Rj = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_vj = gtsam::Matrix33::Zero();
-    gtsam::Vector3 const target_v_i = pose_i.rotation().unrotate(
+    const gtsam::Vector3 target_v_i = pose_i.rotation().unrotate(
         vel_i, H_pose_i ? &H_unrotate_Ri : nullptr, H_vel_i ? &H_unrotate_vi : nullptr);
-    gtsam::Vector3 const target_v_j = pose_j.rotation().unrotate(
+    const gtsam::Vector3 target_v_j = pose_j.rotation().unrotate(
         vel_j, H_pose_j ? &H_unrotate_Rj : nullptr, H_vel_j ? &H_unrotate_vj : nullptr);
 
-    gtsam::Vector3 const target_v_i_abs = target_v_i.cwiseAbs();
-    gtsam::Vector3 const drag_force =
+    const gtsam::Vector3 target_v_i_abs = target_v_i.cwiseAbs();
+    const gtsam::Vector3 drag_force =
         -(linear_drag_ * target_v_i + quad_drag_ * target_v_i.cwiseProduct(target_v_i_abs));
 
     // Jacobian of the velocity prediction with respect to target_v_i
     gtsam::Matrix33 J_scale = gtsam::Matrix33::Zero();
     if (H_pose_i || H_vel_i) {
-      gtsam::Matrix33 const J_drag_v =
+      const gtsam::Matrix33 J_drag_v =
           -(linear_drag_ + 2.0 * quad_drag_ * target_v_i_abs.asDiagonal());
       J_scale = gtsam::Matrix33::Identity() + dt_ * mass_inv_ * J_drag_v;
     }
 
-    gtsam::Vector3 const target_accel = mass_inv_ * (target_force_ + drag_force);
-    gtsam::Vector3 const target_v_pred = target_v_i + target_accel * dt_;
+    const gtsam::Vector3 target_accel = mass_inv_ * (target_force_ + drag_force);
+    const gtsam::Vector3 target_v_pred = target_v_i + target_accel * dt_;
 
     // 3D velocity difference residual
-    gtsam::Vector3 const error = target_v_j - target_v_pred;
+    const gtsam::Vector3 error = target_v_j - target_v_pred;
 
     if (H_pose_i) {
       // Jacobian with respect to pose_i (3x6)

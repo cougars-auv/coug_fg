@@ -29,23 +29,23 @@ class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  MagFactorArm(gtsam::Key pose_key, gtsam::Point3 const& measured_field,
-               gtsam::Point3 const& reference_field, gtsam::Pose3 const& target_T_sensor,
-               gtsam::SharedNoiseModel const& noise_model)
+  MagFactorArm(gtsam::Key pose_key, const gtsam::Point3& measured_field,
+               const gtsam::Point3& reference_field, const gtsam::Pose3& target_T_sensor,
+               const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
         measured_field_(measured_field),
         map_field_ref_(reference_field),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  auto evaluateError(gtsam::Pose3 const& pose, gtsam::OptionalMatrixType H = nullptr) const
+  auto evaluateError(const gtsam::Pose3& pose, gtsam::OptionalMatrixType H = nullptr) const
       -> gtsam::Vector override {
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
-    gtsam::Point3 const target_field =
+    const gtsam::Point3 target_field =
         pose.rotation().unrotate(map_field_ref_, H ? &H_unrotate_R : nullptr);
-    gtsam::Point3 const predicted_field = target_R_sensor_.unrotate(target_field);
+    const gtsam::Point3 predicted_field = target_R_sensor_.unrotate(target_field);
 
     // 3D magnetic field residual
-    gtsam::Vector3 const error = predicted_field - measured_field_;
+    const gtsam::Vector3 error = predicted_field - measured_field_;
 
     if (H) {
       // Jacobian with respect to pose (3x6)

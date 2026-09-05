@@ -36,13 +36,13 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DepthFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  double const measured_depth = 5.0;
+  const double measured_depth = 5.0;
 
-  DepthFactorArm const factor(pose_key, measured_depth, target_T_sensor, model);
+  const DepthFactorArm factor(pose_key, measured_depth, target_T_sensor, model);
 
   gtsam::Values values;
   values.insert(pose_key,
@@ -53,19 +53,19 @@ TEST(DepthFactorArmTest, Jacobians) {
 }
 
 TEST(DepthFactorArmTest, Residual) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
 
   // Depth of the sensor itself, not of the target
-  double const sensor_depth =
+  const double sensor_depth =
       (pose.rotation().matrix() * target_T_sensor.translation() + pose.translation()).z();
 
   // Measured shallower than the state predicts
   constexpr double kOffset = 0.25;
-  DepthFactorArm const factor(pose_key, sensor_depth - kOffset, target_T_sensor, model);
+  const DepthFactorArm factor(pose_key, sensor_depth - kOffset, target_T_sensor, model);
 
   EXPECT_NEAR(factor.evaluateError(pose)(0), kOffset, kResidualTol);
 }

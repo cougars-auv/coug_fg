@@ -27,19 +27,19 @@ class DepthOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, 
 
  public:
   DepthOriginDeltaFactorArm(gtsam::Key delta_key, gtsam::Key pose_key, double measured_depth,
-                            gtsam::Pose3 const& target_T_sensor,
-                            gtsam::SharedNoiseModel const& noise_model)
+                            const gtsam::Pose3& target_T_sensor,
+                            const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(noise_model, delta_key, pose_key),
         measured_depth_(measured_depth),
         target_p_sensor_(target_T_sensor.translation()) {}
 
-  auto evaluateError(gtsam::Pose3 const& delta, gtsam::Pose3 const& pose,
+  auto evaluateError(const gtsam::Pose3& delta, const gtsam::Pose3& pose,
                      gtsam::OptionalMatrixType H_delta = nullptr,
                      gtsam::OptionalMatrixType H_pose = nullptr) const -> gtsam::Vector override {
     // Transform the agent's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
-    gtsam::Pose3 const map_T_agent = delta.compose(pose, H_delta ? &H_compose_delta : nullptr,
+    const gtsam::Pose3 map_T_agent = delta.compose(pose, H_delta ? &H_compose_delta : nullptr,
                                                    H_pose ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_transform = gtsam::Matrix36::Zero();
@@ -47,7 +47,7 @@ class DepthOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, 
         map_T_agent.transformFrom(target_p_sensor_, (H_delta || H_pose) ? &H_transform : nullptr);
 
     // 1D depth residual
-    double const error = predicted_position.z() - measured_depth_;
+    const double error = predicted_position.z() - measured_depth_;
 
     if (H_delta) {
       // Jacobian with respect to delta (1x6)

@@ -29,14 +29,14 @@ namespace coug_fg {
 
 class FactorGraphPy {
  public:
-  explicit FactorGraphPy(std::vector<std::string> const& config_paths, std::string const& ns = "");
+  explicit FactorGraphPy(const std::vector<std::string>& config_paths, const std::string& ns = "");
 
   [[nodiscard]] auto get_params() const -> pybind11::dict;
 
-  auto initialize(double init_time, pybind11::dict const& queues, pybind11::dict const& tfs)
+  auto initialize(double init_time, const pybind11::dict& queues, const pybind11::dict& tfs)
       -> bool;
 
-  auto update(double target_time, pybind11::dict const& queues, pybind11::dict const& tfs)
+  auto update(double target_time, const pybind11::dict& queues, const pybind11::dict& tfs)
       -> pybind11::object;
 
   auto optimize() -> pybind11::dict;

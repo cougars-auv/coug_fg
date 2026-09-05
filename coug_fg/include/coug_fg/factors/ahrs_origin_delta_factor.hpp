@@ -27,54 +27,54 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  static auto trueNorthOrientation(gtsam::Rot3 const& measured_orientation, double mag_declination)
+  static auto trueNorthOrientation(const gtsam::Rot3& measured_orientation, double mag_declination)
       -> gtsam::Rot3 {
     return gtsam::Rot3::Yaw(-mag_declination) * measured_orientation;
   }
 
-  static auto sensorTangentCovariance(gtsam::Matrix3 const& map_covariance,
-                                      gtsam::Rot3 const& measured_orientation) -> gtsam::Matrix3 {
-    gtsam::Matrix3 const map_R_sensor = measured_orientation.matrix();
+  static auto sensorTangentCovariance(const gtsam::Matrix3& map_covariance,
+                                      const gtsam::Rot3& measured_orientation) -> gtsam::Matrix3 {
+    const gtsam::Matrix3 map_R_sensor = measured_orientation.matrix();
 
     return map_R_sensor.transpose() * map_covariance * map_R_sensor;
   }
 
   AhrsOriginDeltaFactorArm(gtsam::Key delta_key, gtsam::Key pose_key,
-                           gtsam::Rot3 const& measured_orientation,
-                           gtsam::Pose3 const& target_T_sensor, double mag_declination,
-                           gtsam::SharedNoiseModel const& noise_model)
+                           const gtsam::Rot3& measured_orientation,
+                           const gtsam::Pose3& target_T_sensor, double mag_declination,
+                           const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(noise_model, delta_key, pose_key),
         measured_orientation_(trueNorthOrientation(measured_orientation, mag_declination)),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  auto evaluateError(gtsam::Pose3 const& delta, gtsam::Pose3 const& pose,
+  auto evaluateError(const gtsam::Pose3& delta, const gtsam::Pose3& pose,
                      gtsam::OptionalMatrixType H_delta = nullptr,
                      gtsam::OptionalMatrixType H_pose = nullptr) const -> gtsam::Vector override {
     // Transform the agent's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
-    gtsam::Pose3 const map_T_agent = delta.compose(pose, H_delta ? &H_compose_delta : nullptr,
+    const gtsam::Pose3 map_T_agent = delta.compose(pose, H_delta ? &H_compose_delta : nullptr,
                                                    H_pose ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_rotation = gtsam::Matrix36::Zero();
-    gtsam::Rot3 const& map_R_agent =
+    const gtsam::Rot3& map_R_agent =
         map_T_agent.rotation((H_delta || H_pose) ? &H_rotation : nullptr);
 
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
-    gtsam::Rot3 const predicted_orientation =
+    const gtsam::Rot3 predicted_orientation =
         map_R_agent.compose(target_R_sensor_, (H_delta || H_pose) ? &H_compose : nullptr);
 
     // 3D orientation residual (Lie algebra), anchored at the measurement to match the noise basis
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
-    gtsam::Rot3 const orientation_error = measured_orientation_.between(
+    const gtsam::Rot3 orientation_error = measured_orientation_.between(
         predicted_orientation, nullptr, (H_delta || H_pose) ? &H_between : nullptr);
 
     gtsam::Matrix33 H_logmap = gtsam::Matrix33::Zero();
-    gtsam::Vector3 const error =
+    const gtsam::Vector3 error =
         gtsam::Rot3::Logmap(orientation_error, (H_delta || H_pose) ? &H_logmap : nullptr);
 
     if (H_delta || H_pose) {
-      gtsam::Matrix36 const H_agent = H_logmap * H_between * H_compose * H_rotation;
+      const gtsam::Matrix36 H_agent = H_logmap * H_between * H_compose * H_rotation;
 
       if (H_delta) {
         // Jacobian with respect to delta (3x6)

@@ -37,13 +37,13 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(ConstVelFactorTest, Jacobians) {
-  gtsam::Key const pose_key_i = X(1);
-  gtsam::Key const vel_key_i = V(1);
-  gtsam::Key const pose_key_j = X(2);
-  gtsam::Key const vel_key_j = V(2);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Key pose_key_i = X(1);
+  const gtsam::Key vel_key_i = V(1);
+  const gtsam::Key pose_key_j = X(2);
+  const gtsam::Key vel_key_j = V(2);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
 
-  ConstVelFactor const factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, model);
+  const ConstVelFactor factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, model);
 
   gtsam::Values values;
   values.insert(pose_key_i,
@@ -58,26 +58,26 @@ TEST(ConstVelFactorTest, Jacobians) {
 }
 
 TEST(ConstVelFactorTest, Residual) {
-  gtsam::Key const pose_key_i = X(1);
-  gtsam::Key const vel_key_i = V(1);
-  gtsam::Key const pose_key_j = X(2);
-  gtsam::Key const vel_key_j = V(2);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Key pose_key_i = X(1);
+  const gtsam::Key vel_key_i = V(1);
+  const gtsam::Key pose_key_j = X(2);
+  const gtsam::Key vel_key_j = V(2);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
 
-  ConstVelFactor const factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, model);
+  const ConstVelFactor factor(pose_key_i, vel_key_i, pose_key_j, vel_key_j, model);
 
-  gtsam::Pose3 const pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Pose3 const pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));
-  gtsam::Vector3 const vel_i(1.0, 0.5, 0.0);
+  const gtsam::Pose3 pose_i(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));
+  const gtsam::Vector3 vel_i(1.0, 0.5, 0.0);
 
   // Compared in each pose's own target frame, not the map frame
-  gtsam::Vector3 const vel_target_i = pose_i.rotation().matrix().transpose() * vel_i;
+  const gtsam::Vector3 vel_target_i = pose_i.rotation().matrix().transpose() * vel_i;
 
   // Pick vel_j so the target-frame difference is the offset
-  gtsam::Vector3 const offset(0.02, -0.01, 0.03);
-  gtsam::Vector3 const vel_j = pose_j.rotation().matrix() * (vel_target_i - offset);
+  const gtsam::Vector3 offset(0.02, -0.01, 0.03);
+  const gtsam::Vector3 vel_j = pose_j.rotation().matrix() * (vel_target_i - offset);
 
-  gtsam::Vector const expected = offset;
+  const gtsam::Vector expected = offset;
   EXPECT_TRUE(gtsam::assert_equal(expected, factor.evaluateError(pose_i, vel_i, pose_j, vel_j),
                                   kResidualTol));
 }

@@ -26,12 +26,12 @@ class ConstVelFactor
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3> {
  public:
   ConstVelFactor(gtsam::Key pose_key_i, gtsam::Key vel_key_i, gtsam::Key pose_key_j,
-                 gtsam::Key vel_key_j, gtsam::SharedNoiseModel const& noise_model)
+                 gtsam::Key vel_key_j, const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3>(
             noise_model, pose_key_i, vel_key_i, pose_key_j, vel_key_j) {}
 
-  auto evaluateError(gtsam::Pose3 const& pose_i, gtsam::Vector3 const& vel_i,
-                     gtsam::Pose3 const& pose_j, gtsam::Vector3 const& vel_j,
+  auto evaluateError(const gtsam::Pose3& pose_i, const gtsam::Vector3& vel_i,
+                     const gtsam::Pose3& pose_j, const gtsam::Vector3& vel_j,
                      gtsam::OptionalMatrixType H_pose_i = nullptr,
                      gtsam::OptionalMatrixType H_vel_i = nullptr,
                      gtsam::OptionalMatrixType H_pose_j = nullptr,
@@ -40,13 +40,13 @@ class ConstVelFactor
     gtsam::Matrix33 H_unrotate_vi = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_Rj = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_vj = gtsam::Matrix33::Zero();
-    gtsam::Vector3 const target_v_i = pose_i.rotation().unrotate(
+    const gtsam::Vector3 target_v_i = pose_i.rotation().unrotate(
         vel_i, H_pose_i ? &H_unrotate_Ri : nullptr, H_vel_i ? &H_unrotate_vi : nullptr);
-    gtsam::Vector3 const target_v_j = pose_j.rotation().unrotate(
+    const gtsam::Vector3 target_v_j = pose_j.rotation().unrotate(
         vel_j, H_pose_j ? &H_unrotate_Rj : nullptr, H_vel_j ? &H_unrotate_vj : nullptr);
 
     // 3D velocity difference residual
-    gtsam::Vector3 const error = target_v_i - target_v_j;
+    const gtsam::Vector3 error = target_v_i - target_v_j;
 
     if (H_pose_i) {
       // Jacobian with respect to pose_i (3x6)

@@ -30,7 +30,7 @@
 
 namespace coug_fg {
 
-OdomNedToEnuNode::OdomNedToEnuNode(rclcpp::NodeOptions const& options)
+OdomNedToEnuNode::OdomNedToEnuNode(const rclcpp::NodeOptions& options)
     : Node("odom_ned_to_enu_node", options) {
   param_listener_ =
       std::make_shared<odom_ned_to_enu_node::ParamListener>(get_node_parameters_interface());
@@ -38,7 +38,7 @@ OdomNedToEnuNode::OdomNedToEnuNode(rclcpp::NodeOptions const& options)
 
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](nav_msgs::msg::Odometry::ConstSharedPtr const& msg) { odomCallback(msg); });
+      [this](const nav_msgs::msg::Odometry::ConstSharedPtr& msg) { odomCallback(msg); });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -46,19 +46,19 @@ OdomNedToEnuNode::OdomNedToEnuNode(rclcpp::NodeOptions const& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void OdomNedToEnuNode::odomCallback(nav_msgs::msg::Odometry::ConstSharedPtr const& msg) {
+void OdomNedToEnuNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) {
   odom_pub_->publish(convertToEnu(msg));
 }
 
-auto OdomNedToEnuNode::convertToEnu(nav_msgs::msg::Odometry::ConstSharedPtr const& msg)
+auto OdomNedToEnuNode::convertToEnu(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
     -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg = *msg;
 
   // Convert NED -> ENU
-  static tf2::Quaternion const kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
+  static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
 
-  auto const& ned_position = msg->pose.pose.position;
-  tf2::Vector3 const enu_position =
+  const auto& ned_position = msg->pose.pose.position;
+  const tf2::Vector3 enu_position =
       tf2::quatRotate(kNedToEnu, tf2::Vector3(ned_position.x, ned_position.y, ned_position.z));
   odom_msg.pose.pose.position.x = enu_position.x();
   odom_msg.pose.pose.position.y = enu_position.y();
@@ -70,8 +70,8 @@ auto OdomNedToEnuNode::convertToEnu(nav_msgs::msg::Odometry::ConstSharedPtr cons
 
   if (odom_msg.pose.covariance[0] >= 0.0) {
     // Pose orientation covariance is expressed about the world-frame axes
-    static Eigen::Matrix<double, 6, 6> const kNedToEnu6D = []() {
-      static Eigen::Matrix3d const kNedToEnu3D =
+    static const Eigen::Matrix<double, 6, 6> kNedToEnu6D = []() {
+      static const Eigen::Matrix3d kNedToEnu3D =
           (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
       Eigen::Matrix<double, 6, 6> transform = Eigen::Matrix<double, 6, 6>::Zero();
       transform.block<3, 3>(0, 0) = kNedToEnu3D;

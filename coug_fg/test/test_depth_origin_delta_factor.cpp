@@ -37,14 +37,14 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DepthOriginDeltaFactorArmTest, Jacobians) {
-  gtsam::Key const delta_key = O(1);
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key delta_key = O(1);
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  double const measured_depth = 5.0;
+  const double measured_depth = 5.0;
 
-  DepthOriginDeltaFactorArm const factor(delta_key, pose_key, measured_depth, target_T_sensor,
+  const DepthOriginDeltaFactorArm factor(delta_key, pose_key, measured_depth, target_T_sensor,
                                          model);
 
   gtsam::Values values;
@@ -58,25 +58,25 @@ TEST(DepthOriginDeltaFactorArmTest, Jacobians) {
 }
 
 TEST(DepthOriginDeltaFactorArmTest, Residual) {
-  gtsam::Key const delta_key = O(1);
-  gtsam::Key const pose_key = X(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key delta_key = O(1);
+  const gtsam::Key pose_key = X(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 const delta(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
-  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Pose3 delta(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
 
   // The pose is in the agent's own frame, so the origin delta places it in the map frame
-  gtsam::Pose3 const map_T_agent = delta * pose;
+  const gtsam::Pose3 map_T_agent = delta * pose;
 
   // Depth of the sensor itself, not of the target
-  double const sensor_depth =
+  const double sensor_depth =
       (map_T_agent.rotation().matrix() * target_T_sensor.translation() + map_T_agent.translation())
           .z();
 
   // Measured shallower than the state predicts
   constexpr double kOffset = 0.25;
-  DepthOriginDeltaFactorArm const factor(delta_key, pose_key, sensor_depth - kOffset,
+  const DepthOriginDeltaFactorArm factor(delta_key, pose_key, sensor_depth - kOffset,
                                          target_T_sensor, model);
 
   EXPECT_NEAR(factor.evaluateError(delta, pose)(0), kOffset, kResidualTol);

@@ -30,23 +30,23 @@ namespace coug_fg {
 
 class DvlA50TwistBeamsNode : public rclcpp::Node {
  public:
-  explicit DvlA50TwistBeamsNode(rclcpp::NodeOptions const& options);
+  explicit DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options);
 
  private:
   // --- Callbacks ---
-  void dvlCallback(dvl_msgs::msg::DVL::ConstSharedPtr const& msg);
+  void dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  auto resolveStamp(dvl_msgs::msg::DVL::ConstSharedPtr const& msg) const -> rclcpp::Time;
+  auto resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const -> rclcpp::Time;
 
-  auto convertToTwist(dvl_msgs::msg::DVL::ConstSharedPtr const& msg)
+  auto convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
       -> geometry_msgs::msg::TwistWithCovarianceStamped;
 
-  auto convertToBeams(dvl_msgs::msg::DVL::ConstSharedPtr const& msg)
+  auto convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
       -> coug_interfaces::msg::DvlBeamList;
 
-  auto convertToRange(dvl_msgs::msg::DVLBeam const& beam, std::string const& frame_id,
-                      rclcpp::Time const& stamp) const -> sensor_msgs::msg::Range;
+  auto convertToRange(const dvl_msgs::msg::DVLBeam& beam, const std::string& frame_id,
+                      const rclcpp::Time& stamp) const -> sensor_msgs::msg::Range;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvl_sub_;

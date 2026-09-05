@@ -24,14 +24,14 @@ namespace coug_fg {
 
 class OdomNedToEnuNode : public rclcpp::Node {
  public:
-  explicit OdomNedToEnuNode(rclcpp::NodeOptions const& options);
+  explicit OdomNedToEnuNode(const rclcpp::NodeOptions& options);
 
  private:
   // --- Callbacks ---
-  void odomCallback(nav_msgs::msg::Odometry::ConstSharedPtr const& msg);
+  void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  static auto convertToEnu(nav_msgs::msg::Odometry::ConstSharedPtr const& msg)
+  static auto convertToEnu(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
       -> nav_msgs::msg::Odometry;
 
   // --- ROS Interfaces ---

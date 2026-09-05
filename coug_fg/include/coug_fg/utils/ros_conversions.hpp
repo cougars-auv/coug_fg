@@ -28,7 +28,7 @@
 
 namespace coug_fg::utils {
 
-inline auto swapCovarianceBlocks(gtsam::Matrix66 const& cov) -> gtsam::Matrix66 {
+inline auto swapCovarianceBlocks(const gtsam::Matrix66& cov) -> gtsam::Matrix66 {
   gtsam::Matrix66 swapped_cov;
   swapped_cov.topLeftCorner<3, 3>() = cov.bottomRightCorner<3, 3>();
   swapped_cov.bottomRightCorner<3, 3>() = cov.topLeftCorner<3, 3>();
@@ -37,32 +37,32 @@ inline auto swapCovarianceBlocks(gtsam::Matrix66 const& cov) -> gtsam::Matrix66 
   return swapped_cov;
 }
 
-inline auto toGtsam(geometry_msgs::msg::Point const& msg) -> gtsam::Point3 {
+inline auto toGtsam(const geometry_msgs::msg::Point& msg) -> gtsam::Point3 {
   return {msg.x, msg.y, msg.z};
 }
 
-inline auto toGtsam(geometry_msgs::msg::Vector3 const& msg) -> gtsam::Vector3 {
+inline auto toGtsam(const geometry_msgs::msg::Vector3& msg) -> gtsam::Vector3 {
   return {msg.x, msg.y, msg.z};
 }
 
-inline auto toGtsam(geometry_msgs::msg::Quaternion const& msg) -> gtsam::Rot3 {
+inline auto toGtsam(const geometry_msgs::msg::Quaternion& msg) -> gtsam::Rot3 {
   return gtsam::Rot3::Quaternion(msg.w, msg.x, msg.y, msg.z);
 }
 
-inline auto toGtsam(geometry_msgs::msg::Pose const& msg) -> gtsam::Pose3 {
+inline auto toGtsam(const geometry_msgs::msg::Pose& msg) -> gtsam::Pose3 {
   return {toGtsam(msg.orientation), toGtsam(msg.position)};
 }
 
-inline auto toGtsam(geometry_msgs::msg::Transform const& msg) -> gtsam::Pose3 {
+inline auto toGtsam(const geometry_msgs::msg::Transform& msg) -> gtsam::Pose3 {
   return {toGtsam(msg.rotation), toGtsam(msg.translation)};
 }
 
-inline auto toGtsam(std::array<double, 36> const& cov) -> gtsam::Matrix66 {
+inline auto toGtsam(const std::array<double, 36>& cov) -> gtsam::Matrix66 {
   return swapCovarianceBlocks(
-      Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor> const>(cov.data()));
+      Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor> >(cov.data()));
 }
 
-inline auto toPointMsg(gtsam::Point3 const& point) -> geometry_msgs::msg::Point {
+inline auto toPointMsg(const gtsam::Point3& point) -> geometry_msgs::msg::Point {
   geometry_msgs::msg::Point point_msg;
   point_msg.x = point.x();
   point_msg.y = point.y();
@@ -70,7 +70,7 @@ inline auto toPointMsg(gtsam::Point3 const& point) -> geometry_msgs::msg::Point 
   return point_msg;
 }
 
-inline auto toVectorMsg(gtsam::Vector3 const& vector) -> geometry_msgs::msg::Vector3 {
+inline auto toVectorMsg(const gtsam::Vector3& vector) -> geometry_msgs::msg::Vector3 {
   geometry_msgs::msg::Vector3 vector_msg;
   vector_msg.x = vector.x();
   vector_msg.y = vector.y();
@@ -78,7 +78,7 @@ inline auto toVectorMsg(gtsam::Vector3 const& vector) -> geometry_msgs::msg::Vec
   return vector_msg;
 }
 
-inline auto toQuatMsg(gtsam::Rot3 const& rotation) -> geometry_msgs::msg::Quaternion {
+inline auto toQuatMsg(const gtsam::Rot3& rotation) -> geometry_msgs::msg::Quaternion {
   gtsam::Quaternion quat = rotation.toQuaternion();
   geometry_msgs::msg::Quaternion quat_msg;
   quat_msg.w = quat.w();
@@ -88,14 +88,14 @@ inline auto toQuatMsg(gtsam::Rot3 const& rotation) -> geometry_msgs::msg::Quater
   return quat_msg;
 }
 
-inline auto toPoseMsg(gtsam::Pose3 const& pose) -> geometry_msgs::msg::Pose {
+inline auto toPoseMsg(const gtsam::Pose3& pose) -> geometry_msgs::msg::Pose {
   geometry_msgs::msg::Pose pose_msg;
   pose_msg.position = toPointMsg(pose.translation());
   pose_msg.orientation = toQuatMsg(pose.rotation());
   return pose_msg;
 }
 
-inline auto toCovariance36Msg(gtsam::Matrix33 const& cov) -> std::array<double, 36> {
+inline auto toCovariance36Msg(const gtsam::Matrix33& cov) -> std::array<double, 36> {
   std::array<double, 36> cov_msg{};
   cov_msg.fill(0.0);
   for (int i = 0; i < 3; ++i) {
@@ -106,7 +106,7 @@ inline auto toCovariance36Msg(gtsam::Matrix33 const& cov) -> std::array<double, 
   return cov_msg;
 }
 
-inline auto toCovariance9Msg(gtsam::Matrix33 const& cov) -> std::array<double, 9> {
+inline auto toCovariance9Msg(const gtsam::Matrix33& cov) -> std::array<double, 9> {
   std::array<double, 9> cov_msg{};
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
@@ -116,7 +116,7 @@ inline auto toCovariance9Msg(gtsam::Matrix33 const& cov) -> std::array<double, 9
   return cov_msg;
 }
 
-inline auto toCovariance36Msg(gtsam::Matrix66 const& cov) -> std::array<double, 36> {
+inline auto toCovariance36Msg(const gtsam::Matrix66& cov) -> std::array<double, 36> {
   std::array<double, 36> cov_msg{};
   for (int i = 0; i < 6; ++i) {
     for (int j = 0; j < 6; ++j) {
@@ -126,7 +126,7 @@ inline auto toCovariance36Msg(gtsam::Matrix66 const& cov) -> std::array<double, 
   return cov_msg;
 }
 
-inline auto toPoseCovarianceMsg(gtsam::Matrix66 const& cov) -> std::array<double, 36> {
+inline auto toPoseCovarianceMsg(const gtsam::Matrix66& cov) -> std::array<double, 36> {
   return toCovariance36Msg(swapCovarianceBlocks(cov));
 }
 

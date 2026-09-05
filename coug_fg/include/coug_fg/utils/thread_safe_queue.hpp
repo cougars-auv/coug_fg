@@ -25,35 +25,35 @@ namespace coug_fg::utils {
 template <typename T>
 class ThreadSafeQueue {
  public:
-  void push(T const& value) {
-    std::scoped_lock const lock(mutex_);
+  void push(const T& value) {
+    const std::scoped_lock lock(mutex_);
     queue_.push_back(value);
     last_msg_time_ = value->timestamp;
     last_arrival_time_ = std::chrono::steady_clock::now();
   }
 
   auto drain() -> std::deque<T> {
-    std::scoped_lock const lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     return std::exchange(queue_, {});
   }
 
   auto empty() const -> bool {
-    std::scoped_lock const lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     return queue_.empty();
   }
 
   auto size() const -> size_t {
-    std::scoped_lock const lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     return queue_.size();
   }
 
   auto getLastTime() const -> std::optional<double> {
-    std::scoped_lock const lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     return last_msg_time_;
   }
 
   auto secondsSinceLastArrival() const -> std::optional<double> {
-    std::scoped_lock const lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     if (!last_arrival_time_.has_value()) {
       return std::nullopt;
     }
@@ -61,8 +61,8 @@ class ThreadSafeQueue {
         .count();
   }
 
-  void restore(std::deque<T> const& items) {
-    std::scoped_lock const lock(mutex_);
+  void restore(const std::deque<T>& items) {
+    const std::scoped_lock lock(mutex_);
     queue_.insert(queue_.begin(), items.begin(), items.end());
   }
 

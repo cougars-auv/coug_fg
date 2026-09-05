@@ -30,41 +30,41 @@ class RangeOriginDeltaFactorArm
 
  public:
   RangeOriginDeltaFactorArm(gtsam::Key pose_key_l, gtsam::Key delta_key_n, gtsam::Key pose_key_n,
-                            double const measured_range, gtsam::Pose3 const& target_T_sensor_l,
-                            gtsam::Pose3 const& target_T_sensor_n,
-                            gtsam::SharedNoiseModel const& noise_model)
+                            const double measured_range, const gtsam::Pose3& target_T_sensor_l,
+                            const gtsam::Pose3& target_T_sensor_n,
+                            const gtsam::SharedNoiseModel& noise_model)
       : gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3>(noise_model, pose_key_l,
                                                                            delta_key_n, pose_key_n),
         measured_range_(measured_range),
         target_p_sensor_l_(target_T_sensor_l.translation()),
         target_p_sensor_n_(target_T_sensor_n.translation()) {}
 
-  auto evaluateError(gtsam::Pose3 const& pose_l, gtsam::Pose3 const& delta_n,
-                     gtsam::Pose3 const& pose_n, gtsam::OptionalMatrixType H_pose_l = nullptr,
+  auto evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& delta_n,
+                     const gtsam::Pose3& pose_n, gtsam::OptionalMatrixType H_pose_l = nullptr,
                      gtsam::OptionalMatrixType H_delta_n = nullptr,
                      gtsam::OptionalMatrixType H_pose_n = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix36 H_transform_l = gtsam::Matrix36::Zero();
-    gtsam::Point3 const map_p_sensor_l =
+    const gtsam::Point3 map_p_sensor_l =
         pose_l.transformFrom(target_p_sensor_l_, H_pose_l ? &H_transform_l : nullptr);
 
     // Transform the neighbor's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
-    gtsam::Pose3 const map_T_n = delta_n.compose(pose_n, H_delta_n ? &H_compose_delta : nullptr,
+    const gtsam::Pose3 map_T_n = delta_n.compose(pose_n, H_delta_n ? &H_compose_delta : nullptr,
                                                  H_pose_n ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_transform_n = gtsam::Matrix36::Zero();
-    gtsam::Point3 const map_p_sensor_n = map_T_n.transformFrom(
+    const gtsam::Point3 map_p_sensor_n = map_T_n.transformFrom(
         target_p_sensor_n_, (H_delta_n || H_pose_n) ? &H_transform_n : nullptr);
 
     gtsam::Matrix13 H_distance_l = gtsam::Matrix13::Zero();
     gtsam::Matrix13 H_distance_n = gtsam::Matrix13::Zero();
-    double const predicted_range =
+    const double predicted_range =
         gtsam::distance3(map_p_sensor_l, map_p_sensor_n, H_pose_l ? &H_distance_l : nullptr,
                          (H_delta_n || H_pose_n) ? &H_distance_n : nullptr);
 
     // 1D range residual
-    double const error = predicted_range - measured_range_;
+    const double error = predicted_range - measured_range_;
 
     if (H_pose_l) {
       // Jacobian with respect to pose_l (1x6)

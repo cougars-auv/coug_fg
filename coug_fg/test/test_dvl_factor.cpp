@@ -40,17 +40,17 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(DvlFactorArmTest, Jacobians) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::Key const vel_key = V(1);
-  gtsam::Key const bias_key = B(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key = X(1);
+  const gtsam::Key vel_key = V(1);
+  const gtsam::Key bias_key = B(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 const target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
-  gtsam::Vector3 const measured_vel(1.0, 0.5, -0.2);
-  gtsam::Vector3 const measured_gyro(0.1, -0.3, 0.2);
+  const gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
+  const gtsam::Vector3 measured_vel(1.0, 0.5, -0.2);
+  const gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
 
-  DvlFactorArm const factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
+  const DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
                             measured_vel, measured_gyro, model);
 
   gtsam::Values values;
@@ -65,34 +65,34 @@ TEST(DvlFactorArmTest, Jacobians) {
 }
 
 TEST(DvlFactorArmTest, Residual) {
-  gtsam::Key const pose_key = X(1);
-  gtsam::Key const vel_key = V(1);
-  gtsam::Key const bias_key = B(1);
-  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-  gtsam::Pose3 const target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  const gtsam::Key pose_key = X(1);
+  const gtsam::Key vel_key = V(1);
+  const gtsam::Key bias_key = B(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                      gtsam::Point3(0.5, 0.5, 0.5));
-  gtsam::Pose3 const target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
-  gtsam::Vector3 const measured_gyro(0.1, -0.3, 0.2);
+  const gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
+  const gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
 
-  gtsam::Pose3 const pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  gtsam::Vector3 const map_v_target(1.5, -0.5, 0.2);
-  gtsam::imuBias::ConstantBias const bias(gtsam::Vector3(0.01, -0.02, 0.03),
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Vector3 map_v_target(1.5, -0.5, 0.2);
+  const gtsam::imuBias::ConstantBias bias(gtsam::Vector3(0.01, -0.02, 0.03),
                                           gtsam::Vector3(0.02, -0.01, 0.01));
 
   // Velocity the DVL would report: target motion plus lever arm rotation
-  gtsam::Vector3 const target_omega =
+  const gtsam::Vector3 target_omega =
       target_T_imu.rotation().matrix() * (measured_gyro - bias.gyroscope());
-  gtsam::Vector3 const target_vel = pose.rotation().matrix().transpose() * map_v_target;
-  gtsam::Vector3 const target_v_lever_arm = target_omega.cross(target_T_sensor.translation());
-  gtsam::Vector3 const sensor_vel =
+  const gtsam::Vector3 target_vel = pose.rotation().matrix().transpose() * map_v_target;
+  const gtsam::Vector3 target_v_lever_arm = target_omega.cross(target_T_sensor.translation());
+  const gtsam::Vector3 sensor_vel =
       target_T_sensor.rotation().matrix().transpose() * (target_vel + target_v_lever_arm);
 
   // Measured short of the prediction
-  gtsam::Vector3 const offset(0.01, -0.02, 0.03);
-  DvlFactorArm const factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
+  const gtsam::Vector3 offset(0.01, -0.02, 0.03);
+  const DvlFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
                             sensor_vel - offset, measured_gyro, model);
 
-  gtsam::Vector const expected = offset;
+  const gtsam::Vector expected = offset;
   EXPECT_TRUE(
       gtsam::assert_equal(expected, factor.evaluateError(pose, map_v_target, bias), kResidualTol));
 }

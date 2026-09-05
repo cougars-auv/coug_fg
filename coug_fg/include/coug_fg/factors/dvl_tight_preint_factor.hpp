@@ -31,10 +31,10 @@ class DvlTightPreintFactorArm
 
  public:
   DvlTightPreintFactorArm(gtsam::Key pose_key_i, gtsam::Key pose_key_j, gtsam::Key bias_key_i,
-                          gtsam::Pose3 const& target_T_sensor,
-                          gtsam::Vector3 const& measured_translation, gtsam::Matrix3 const& J_p_bg,
-                          gtsam::Vector3 const& gyro_bias_hat,
-                          gtsam::SharedNoiseModel const& noise_model)
+                          const gtsam::Pose3& target_T_sensor,
+                          const gtsam::Vector3& measured_translation, const gtsam::Matrix3& J_p_bg,
+                          const gtsam::Vector3& gyro_bias_hat,
+                          const gtsam::SharedNoiseModel& noise_model)
       : gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::imuBias::ConstantBias>(
             noise_model, pose_key_i, pose_key_j, bias_key_i),
         target_p_sensor_(target_T_sensor.translation()),
@@ -42,29 +42,29 @@ class DvlTightPreintFactorArm
         J_p_bg_(J_p_bg),
         gyro_bias_hat_(gyro_bias_hat) {}
 
-  auto evaluateError(gtsam::Pose3 const& pose_i, gtsam::Pose3 const& pose_j,
-                     gtsam::imuBias::ConstantBias const& bias_i,
+  auto evaluateError(const gtsam::Pose3& pose_i, const gtsam::Pose3& pose_j,
+                     const gtsam::imuBias::ConstantBias& bias_i,
                      gtsam::OptionalMatrixType H_pose_i = nullptr,
                      gtsam::OptionalMatrixType H_pose_j = nullptr,
                      gtsam::OptionalMatrixType H_bias_i = nullptr) const -> gtsam::Vector override {
-    gtsam::Vector3 const gyro_bias_update = bias_i.gyroscope() - gyro_bias_hat_;
-    gtsam::Vector3 const corrected_translation =
+    const gtsam::Vector3 gyro_bias_update = bias_i.gyroscope() - gyro_bias_hat_;
+    const gtsam::Vector3 corrected_translation =
         measured_translation_ + (J_p_bg_ * gyro_bias_update);
 
     gtsam::Matrix36 H_transform_from_j = gtsam::Matrix36::Zero();
-    gtsam::Point3 const map_p_sensor_j =
+    const gtsam::Point3 map_p_sensor_j =
         pose_j.transformFrom(target_p_sensor_, H_pose_j ? &H_transform_from_j : nullptr);
 
     gtsam::Matrix36 H_transform_to_i = gtsam::Matrix36::Zero();
     gtsam::Matrix33 H_transform_to_j = gtsam::Matrix33::Zero();
-    gtsam::Point3 const i_p_sensor_j =
+    const gtsam::Point3 i_p_sensor_j =
         pose_i.transformTo(map_p_sensor_j, H_pose_i ? &H_transform_to_i : nullptr,
                            H_pose_j ? &H_transform_to_j : nullptr);
 
-    gtsam::Vector3 const predicted_translation = i_p_sensor_j - target_p_sensor_;
+    const gtsam::Vector3 predicted_translation = i_p_sensor_j - target_p_sensor_;
 
     // 3D translation residual
-    gtsam::Vector3 const error = predicted_translation - corrected_translation;
+    const gtsam::Vector3 error = predicted_translation - corrected_translation;
 
     if (H_pose_i) {
       // Jacobian with respect to pose_i (3x6)

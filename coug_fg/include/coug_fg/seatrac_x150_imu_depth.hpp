@@ -26,17 +26,17 @@ namespace coug_fg {
 
 class SeatracX150ImuDepthNode : public rclcpp::Node {
  public:
-  explicit SeatracX150ImuDepthNode(rclcpp::NodeOptions const& options);
+  explicit SeatracX150ImuDepthNode(const rclcpp::NodeOptions& options);
 
  private:
   // --- Callbacks ---
-  void modemStatusCallback(seatrac_interfaces::msg::ModemStatus::ConstSharedPtr const& msg);
+  void modemStatusCallback(const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  auto convertToImu(seatrac_interfaces::msg::ModemStatus::ConstSharedPtr const& msg) const
+  auto convertToImu(const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const
       -> sensor_msgs::msg::Imu;
 
-  auto convertToOdom(seatrac_interfaces::msg::ModemStatus::ConstSharedPtr const& msg) const
+  auto convertToOdom(const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const
       -> nav_msgs::msg::Odometry;
 
   // --- ROS Interfaces ---

@@ -41,13 +41,13 @@ class MagFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
       -> gtsam::Vector override {
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
     const gtsam::Point3 target_field =
-        pose.rotation().unrotate(map_field_ref_, H ? &H_unrotate_R : nullptr);
+        pose.rotation().unrotate(map_field_ref_, (H != nullptr) ? &H_unrotate_R : nullptr);
     const gtsam::Point3 predicted_field = target_R_sensor_.unrotate(target_field);
 
     // 3D magnetic field residual
     const gtsam::Vector3 error = predicted_field - measured_field_;
 
-    if (H) {
+    if (H != nullptr) {
       // Jacobian with respect to pose (3x6)
       H->setZero(3, 6);
       H->block<3, 3>(0, 0) = target_R_sensor_.transpose() * H_unrotate_R;

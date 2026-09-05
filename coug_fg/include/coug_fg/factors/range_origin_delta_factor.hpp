@@ -45,38 +45,40 @@ class RangeOriginDeltaFactorArm
                      gtsam::OptionalMatrixType H_pose_n = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix36 H_transform_l = gtsam::Matrix36::Zero();
     const gtsam::Point3 map_p_sensor_l =
-        pose_l.transformFrom(target_p_sensor_l_, H_pose_l ? &H_transform_l : nullptr);
+        pose_l.transformFrom(target_p_sensor_l_, (H_pose_l != nullptr) ? &H_transform_l : nullptr);
 
     // Transform the neighbor's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
-    const gtsam::Pose3 map_T_n = delta_n.compose(pose_n, H_delta_n ? &H_compose_delta : nullptr,
-                                                 H_pose_n ? &H_compose_pose : nullptr);
+    const gtsam::Pose3 map_T_n =
+        delta_n.compose(pose_n, (H_delta_n != nullptr) ? &H_compose_delta : nullptr,
+                        (H_pose_n != nullptr) ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_transform_n = gtsam::Matrix36::Zero();
     const gtsam::Point3 map_p_sensor_n = map_T_n.transformFrom(
-        target_p_sensor_n_, (H_delta_n || H_pose_n) ? &H_transform_n : nullptr);
+        target_p_sensor_n_,
+        ((H_delta_n != nullptr) || (H_pose_n != nullptr)) ? &H_transform_n : nullptr);
 
     gtsam::Matrix13 H_distance_l = gtsam::Matrix13::Zero();
     gtsam::Matrix13 H_distance_n = gtsam::Matrix13::Zero();
-    const double predicted_range =
-        gtsam::distance3(map_p_sensor_l, map_p_sensor_n, H_pose_l ? &H_distance_l : nullptr,
-                         (H_delta_n || H_pose_n) ? &H_distance_n : nullptr);
+    const double predicted_range = gtsam::distance3(
+        map_p_sensor_l, map_p_sensor_n, (H_pose_l != nullptr) ? &H_distance_l : nullptr,
+        ((H_delta_n != nullptr) || (H_pose_n != nullptr)) ? &H_distance_n : nullptr);
 
     // 1D range residual
     const double error = predicted_range - measured_range_;
 
-    if (H_pose_l) {
+    if (H_pose_l != nullptr) {
       // Jacobian with respect to pose_l (1x6)
       *H_pose_l = H_distance_l * H_transform_l;
     }
 
-    if (H_delta_n) {
+    if (H_delta_n != nullptr) {
       // Jacobian with respect to delta_n (1x6)
       *H_delta_n = H_distance_n * H_transform_n * H_compose_delta;
     }
 
-    if (H_pose_n) {
+    if (H_pose_n != nullptr) {
       // Jacobian with respect to pose_n (1x6)
       *H_pose_n = H_distance_n * H_transform_n * H_compose_pose;
     }

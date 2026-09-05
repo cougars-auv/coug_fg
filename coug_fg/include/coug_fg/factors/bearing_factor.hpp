@@ -84,30 +84,31 @@ class BearingFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Po
                      gtsam::OptionalMatrixType H_pose_n = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix66 H_compose_l = gtsam::Matrix66::Zero();
     const gtsam::Pose3 map_T_sensor_l =
-        pose_l.compose(target_T_sensor_l_, H_pose_l ? &H_compose_l : nullptr);
+        pose_l.compose(target_T_sensor_l_, (H_pose_l != nullptr) ? &H_compose_l : nullptr);
 
     gtsam::Matrix66 H_compose_n = gtsam::Matrix66::Zero();
     const gtsam::Pose3 map_T_sensor_n =
-        pose_n.compose(target_T_sensor_n_, H_pose_n ? &H_compose_n : nullptr);
+        pose_n.compose(target_T_sensor_n_, (H_pose_n != nullptr) ? &H_compose_n : nullptr);
 
     gtsam::Matrix26 H_bearing_l = gtsam::Matrix26::Zero();
     gtsam::Matrix23 H_bearing_n = gtsam::Matrix23::Zero();
-    const gtsam::Unit3 predicted_direction =
-        map_T_sensor_l.bearing(map_T_sensor_n.translation(), H_pose_l ? &H_bearing_l : nullptr,
-                               H_pose_n ? &H_bearing_n : nullptr);
+    const gtsam::Unit3 predicted_direction = map_T_sensor_l.bearing(
+        map_T_sensor_n.translation(), (H_pose_l != nullptr) ? &H_bearing_l : nullptr,
+        (H_pose_n != nullptr) ? &H_bearing_n : nullptr);
 
     // 2D bearing residual, anchored at the measured direction to match the noise model basis
     const gtsam::Unit3 measured_direction = losDirection(measured_azi_el_);
     gtsam::Matrix22 H_error = gtsam::Matrix22::Zero();
     const gtsam::Vector2 error = measured_direction.errorVector(
-        predicted_direction, nullptr, (H_pose_l || H_pose_n) ? &H_error : nullptr);
+        predicted_direction, nullptr,
+        ((H_pose_l != nullptr) || (H_pose_n != nullptr)) ? &H_error : nullptr);
 
-    if (H_pose_l) {
+    if (H_pose_l != nullptr) {
       // Jacobian with respect to pose_l (2x6)
       *H_pose_l = H_error * H_bearing_l * H_compose_l;
     }
 
-    if (H_pose_n) {
+    if (H_pose_n != nullptr) {
       // Jacobian with respect to pose_n (2x6)
       gtsam::Matrix36 H_translation_n = gtsam::Matrix36::Zero();
       map_T_sensor_n.translation(H_translation_n);

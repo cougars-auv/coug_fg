@@ -53,35 +53,37 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
     // Transform the agent's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
-    const gtsam::Pose3 map_T_agent = delta.compose(pose, H_delta ? &H_compose_delta : nullptr,
-                                                   H_pose ? &H_compose_pose : nullptr);
+    const gtsam::Pose3 map_T_agent =
+        delta.compose(pose, (H_delta != nullptr) ? &H_compose_delta : nullptr,
+                      (H_pose != nullptr) ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_rotation = gtsam::Matrix36::Zero();
     const gtsam::Rot3& map_R_agent =
-        map_T_agent.rotation((H_delta || H_pose) ? &H_rotation : nullptr);
+        map_T_agent.rotation(((H_delta != nullptr) || (H_pose != nullptr)) ? &H_rotation : nullptr);
 
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
-    const gtsam::Rot3 predicted_orientation =
-        map_R_agent.compose(target_R_sensor_, (H_delta || H_pose) ? &H_compose : nullptr);
+    const gtsam::Rot3 predicted_orientation = map_R_agent.compose(
+        target_R_sensor_, ((H_delta != nullptr) || (H_pose != nullptr)) ? &H_compose : nullptr);
 
     // 3D orientation residual (Lie algebra), anchored at the measurement to match the noise basis
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
     const gtsam::Rot3 orientation_error = measured_orientation_.between(
-        predicted_orientation, nullptr, (H_delta || H_pose) ? &H_between : nullptr);
+        predicted_orientation, nullptr,
+        ((H_delta != nullptr) || (H_pose != nullptr)) ? &H_between : nullptr);
 
     gtsam::Matrix33 H_logmap = gtsam::Matrix33::Zero();
-    const gtsam::Vector3 error =
-        gtsam::Rot3::Logmap(orientation_error, (H_delta || H_pose) ? &H_logmap : nullptr);
+    const gtsam::Vector3 error = gtsam::Rot3::Logmap(
+        orientation_error, ((H_delta != nullptr) || (H_pose != nullptr)) ? &H_logmap : nullptr);
 
-    if (H_delta || H_pose) {
+    if ((H_delta != nullptr) || (H_pose != nullptr)) {
       const gtsam::Matrix36 H_agent = H_logmap * H_between * H_compose * H_rotation;
 
-      if (H_delta) {
+      if (H_delta != nullptr) {
         // Jacobian with respect to delta (3x6)
         *H_delta = H_agent * H_compose_delta;
       }
 
-      if (H_pose) {
+      if (H_pose != nullptr) {
         // Jacobian with respect to pose (3x6)
         *H_pose = H_agent * H_compose_pose;
       }

@@ -43,16 +43,16 @@ class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
       -> gtsam::Vector override {
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
     const gtsam::Rot3 predicted_orientation =
-        pose.rotation().compose(target_R_sensor_, H ? &H_compose : nullptr);
+        pose.rotation().compose(target_R_sensor_, (H != nullptr) ? &H_compose : nullptr);
 
     // Singular at +/-90 deg pitch (gimbal lock)
     gtsam::Matrix13 H_yaw = gtsam::Matrix13::Zero();
-    const double predicted_yaw = predicted_orientation.yaw(H ? &H_yaw : nullptr);
+    const double predicted_yaw = predicted_orientation.yaw((H != nullptr) ? &H_yaw : nullptr);
 
     // 1D heading residual, wrapped into [-pi, pi]
     const double error = std::remainder(predicted_yaw - measured_yaw_, 2.0 * M_PI);
 
-    if (H) {
+    if (H != nullptr) {
       // Jacobian with respect to pose (1x6)
       H->setZero(1, 6);
       H->block<1, 3>(0, 0) = H_yaw * H_compose;

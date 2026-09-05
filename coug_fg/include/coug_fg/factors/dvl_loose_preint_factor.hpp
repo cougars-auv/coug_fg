@@ -38,26 +38,26 @@ class DvlLoosePreintFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gt
                      gtsam::OptionalMatrixType H_pose_i = nullptr,
                      gtsam::OptionalMatrixType H_pose_j = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix36 H_transform_from_j = gtsam::Matrix36::Zero();
-    const gtsam::Point3 map_p_sensor_j =
-        pose_j.transformFrom(target_p_sensor_, H_pose_j ? &H_transform_from_j : nullptr);
+    const gtsam::Point3 map_p_sensor_j = pose_j.transformFrom(
+        target_p_sensor_, (H_pose_j != nullptr) ? &H_transform_from_j : nullptr);
 
     gtsam::Matrix36 H_transform_to_i = gtsam::Matrix36::Zero();
     gtsam::Matrix33 H_transform_to_j = gtsam::Matrix33::Zero();
     const gtsam::Point3 i_p_sensor_j =
-        pose_i.transformTo(map_p_sensor_j, H_pose_i ? &H_transform_to_i : nullptr,
-                           H_pose_j ? &H_transform_to_j : nullptr);
+        pose_i.transformTo(map_p_sensor_j, (H_pose_i != nullptr) ? &H_transform_to_i : nullptr,
+                           (H_pose_j != nullptr) ? &H_transform_to_j : nullptr);
 
     const gtsam::Vector3 predicted_translation = i_p_sensor_j - target_p_sensor_;
 
     // 3D translation residual
     const gtsam::Vector3 error = predicted_translation - measured_translation_;
 
-    if (H_pose_i) {
+    if (H_pose_i != nullptr) {
       // Jacobian with respect to pose_i (3x6)
       *H_pose_i = H_transform_to_i;
     }
 
-    if (H_pose_j) {
+    if (H_pose_j != nullptr) {
       // Jacobian with respect to pose_j (3x6)
       *H_pose_j = H_transform_to_j * H_transform_from_j;
     }

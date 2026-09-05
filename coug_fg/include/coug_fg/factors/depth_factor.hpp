@@ -36,12 +36,12 @@ class DepthFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
       -> gtsam::Vector override {
     gtsam::Matrix36 H_transform = gtsam::Matrix36::Zero();
     gtsam::Point3 predicted_position =
-        pose.transformFrom(target_p_sensor_, H ? &H_transform : nullptr);
+        pose.transformFrom(target_p_sensor_, (H != nullptr) ? &H_transform : nullptr);
 
     // 1D depth residual
     const double error = predicted_position.z() - measured_depth_;
 
-    if (H) {
+    if (H != nullptr) {
       // Jacobian with respect to pose (1x6)
       *H = H_transform.row(2);
     }

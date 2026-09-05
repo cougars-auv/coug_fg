@@ -66,8 +66,9 @@ class DvlFactorArm
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_v = gtsam::Matrix33::Zero();
 
-    const gtsam::Vector3 target_vel = pose.rotation().unrotate(
-        map_v_target, H_pose ? &H_unrotate_R : nullptr, H_vel ? &H_unrotate_v : nullptr);
+    const gtsam::Vector3 target_vel =
+        pose.rotation().unrotate(map_v_target, (H_pose != nullptr) ? &H_unrotate_R : nullptr,
+                                 (H_vel != nullptr) ? &H_unrotate_v : nullptr);
 
     const gtsam::Vector3 target_omega = target_R_imu_.rotate(measured_gyro_ - bias.gyroscope());
     const gtsam::Vector3 target_v_lever_arm = target_omega.cross(target_p_sensor_);
@@ -78,18 +79,18 @@ class DvlFactorArm
     // 3D velocity residual
     const gtsam::Vector3 error = predicted_velocity - measured_velocity_;
 
-    if (H_pose) {
+    if (H_pose != nullptr) {
       // Jacobian with respect to pose (3x6)
       H_pose->setZero(3, 6);
       H_pose->block<3, 3>(0, 0) = target_R_sensor_.transpose() * H_unrotate_R;
     }
 
-    if (H_vel) {
+    if (H_vel != nullptr) {
       // Jacobian with respect to velocity (3x3)
       *H_vel = target_R_sensor_.transpose() * H_unrotate_v;
     }
 
-    if (H_bias) {
+    if (H_bias != nullptr) {
       // Jacobian with respect to bias (3x6)
       H_bias->setZero(3, 6);
       H_bias->block<3, 3>(0, 3) = gyroJacobian(target_R_sensor_, target_p_sensor_, target_R_imu_);

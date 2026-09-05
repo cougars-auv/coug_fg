@@ -42,19 +42,19 @@ class MagCalibFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::P
                      gtsam::OptionalMatrixType H_bias = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
     const gtsam::Point3 target_field =
-        pose.rotation().unrotate(map_field_ref_, H_pose ? &H_unrotate_R : nullptr);
+        pose.rotation().unrotate(map_field_ref_, (H_pose != nullptr) ? &H_unrotate_R : nullptr);
     const gtsam::Point3 predicted_field = target_R_sensor_.unrotate(target_field);
 
     // 3D magnetic field residual, with the hard-iron offset added to the prediction
     const gtsam::Vector3 error = predicted_field + bias - measured_field_;
 
-    if (H_pose) {
+    if (H_pose != nullptr) {
       // Jacobian with respect to pose (3x6)
       H_pose->setZero(3, 6);
       H_pose->block<3, 3>(0, 0) = target_R_sensor_.transpose() * H_unrotate_R;
     }
 
-    if (H_bias) {
+    if (H_bias != nullptr) {
       // Jacobian with respect to bias (3x3)
       *H_bias = gtsam::I_3x3;
     }

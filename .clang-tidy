@@ -14,21 +14,16 @@ Checks: >
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -cppcoreguidelines-pro-bounds-constant-array-index,
-  -cppcoreguidelines-pro-type-static-cast-downcast,
-  -cppcoreguidelines-pro-type-vararg,
   -misc-non-private-member-variables-in-classes,
   -modernize-pass-by-value,
-  -openmp-use-default-none,
   -readability-function-cognitive-complexity,
   -readability-identifier-length,
-  -readability-magic-numbers,
-  -readability-named-parameter
+  -readability-magic-numbers
 
-HeaderFilterRegex: '.*/src/coug_[a-z_]+/.*/include/.*'
+HeaderFilterRegex: '.*/src/[^/]+/[^/]+/include/.*'
 
 CheckOptions:
-  misc-include-cleaner.IgnoreHeaders: 'Eigen/.*;Qt.*/.*;math.h'
-  readability-implicit-bool-conversion.AllowPointerConditions: 'true'
+  misc-include-cleaner.IgnoreHeaders: 'Eigen/.*;math.h'
 
 FormatStyle: file
 

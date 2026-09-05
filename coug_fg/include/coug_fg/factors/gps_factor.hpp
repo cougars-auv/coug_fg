@@ -37,12 +37,12 @@ class Gps2dFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
       -> gtsam::Vector override {
     gtsam::Matrix36 H_transform = gtsam::Matrix36::Zero();
     const gtsam::Point3 predicted_position =
-        pose.transformFrom(target_p_sensor_, H ? &H_transform : nullptr);
+        pose.transformFrom(target_p_sensor_, (H != nullptr) ? &H_transform : nullptr);
 
     // 2D position residual (ignore Z)
     const gtsam::Vector2 error = (predicted_position - measured_position_).head<2>();
 
-    if (H) {
+    if (H != nullptr) {
       // Jacobian with respect to pose (2x6)
       *H = H_transform.topRows<2>();
     }

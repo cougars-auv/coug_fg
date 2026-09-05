@@ -40,29 +40,31 @@ class ConstVelFactor
     gtsam::Matrix33 H_unrotate_vi = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_Rj = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_vj = gtsam::Matrix33::Zero();
-    const gtsam::Vector3 target_v_i = pose_i.rotation().unrotate(
-        vel_i, H_pose_i ? &H_unrotate_Ri : nullptr, H_vel_i ? &H_unrotate_vi : nullptr);
-    const gtsam::Vector3 target_v_j = pose_j.rotation().unrotate(
-        vel_j, H_pose_j ? &H_unrotate_Rj : nullptr, H_vel_j ? &H_unrotate_vj : nullptr);
+    const gtsam::Vector3 target_v_i =
+        pose_i.rotation().unrotate(vel_i, (H_pose_i != nullptr) ? &H_unrotate_Ri : nullptr,
+                                   (H_vel_i != nullptr) ? &H_unrotate_vi : nullptr);
+    const gtsam::Vector3 target_v_j =
+        pose_j.rotation().unrotate(vel_j, (H_pose_j != nullptr) ? &H_unrotate_Rj : nullptr,
+                                   (H_vel_j != nullptr) ? &H_unrotate_vj : nullptr);
 
     // 3D velocity difference residual
     const gtsam::Vector3 error = target_v_i - target_v_j;
 
-    if (H_pose_i) {
+    if (H_pose_i != nullptr) {
       // Jacobian with respect to pose_i (3x6)
       H_pose_i->setZero(3, 6);
       H_pose_i->block<3, 3>(0, 0) = H_unrotate_Ri;
     }
-    if (H_vel_i) {
+    if (H_vel_i != nullptr) {
       // Jacobian with respect to vel_i (3x3)
       *H_vel_i = H_unrotate_vi;
     }
-    if (H_pose_j) {
+    if (H_pose_j != nullptr) {
       // Jacobian with respect to pose_j (3x6)
       H_pose_j->setZero(3, 6);
       H_pose_j->block<3, 3>(0, 0) = -H_unrotate_Rj;
     }
-    if (H_vel_j) {
+    if (H_vel_j != nullptr) {
       // Jacobian with respect to vel_j (3x3)
       *H_vel_j = -H_unrotate_vj;
     }

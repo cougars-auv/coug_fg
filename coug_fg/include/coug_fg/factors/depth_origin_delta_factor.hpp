@@ -39,22 +39,23 @@ class DepthOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, 
     // Transform the agent's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
-    const gtsam::Pose3 map_T_agent = delta.compose(pose, H_delta ? &H_compose_delta : nullptr,
-                                                   H_pose ? &H_compose_pose : nullptr);
+    const gtsam::Pose3 map_T_agent =
+        delta.compose(pose, (H_delta != nullptr) ? &H_compose_delta : nullptr,
+                      (H_pose != nullptr) ? &H_compose_pose : nullptr);
 
     gtsam::Matrix36 H_transform = gtsam::Matrix36::Zero();
-    gtsam::Point3 predicted_position =
-        map_T_agent.transformFrom(target_p_sensor_, (H_delta || H_pose) ? &H_transform : nullptr);
+    gtsam::Point3 predicted_position = map_T_agent.transformFrom(
+        target_p_sensor_, ((H_delta != nullptr) || (H_pose != nullptr)) ? &H_transform : nullptr);
 
     // 1D depth residual
     const double error = predicted_position.z() - measured_depth_;
 
-    if (H_delta) {
+    if (H_delta != nullptr) {
       // Jacobian with respect to delta (1x6)
       *H_delta = H_transform.row(2) * H_compose_delta;
     }
 
-    if (H_pose) {
+    if (H_pose != nullptr) {
       // Jacobian with respect to pose (1x6)
       *H_pose = H_transform.row(2) * H_compose_pose;
     }

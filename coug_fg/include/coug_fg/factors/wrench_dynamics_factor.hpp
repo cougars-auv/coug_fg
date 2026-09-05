@@ -56,10 +56,12 @@ class WrenchDynamicsFactorArm
     gtsam::Matrix33 H_unrotate_vi = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_Rj = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_vj = gtsam::Matrix33::Zero();
-    const gtsam::Vector3 target_v_i = pose_i.rotation().unrotate(
-        vel_i, H_pose_i ? &H_unrotate_Ri : nullptr, H_vel_i ? &H_unrotate_vi : nullptr);
-    const gtsam::Vector3 target_v_j = pose_j.rotation().unrotate(
-        vel_j, H_pose_j ? &H_unrotate_Rj : nullptr, H_vel_j ? &H_unrotate_vj : nullptr);
+    const gtsam::Vector3 target_v_i =
+        pose_i.rotation().unrotate(vel_i, (H_pose_i != nullptr) ? &H_unrotate_Ri : nullptr,
+                                   (H_vel_i != nullptr) ? &H_unrotate_vi : nullptr);
+    const gtsam::Vector3 target_v_j =
+        pose_j.rotation().unrotate(vel_j, (H_pose_j != nullptr) ? &H_unrotate_Rj : nullptr,
+                                   (H_vel_j != nullptr) ? &H_unrotate_vj : nullptr);
 
     const gtsam::Vector3 target_v_i_abs = target_v_i.cwiseAbs();
     const gtsam::Vector3 drag_force =
@@ -67,7 +69,7 @@ class WrenchDynamicsFactorArm
 
     // Jacobian of the velocity prediction with respect to target_v_i
     gtsam::Matrix33 J_scale = gtsam::Matrix33::Zero();
-    if (H_pose_i || H_vel_i) {
+    if ((H_pose_i != nullptr) || (H_vel_i != nullptr)) {
       const gtsam::Matrix33 J_drag_v =
           -(linear_drag_ + 2.0 * quad_drag_ * target_v_i_abs.asDiagonal());
       J_scale = gtsam::Matrix33::Identity() + dt_ * mass_inv_ * J_drag_v;
@@ -79,24 +81,24 @@ class WrenchDynamicsFactorArm
     // 3D velocity difference residual
     const gtsam::Vector3 error = target_v_j - target_v_pred;
 
-    if (H_pose_i) {
+    if (H_pose_i != nullptr) {
       // Jacobian with respect to pose_i (3x6)
       H_pose_i->setZero(3, 6);
       H_pose_i->block<3, 3>(0, 0) = -J_scale * H_unrotate_Ri;
     }
 
-    if (H_vel_i) {
+    if (H_vel_i != nullptr) {
       // Jacobian with respect to vel_i (3x3)
       *H_vel_i = -J_scale * H_unrotate_vi;
     }
 
-    if (H_pose_j) {
+    if (H_pose_j != nullptr) {
       // Jacobian with respect to pose_j (3x6)
       H_pose_j->setZero(3, 6);
       H_pose_j->block<3, 3>(0, 0) = H_unrotate_Rj;
     }
 
-    if (H_vel_j) {
+    if (H_vel_j != nullptr) {
       // Jacobian with respect to vel_j (3x3)
       *H_vel_j = H_unrotate_vj;
     }

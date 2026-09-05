@@ -50,17 +50,18 @@ class AhrsFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
       -> gtsam::Vector override {
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
     const gtsam::Rot3 predicted_orientation =
-        pose.rotation().compose(target_R_sensor_, H ? &H_compose : nullptr);
+        pose.rotation().compose(target_R_sensor_, (H != nullptr) ? &H_compose : nullptr);
 
     // 3D orientation residual (Lie algebra), anchored at the measurement to match the noise basis
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
-    const gtsam::Rot3 orientation_error =
-        measured_orientation_.between(predicted_orientation, nullptr, H ? &H_between : nullptr);
+    const gtsam::Rot3 orientation_error = measured_orientation_.between(
+        predicted_orientation, nullptr, (H != nullptr) ? &H_between : nullptr);
 
     gtsam::Matrix33 H_logmap = gtsam::Matrix33::Zero();
-    const gtsam::Vector3 error = gtsam::Rot3::Logmap(orientation_error, H ? &H_logmap : nullptr);
+    const gtsam::Vector3 error =
+        gtsam::Rot3::Logmap(orientation_error, (H != nullptr) ? &H_logmap : nullptr);
 
-    if (H) {
+    if (H != nullptr) {
       // Jacobian with respect to pose (3x6)
       H->setZero(3, 6);
       H->block<3, 3>(0, 0) = H_logmap * H_between * H_compose;

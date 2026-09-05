@@ -27,18 +27,18 @@ namespace coug_fg {
 
 class FluidPressureOdomNode : public rclcpp::Node {
  public:
-  explicit FluidPressureOdomNode(const rclcpp::NodeOptions& options);
+  explicit FluidPressureOdomNode(rclcpp::NodeOptions const& options);
 
  private:
   // --- Callbacks ---
-  void pressureCallback(const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg);
+  void pressureCallback(sensor_msgs::msg::FluidPressure::ConstSharedPtr const& msg);
 
-  void calibrateCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
-                         const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
+  void calibrateCallback(std::shared_ptr<std_srvs::srv::Trigger::Request> const& request,
+                         std::shared_ptr<std_srvs::srv::Trigger::Response> const& response);
 
   // --- Helpers ---
-  nav_msgs::msg::Odometry convertToOdom(const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg,
-                                        double pressure, double reference_pressure) const;
+  auto convertToOdom(sensor_msgs::msg::FluidPressure::ConstSharedPtr const& msg, double pressure,
+                     double reference_pressure) const -> nav_msgs::msg::Odometry;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::FluidPressure>::SharedPtr pressure_sub_;

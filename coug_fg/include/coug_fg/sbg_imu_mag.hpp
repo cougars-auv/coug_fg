@@ -24,15 +24,15 @@ namespace coug_fg {
 
 class SbgImuMagNode : public rclcpp::Node {
  public:
-  explicit SbgImuMagNode(const rclcpp::NodeOptions& options);
+  explicit SbgImuMagNode(rclcpp::NodeOptions const& options);
 
  private:
   // --- Callbacks ---
-  void magCallback(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg);
+  void magCallback(sensor_msgs::msg::MagneticField::ConstSharedPtr const& msg);
 
   // --- Helpers ---
-  sensor_msgs::msg::MagneticField convertToTesla(
-      const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) const;
+  auto convertToTesla(sensor_msgs::msg::MagneticField::ConstSharedPtr const& msg) const
+      -> sensor_msgs::msg::MagneticField;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::MagneticField>::SharedPtr mag_sub_;

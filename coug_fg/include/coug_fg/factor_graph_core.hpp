@@ -80,14 +80,15 @@ class FactorGraphCore {
 
   void setLogCallback(utils::LogCallback callback);
 
-  bool initialize(double init_time, const utils::QueueBundle& queues, const utils::TfBundle& tfs);
+  auto initialize(double init_time, utils::QueueBundle const& queues, utils::TfBundle const& tfs)
+      -> bool;
 
-  std::optional<utils::QueueBundle> update(double target_time, utils::QueueBundle& queues,
-                                           const utils::TfBundle& tfs);
+  auto update(double target_time, utils::QueueBundle& queues, utils::TfBundle const& tfs)
+      -> std::optional<utils::QueueBundle>;
 
-  std::optional<OptimizeResult> optimize();
+  auto optimize() -> std::optional<OptimizeResult>;
 
-  std::map<int64_t, gtsam::Key> snapshotTimeKeys() const;
+  auto snapshotTimeKeys() const -> std::map<int64_t, gtsam::Key>;
 
  private:
   struct InitialState {
@@ -111,7 +112,7 @@ class FactorGraphCore {
 
     explicit NeighborState(size_t agent_queue_idx) : curr_step(agent_queue_idx << kStepShift) {}
 
-    void initialize(const gtsam::Pose3& pose, const gtsam::Matrix66& cov, double time) {
+    void initialize(gtsam::Pose3 const& pose, gtsam::Matrix66 const& cov, double time) {
       prev_pose = pose;
       prev_cov = cov;
 
@@ -120,7 +121,7 @@ class FactorGraphCore {
       curr_time = time;
     }
 
-    void advance(const gtsam::Pose3& new_pose, const gtsam::Matrix66& new_cov, double new_time) {
+    void advance(gtsam::Pose3 const& new_pose, gtsam::Matrix66 const& new_cov, double new_time) {
       ++curr_step;
 
       prev_pose = curr_pose;
@@ -141,101 +142,104 @@ class FactorGraphCore {
   };
 
   // --- Initialization ---
-  std::optional<InitialState> computeInitialState(double init_time,
-                                                  const utils::QueueBundle& queues) const;
+  auto computeInitialState(double init_time, utils::QueueBundle const& queues) const
+      -> std::optional<InitialState>;
 
-  gtsam::Rot3 computeInitialOrientation(const std::shared_ptr<utils::AhrsData>& ahrs) const;
+  auto computeInitialOrientation(std::shared_ptr<utils::AhrsData> const& ahrs) const -> gtsam::Rot3;
 
-  gtsam::Point3 computeInitialPosition(const gtsam::Rot3& map_R_target,
-                                       const std::shared_ptr<utils::OdometryData>& gps,
-                                       const std::shared_ptr<utils::OdometryData>& depth) const;
+  auto computeInitialPosition(gtsam::Rot3 const& map_R_target,
+                              std::shared_ptr<utils::OdometryData> const& gps,
+                              std::shared_ptr<utils::OdometryData> const& depth) const
+      -> gtsam::Point3;
 
-  gtsam::Vector3 computeInitialVelocity(const gtsam::Rot3& map_R_target,
-                                        const std::shared_ptr<utils::TwistData>& dvl) const;
+  auto computeInitialVelocity(gtsam::Rot3 const& map_R_target,
+                              std::shared_ptr<utils::TwistData> const& dvl) const -> gtsam::Vector3;
 
-  gtsam::Matrix6 computeInitialPoseCovariance(const gtsam::Rot3& map_R_target,
-                                              const std::shared_ptr<utils::OdometryData>& gps,
-                                              const std::shared_ptr<utils::OdometryData>& depth,
-                                              const std::shared_ptr<utils::AhrsData>& ahrs) const;
+  auto computeInitialPoseCovariance(gtsam::Rot3 const& map_R_target,
+                                    std::shared_ptr<utils::OdometryData> const& gps,
+                                    std::shared_ptr<utils::OdometryData> const& depth,
+                                    std::shared_ptr<utils::AhrsData> const& ahrs) const
+      -> gtsam::Matrix6;
 
-  gtsam::Matrix3 computeInitialVelocityCovariance(
-      const gtsam::Rot3& map_R_target, const std::shared_ptr<utils::TwistData>& dvl,
-      const gtsam::Matrix3& target_orientation_cov) const;
+  auto computeInitialVelocityCovariance(gtsam::Rot3 const& map_R_target,
+                                        std::shared_ptr<utils::TwistData> const& dvl,
+                                        gtsam::Matrix3 const& target_orientation_cov) const
+      -> gtsam::Matrix3;
 
   // --- Configuration ---
-  std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params> configureImuPreintegration(
-      const InitialState& init_state) const;
+  auto configureImuPreintegration(InitialState const& init_state) const
+      -> std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params>;
 
   // --- Factor Construction ---
-  void addPriorFactors(const InitialState& init_state, gtsam::NonlinearFactorGraph& graph,
+  void addPriorFactors(InitialState const& init_state, gtsam::NonlinearFactorGraph& graph,
                        gtsam::Values& values);
 
   void addGpsFactor(gtsam::NonlinearFactorGraph& graph,
-                    const std::deque<std::shared_ptr<utils::OdometryData>>& gps_msgs);
+                    std::deque<std::shared_ptr<utils::OdometryData>> const& gps_msgs);
 
   void addDepthFactor(gtsam::NonlinearFactorGraph& graph,
-                      const std::deque<std::shared_ptr<utils::OdometryData>>& depth_msgs);
+                      std::deque<std::shared_ptr<utils::OdometryData>> const& depth_msgs);
 
   void addMagFactor(gtsam::NonlinearFactorGraph& graph,
-                    const std::deque<std::shared_ptr<utils::MagneticFieldData>>& mag_msgs);
+                    std::deque<std::shared_ptr<utils::MagneticFieldData>> const& mag_msgs);
 
   void addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
-                     const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs);
+                     std::deque<std::shared_ptr<utils::AhrsData>> const& ahrs_msgs);
 
   void addDvlFactor(gtsam::NonlinearFactorGraph& graph,
-                    const std::deque<std::shared_ptr<utils::TwistData>>& dvl_msgs,
-                    const gtsam::Vector3& imu_gyro);
+                    std::deque<std::shared_ptr<utils::TwistData>> const& dvl_msgs,
+                    gtsam::Vector3 const& imu_gyro);
 
   void addConstVelFactor(gtsam::NonlinearFactorGraph& graph, double target_time);
 
   void addWrenchDynamicsFactor(gtsam::NonlinearFactorGraph& graph,
-                               const std::deque<std::shared_ptr<utils::WrenchData>>& wrench_msgs,
+                               std::deque<std::shared_ptr<utils::WrenchData>> const& wrench_msgs,
                                double target_time);
 
   void addImuPreintFactor(gtsam::NonlinearFactorGraph& graph,
-                          const std::deque<std::shared_ptr<utils::ImuData>>& imu_msgs,
+                          std::deque<std::shared_ptr<utils::ImuData>> const& imu_msgs,
                           double target_time);
 
   void addDvlLoosePreintFactor(gtsam::NonlinearFactorGraph& graph,
-                               const std::deque<std::shared_ptr<utils::TwistData>>& dvl_msgs,
-                               const std::deque<std::shared_ptr<utils::AhrsData>>& ahrs_msgs,
+                               std::deque<std::shared_ptr<utils::TwistData>> const& dvl_msgs,
+                               std::deque<std::shared_ptr<utils::AhrsData>> const& ahrs_msgs,
                                double target_time);
 
   void addDvlTightPreintFactor(gtsam::NonlinearFactorGraph& graph,
-                               const std::deque<std::shared_ptr<utils::TwistData>>& dvl_msgs,
-                               const std::deque<std::shared_ptr<utils::ImuData>>& imu_msgs,
-                               double target_time, const gtsam::Vector3& held_imu_accel,
-                               const gtsam::Vector3& held_imu_gyro);
+                               std::deque<std::shared_ptr<utils::TwistData>> const& dvl_msgs,
+                               std::deque<std::shared_ptr<utils::ImuData>> const& imu_msgs,
+                               double target_time, gtsam::Vector3 const& held_imu_accel,
+                               gtsam::Vector3 const& held_imu_gyro);
 
   void addOriginDeltaPriorFactor(gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
-                                 size_t agent_queue_idx, const utils::AgentStatusData& msg);
+                                 size_t agent_queue_idx, utils::AgentStatusData const& msg);
 
-  void addNeighborPriorFactor(gtsam::NonlinearFactorGraph& graph, const NeighborState& neighbor,
+  void addNeighborPriorFactor(gtsam::NonlinearFactorGraph& graph, NeighborState const& neighbor,
                               size_t agent_queue_idx);
 
   static void addNeighborBetweenFactor(gtsam::NonlinearFactorGraph& graph,
-                                       const NeighborState& neighbor);
+                                       NeighborState const& neighbor);
 
-  void addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph, const utils::AgentStatusData& msg,
-                              const NeighborState& neighbor, size_t agent_queue_idx);
+  void addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph, utils::AgentStatusData const& msg,
+                              NeighborState const& neighbor, size_t agent_queue_idx);
 
-  void addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph, const utils::AgentStatusData& msg,
-                             const NeighborState& neighbor, size_t agent_queue_idx);
+  void addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph, utils::AgentStatusData const& msg,
+                             NeighborState const& neighbor, size_t agent_queue_idx);
 
   void addInterAgentRangeFactor(gtsam::NonlinearFactorGraph& graph,
-                                const utils::AgentStatusData& msg, const NeighborState& neighbor,
+                                utils::AgentStatusData const& msg, NeighborState const& neighbor,
                                 gtsam::Key pose_key, size_t agent_queue_idx);
 
   void addInterAgentBearingFactor(gtsam::NonlinearFactorGraph& graph,
-                                  const utils::AgentStatusData& msg, const NeighborState& neighbor,
+                                  utils::AgentStatusData const& msg, NeighborState const& neighbor,
                                   gtsam::Key pose_key, size_t agent_queue_idx);
 
   void addMultiAgentFactors(gtsam::NonlinearFactorGraph& graph, gtsam::Values& values,
                             gtsam::IncrementalFixedLagSmoother::KeyTimestampMap& timestamps,
-                            const utils::QueueBundle& queues, double target_time);
+                            utils::QueueBundle const& queues, double target_time);
 
   // --- Parameters ---
-  const factor_graph_node::Params params_;
+  factor_graph_node::Params const params_;
   utils::TfBundle tfs_;
 
   // --- Logging ---

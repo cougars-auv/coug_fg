@@ -31,26 +31,25 @@ class DvlFactorArm
   gtsam::Rot3 target_R_imu_;
 
  public:
-  static gtsam::Matrix3 gyroJacobian(const gtsam::Rot3& target_R_sensor,
-                                     const gtsam::Point3& target_p_sensor,
-                                     const gtsam::Rot3& target_R_imu) {
+  static auto gyroJacobian(gtsam::Rot3 const& target_R_sensor, gtsam::Point3 const& target_p_sensor,
+                           gtsam::Rot3 const& target_R_imu) -> gtsam::Matrix3 {
     return target_R_sensor.transpose() * gtsam::skewSymmetric(target_p_sensor) *
            target_R_imu.matrix();
   }
 
-  static gtsam::Matrix3 gyroLeverArmCovariance(const gtsam::Matrix3& gyro_sample_cov,
-                                               const gtsam::Pose3& target_T_sensor,
-                                               const gtsam::Pose3& target_T_imu) {
-    const gtsam::Matrix3 J_vel_gyro = gyroJacobian(
+  static auto gyroLeverArmCovariance(gtsam::Matrix3 const& gyro_sample_cov,
+                                     gtsam::Pose3 const& target_T_sensor,
+                                     gtsam::Pose3 const& target_T_imu) -> gtsam::Matrix3 {
+    gtsam::Matrix3 const J_vel_gyro = gyroJacobian(
         target_T_sensor.rotation(), target_T_sensor.translation(), target_T_imu.rotation());
 
     return J_vel_gyro * gyro_sample_cov * J_vel_gyro.transpose();
   }
 
   DvlFactorArm(gtsam::Key pose_key, gtsam::Key vel_key, gtsam::Key bias_key,
-               const gtsam::Pose3& target_T_sensor, const gtsam::Pose3& target_T_imu,
-               const gtsam::Vector3& measured_velocity, const gtsam::Vector3& measured_gyro,
-               const gtsam::SharedNoiseModel& noise_model)
+               gtsam::Pose3 const& target_T_sensor, gtsam::Pose3 const& target_T_imu,
+               gtsam::Vector3 const& measured_velocity, gtsam::Vector3 const& measured_gyro,
+               gtsam::SharedNoiseModel const& noise_model)
       : NoiseModelFactor3<gtsam::Pose3, gtsam::Vector3, gtsam::imuBias::ConstantBias>(
             noise_model, pose_key, vel_key, bias_key),
         measured_velocity_(measured_velocity),
@@ -59,24 +58,25 @@ class DvlFactorArm
         target_p_sensor_(target_T_sensor.translation()),
         target_R_imu_(target_T_imu.rotation()) {}
 
-  gtsam::Vector evaluateError(const gtsam::Pose3& pose, const gtsam::Vector3& map_v_target,
-                              const gtsam::imuBias::ConstantBias& bias,
-                              gtsam::OptionalMatrixType H_pose = nullptr,
-                              gtsam::OptionalMatrixType H_vel = nullptr,
-                              gtsam::OptionalMatrixType H_bias = nullptr) const override {
+  auto evaluateError(gtsam::Pose3 const& pose, gtsam::Vector3 const& map_v_target,
+                     gtsam::imuBias::ConstantBias const& bias,
+                     gtsam::OptionalMatrixType H_pose = nullptr,
+                     gtsam::OptionalMatrixType H_vel = nullptr,
+                     gtsam::OptionalMatrixType H_bias = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix33 H_unrotate_R = gtsam::Matrix33::Zero();
     gtsam::Matrix33 H_unrotate_v = gtsam::Matrix33::Zero();
 
-    gtsam::Vector3 target_vel = pose.rotation().unrotate(
+    gtsam::Vector3 const target_vel = pose.rotation().unrotate(
         map_v_target, H_pose ? &H_unrotate_R : nullptr, H_vel ? &H_unrotate_v : nullptr);
 
-    gtsam::Vector3 target_omega = target_R_imu_.rotate(measured_gyro_ - bias.gyroscope());
-    gtsam::Vector3 target_v_lever_arm = target_omega.cross(target_p_sensor_);
+    gtsam::Vector3 const target_omega = target_R_imu_.rotate(measured_gyro_ - bias.gyroscope());
+    gtsam::Vector3 const target_v_lever_arm = target_omega.cross(target_p_sensor_);
 
-    gtsam::Vector3 predicted_velocity = target_R_sensor_.unrotate(target_vel + target_v_lever_arm);
+    gtsam::Vector3 const predicted_velocity =
+        target_R_sensor_.unrotate(target_vel + target_v_lever_arm);
 
     // 3D velocity residual
-    gtsam::Vector3 error = predicted_velocity - measured_velocity_;
+    gtsam::Vector3 const error = predicted_velocity - measured_velocity_;
 
     if (H_pose) {
       // Jacobian with respect to pose (3x6)

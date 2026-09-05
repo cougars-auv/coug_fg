@@ -84,20 +84,20 @@ using AgentStatusMsg =
 using MultiAgentMsgs = std::vector<std::vector<AgentStatusMsg>>;
 using TfMap = std::unordered_map<std::string, std::pair<Eigen::Vector3d, Eigen::Vector4d>>;
 
-gtsam::Rot3 toRot3(const Eigen::Vector4d& q) {
+auto toRot3(Eigen::Vector4d const& q) -> gtsam::Rot3 {
   return gtsam::Rot3::Quaternion(q(3), q(0), q(1), q(2));
 }
 
-Eigen::Vector4d toQuatXyzw(const gtsam::Rot3& rot) {
+auto toQuatXyzw(gtsam::Rot3 const& rot) -> Eigen::Vector4d {
   gtsam::Quaternion q = rot.toQuaternion();
   return {q.x(), q.y(), q.z(), q.w()};
 }
 
-gtsam::Pose3 toPose3(const Eigen::Vector3d& position, const Eigen::Vector4d& q) {
+auto toPose3(Eigen::Vector3d const& position, Eigen::Vector4d const& q) -> gtsam::Pose3 {
   return {toRot3(q), gtsam::Point3(position)};
 }
 
-void pyLogCallback(LogLevel level, const std::string& msg) {
+void pyLogCallback(LogLevel level, std::string const& msg) {
   int py_level = 30;  // logging.WARNING
   switch (level) {
     case LogLevel::kDebug:
@@ -117,10 +117,10 @@ void pyLogCallback(LogLevel level, const std::string& msg) {
   pybind11::module_::import("logging").attr("getLogger")("coug_fg.core").attr("log")(py_level, msg);
 }
 
-pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
-                           const std::optional<gtsam::Vector3>& velocity,
-                           const std::optional<gtsam::imuBias::ConstantBias>& imu_bias,
-                           const std::optional<gtsam::Point3>& mag_bias) {
+auto toStateDict(double time, gtsam::Pose3 const& pose,
+                 std::optional<gtsam::Vector3> const& velocity,
+                 std::optional<gtsam::imuBias::ConstantBias> const& imu_bias,
+                 std::optional<gtsam::Point3> const& mag_bias) -> pybind11::dict {
   pybind11::dict state;
   gtsam::Quaternion q = pose.rotation().toQuaternion();
 
@@ -154,8 +154,8 @@ pybind11::dict toStateDict(double time, const gtsam::Pose3& pose,
   return state;
 }
 
-TfBundle toTfBundle(const TfMap& tfs) {
-  static const std::unordered_map<std::string, gtsam::Pose3 TfBundle::*> kTransformFields = {
+auto toTfBundle(TfMap const& tfs) -> TfBundle {
+  static std::unordered_map<std::string, gtsam::Pose3 TfBundle::*> const kTransformFields = {
       {"base", &TfBundle::target_T_base},  {"imu", &TfBundle::target_T_imu},
       {"gps", &TfBundle::target_T_gps},    {"depth", &TfBundle::target_T_depth},
       {"mag", &TfBundle::target_T_mag},    {"ahrs", &TfBundle::target_T_ahrs},
@@ -163,7 +163,7 @@ TfBundle toTfBundle(const TfMap& tfs) {
       {"modem", &TfBundle::target_T_modem}};
 
   TfBundle bundle;
-  for (const auto& [name, tf] : tfs) {
+  for (auto const& [name, tf] : tfs) {
     auto it = kTransformFields.find(name);
     if (it == kTransformFields.end()) {
       throw std::invalid_argument("Unknown transform name: " + name);
@@ -173,12 +173,12 @@ TfBundle toTfBundle(const TfMap& tfs) {
   return bundle;
 }
 
-QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& depth,
-                          const MagMsgs& mag, const AhrsMsgs& ahrs, const DvlMsgs& dvl,
-                          const WrenchMsgs& wrench, const MultiAgentMsgs& multiagent) {
+auto toQueueBundle(ImuMsgs const& imu, GpsMsgs const& gps, DepthMsgs const& depth,
+                   MagMsgs const& mag, AhrsMsgs const& ahrs, DvlMsgs const& dvl,
+                   WrenchMsgs const& wrench, MultiAgentMsgs const& multiagent) -> QueueBundle {
   QueueBundle queues;
 
-  for (const auto& [t, accel, gyro, accel_cov, gyro_cov] : imu) {
+  for (auto const& [t, accel, gyro, accel_cov, gyro_cov] : imu) {
     auto imu_msg = std::make_shared<ImuData>();
     imu_msg->timestamp = t;
     imu_msg->linear_acceleration = accel;
@@ -188,7 +188,7 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
     queues.imu.push_back(imu_msg);
   }
 
-  for (const auto& [t, position, pose_cov] : gps) {
+  for (auto const& [t, position, pose_cov] : gps) {
     auto gps_msg = std::make_shared<OdometryData>();
     gps_msg->timestamp = t;
     gps_msg->pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(position));
@@ -196,7 +196,7 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
     queues.gps.push_back(gps_msg);
   }
 
-  for (const auto& [t, depth_z, pose_cov] : depth) {
+  for (auto const& [t, depth_z, pose_cov] : depth) {
     auto depth_msg = std::make_shared<OdometryData>();
     depth_msg->timestamp = t;
     depth_msg->pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, depth_z));
@@ -204,7 +204,7 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
     queues.depth.push_back(depth_msg);
   }
 
-  for (const auto& [t, field, field_cov] : mag) {
+  for (auto const& [t, field, field_cov] : mag) {
     auto mag_msg = std::make_shared<MagneticFieldData>();
     mag_msg->timestamp = t;
     mag_msg->magnetic_field = field;
@@ -212,7 +212,7 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
     queues.mag.push_back(mag_msg);
   }
 
-  for (const auto& [t, q, orientation_cov] : ahrs) {
+  for (auto const& [t, q, orientation_cov] : ahrs) {
     auto ahrs_msg = std::make_shared<AhrsData>();
     ahrs_msg->timestamp = t;
     ahrs_msg->orientation = toRot3(q);
@@ -220,7 +220,7 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
     queues.ahrs.push_back(ahrs_msg);
   }
 
-  for (const auto& [t, velocity, twist_cov] : dvl) {
+  for (auto const& [t, velocity, twist_cov] : dvl) {
     auto dvl_msg = std::make_shared<TwistData>();
     dvl_msg->timestamp = t;
     dvl_msg->linear_velocity = velocity;
@@ -228,7 +228,7 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
     queues.dvl.push_back(dvl_msg);
   }
 
-  for (const auto& [t, force_torque] : wrench) {
+  for (auto const& [t, force_torque] : wrench) {
     auto wrench_msg = std::make_shared<WrenchData>();
     wrench_msg->timestamp = t;
     wrench_msg->force = force_torque.head<3>();
@@ -238,7 +238,7 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
 
   queues.multiagent.resize(multiagent.size());
   for (size_t agent_queue_idx = 0; agent_queue_idx < multiagent.size(); ++agent_queue_idx) {
-    for (const auto& [t, position, q, pose_cov, depth_z, imu_q, includes_range, range_dist,
+    for (auto const& [t, position, q, pose_cov, depth_z, imu_q, includes_range, range_dist,
                       includes_usbl, usbl_azimuth, usbl_elevation, includes_position,
                       position_depth] : multiagent[agent_queue_idx]) {
       auto status_msg = std::make_shared<AgentStatusData>();
@@ -262,11 +262,11 @@ QueueBundle toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsg
 }
 
 template <typename Msgs>
-Msgs queueOrEmpty(const pybind11::dict& queues, const char* name) {
+auto queueOrEmpty(pybind11::dict const& queues, char const* name) -> Msgs {
   return queues.contains(name) ? queues[name].cast<Msgs>() : Msgs{};
 }
 
-QueueBundle toQueueBundle(const pybind11::dict& queues) {
+auto toQueueBundle(pybind11::dict const& queues) -> QueueBundle {
   return toQueueBundle(queueOrEmpty<ImuMsgs>(queues, "imu"), queueOrEmpty<GpsMsgs>(queues, "gps"),
                        queueOrEmpty<DepthMsgs>(queues, "depth"),
                        queueOrEmpty<MagMsgs>(queues, "mag"), queueOrEmpty<AhrsMsgs>(queues, "ahrs"),
@@ -275,45 +275,45 @@ QueueBundle toQueueBundle(const pybind11::dict& queues) {
                        queueOrEmpty<MultiAgentMsgs>(queues, "multiagent"));
 }
 
-pybind11::dict toQueueDict(const QueueBundle& queue_bundle) {
+auto toQueueDict(QueueBundle const& queue_bundle) -> pybind11::dict {
   ImuMsgs imu;
-  for (const auto& imu_msg : queue_bundle.imu) {
+  for (auto const& imu_msg : queue_bundle.imu) {
     imu.emplace_back(imu_msg->timestamp, imu_msg->linear_acceleration, imu_msg->angular_velocity,
                      imu_msg->linear_acceleration_covariance, imu_msg->angular_velocity_covariance);
   }
 
   GpsMsgs gps;
-  for (const auto& gps_msg : queue_bundle.gps) {
+  for (auto const& gps_msg : queue_bundle.gps) {
     gps.emplace_back(gps_msg->timestamp, gps_msg->pose.translation(),
                      swapCovarianceBlocks(gps_msg->pose_covariance));
   }
 
   DepthMsgs depth;
-  for (const auto& depth_msg : queue_bundle.depth) {
+  for (auto const& depth_msg : queue_bundle.depth) {
     depth.emplace_back(depth_msg->timestamp, depth_msg->pose.translation().z(),
                        swapCovarianceBlocks(depth_msg->pose_covariance));
   }
 
   MagMsgs mag;
-  for (const auto& mag_msg : queue_bundle.mag) {
+  for (auto const& mag_msg : queue_bundle.mag) {
     mag.emplace_back(mag_msg->timestamp, mag_msg->magnetic_field,
                      mag_msg->magnetic_field_covariance);
   }
 
   AhrsMsgs ahrs;
-  for (const auto& ahrs_msg : queue_bundle.ahrs) {
+  for (auto const& ahrs_msg : queue_bundle.ahrs) {
     ahrs.emplace_back(ahrs_msg->timestamp, toQuatXyzw(ahrs_msg->orientation),
                       ahrs_msg->orientation_covariance);
   }
 
   DvlMsgs dvl;
-  for (const auto& dvl_msg : queue_bundle.dvl) {
+  for (auto const& dvl_msg : queue_bundle.dvl) {
     dvl.emplace_back(dvl_msg->timestamp, dvl_msg->linear_velocity,
                      swapCovarianceBlocks(dvl_msg->velocity_covariance));
   }
 
   WrenchMsgs wrench;
-  for (const auto& wrench_msg : queue_bundle.wrench) {
+  for (auto const& wrench_msg : queue_bundle.wrench) {
     Vector6d force_torque;
     force_torque << wrench_msg->force, wrench_msg->torque;
     wrench.emplace_back(wrench_msg->timestamp, force_torque);
@@ -321,10 +321,10 @@ pybind11::dict toQueueDict(const QueueBundle& queue_bundle) {
 
   MultiAgentMsgs multiagent;
   multiagent.reserve(queue_bundle.multiagent.size());
-  for (const auto& agent : queue_bundle.multiagent) {
+  for (auto const& agent : queue_bundle.multiagent) {
     std::vector<AgentStatusMsg> neighbor;
     neighbor.reserve(agent.size());
-    for (const auto& status_msg : agent) {
+    for (auto const& status_msg : agent) {
       neighbor.emplace_back(
           status_msg->timestamp, status_msg->pose.translation(),
           toQuatXyzw(status_msg->pose.rotation()),
@@ -350,13 +350,13 @@ pybind11::dict toQueueDict(const QueueBundle& queue_bundle) {
 
 }  // namespace
 
-FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const std::string& ns) {
+FactorGraphPy::FactorGraphPy(std::vector<std::string> const& config_paths, std::string const& ns) {
   if (!rclcpp::ok()) {
     rclcpp::init(0, nullptr);
   }
 
   std::vector<std::string> args = {"--ros-args"};
-  for (const auto& path : config_paths) {
+  for (auto const& path : config_paths) {
     args.emplace_back("--params-file");
     args.push_back(path);
   }
@@ -365,7 +365,7 @@ FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const
   options.arguments(args);
   auto param_node = std::make_shared<rclcpp::Node>("factor_graph_node", ns, options);
 
-  const factor_graph_node::ParamListener param_listener(
+  factor_graph_node::ParamListener const param_listener(
       param_node->get_node_parameters_interface());
   params_ = param_listener.get_params();
 
@@ -373,7 +373,7 @@ FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const
   core_->setLogCallback(&pyLogCallback);
 }
 
-pybind11::dict FactorGraphPy::get_params() const {
+auto FactorGraphPy::get_params() const -> pybind11::dict {
   pybind11::dict params;
 
   // --- Node Settings ---
@@ -407,7 +407,7 @@ pybind11::dict FactorGraphPy::get_params() const {
   params["base_frame"] = params_.base_frame;
 
   // --- Sensor Settings ---
-  auto sensor_dict = [](const auto& sensor_config, bool enable, bool enable_init_priors,
+  auto sensor_dict = [](auto const& sensor_config, bool enable, bool enable_init_priors,
                         bool enable_dropout_only = false) {
     pybind11::dict sensor;
     sensor["enable"] = enable;
@@ -475,19 +475,19 @@ pybind11::dict FactorGraphPy::get_params() const {
   return params;
 }
 
-bool FactorGraphPy::initialize(double init_time, const pybind11::dict& queues,
-                               const pybind11::dict& tfs) {
+auto FactorGraphPy::initialize(double init_time, pybind11::dict const& queues,
+                               pybind11::dict const& tfs) -> bool {
   if (is_initialized_) {
     return true;
   }
 
-  const QueueBundle queue_bundle = toQueueBundle(queues);
+  QueueBundle const queue_bundle = toQueueBundle(queues);
   is_initialized_ = core_->initialize(init_time, queue_bundle, toTfBundle(tfs.cast<TfMap>()));
   return is_initialized_;
 }
 
-pybind11::object FactorGraphPy::update(double target_time, const pybind11::dict& queues,
-                                       const pybind11::dict& tfs) {
+auto FactorGraphPy::update(double target_time, pybind11::dict const& queues,
+                           pybind11::dict const& tfs) -> pybind11::object {
   if (!is_initialized_) {
     return pybind11::none();
   }
@@ -500,7 +500,7 @@ pybind11::object FactorGraphPy::update(double target_time, const pybind11::dict&
   return toQueueDict(*leftover);
 }
 
-pybind11::dict FactorGraphPy::optimize() {
+auto FactorGraphPy::optimize() -> pybind11::dict {
   if (!is_initialized_) {
     return {};
   }
@@ -532,15 +532,15 @@ pybind11::dict FactorGraphPy::optimize() {
   result["new_keyframes"] = opt_result->new_keyframes;
 
   if (params_.publish_smoothed_path && !opt_result->smoothed_path.empty()) {
-    const gtsam::Values& estimates = opt_result->smoothed_path;
+    gtsam::Values const& estimates = opt_result->smoothed_path;
     pybind11::list smoothed;
 
     static constexpr double kNanosecondsToSeconds = 1e-9;
-    for (const auto& [time_ns, x_key] : core_->snapshotTimeKeys()) {
+    for (auto const& [time_ns, x_key] : core_->snapshotTimeKeys()) {
       if (!estimates.exists(x_key)) {
         continue;
       }
-      const size_t step = gtsam::Symbol(x_key).index();
+      size_t const step = gtsam::Symbol(x_key).index();
 
       std::optional<gtsam::Point3> step_mag_bias;
       if (estimates.exists(M(0))) {
@@ -589,7 +589,7 @@ PYBIND11_MODULE(coug_fg_py, m) {
   m.def("parse_keyframe_source", &parseKeyframeSource);
 
   pybind11::class_<FactorGraphPy>(m, "FactorGraphPy")
-      .def(pybind11::init<const std::vector<std::string>&, const std::string&>(),
+      .def(pybind11::init<std::vector<std::string> const&, std::string const&>(),
            pybind11::arg("config_paths"), pybind11::arg("namespace") = "")
       .def("get_params", &FactorGraphPy::get_params)
       .def("initialize", &FactorGraphPy::initialize, pybind11::arg("init_time"),

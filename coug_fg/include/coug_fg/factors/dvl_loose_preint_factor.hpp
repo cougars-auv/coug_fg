@@ -27,30 +27,30 @@ class DvlLoosePreintFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gt
 
  public:
   DvlLoosePreintFactorArm(gtsam::Key pose_key_i, gtsam::Key pose_key_j,
-                          const gtsam::Pose3& target_T_sensor,
-                          const gtsam::Vector3& measured_translation,
-                          const gtsam::SharedNoiseModel& noise_model)
+                          gtsam::Pose3 const& target_T_sensor,
+                          gtsam::Vector3 const& measured_translation,
+                          gtsam::SharedNoiseModel const& noise_model)
       : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(noise_model, pose_key_i, pose_key_j),
         target_p_sensor_(target_T_sensor.translation()),
         measured_translation_(measured_translation) {}
 
-  gtsam::Vector evaluateError(const gtsam::Pose3& pose_i, const gtsam::Pose3& pose_j,
-                              gtsam::OptionalMatrixType H_pose_i = nullptr,
-                              gtsam::OptionalMatrixType H_pose_j = nullptr) const override {
+  auto evaluateError(gtsam::Pose3 const& pose_i, gtsam::Pose3 const& pose_j,
+                     gtsam::OptionalMatrixType H_pose_i = nullptr,
+                     gtsam::OptionalMatrixType H_pose_j = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix36 H_transform_from_j = gtsam::Matrix36::Zero();
-    gtsam::Point3 map_p_sensor_j =
+    gtsam::Point3 const map_p_sensor_j =
         pose_j.transformFrom(target_p_sensor_, H_pose_j ? &H_transform_from_j : nullptr);
 
     gtsam::Matrix36 H_transform_to_i = gtsam::Matrix36::Zero();
     gtsam::Matrix33 H_transform_to_j = gtsam::Matrix33::Zero();
-    gtsam::Point3 i_p_sensor_j =
+    gtsam::Point3 const i_p_sensor_j =
         pose_i.transformTo(map_p_sensor_j, H_pose_i ? &H_transform_to_i : nullptr,
                            H_pose_j ? &H_transform_to_j : nullptr);
 
-    gtsam::Vector3 predicted_translation = i_p_sensor_j - target_p_sensor_;
+    gtsam::Vector3 const predicted_translation = i_p_sensor_j - target_p_sensor_;
 
     // 3D translation residual
-    gtsam::Vector3 error = predicted_translation - measured_translation_;
+    gtsam::Vector3 const error = predicted_translation - measured_translation_;
 
     if (H_pose_i) {
       // Jacobian with respect to pose_i (3x6)

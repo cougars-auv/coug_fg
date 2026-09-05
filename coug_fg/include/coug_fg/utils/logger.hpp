@@ -26,21 +26,21 @@ namespace coug_fg::utils {
 
 enum class LogLevel : std::uint8_t { kDebug, kInfo, kWarn, kError };
 
-using LogCallback = std::function<void(LogLevel, const std::string&)>;
+using LogCallback = std::function<void(LogLevel, std::string const&)>;
 
 class Logger {
  public:
   void setCallback(LogCallback callback) { callback_ = std::move(callback); }
 
-  void log(LogLevel level, const std::string& msg) const {
+  void log(LogLevel level, std::string const& msg) const {
     if (callback_) {
       callback_(level, msg);
     }
   }
 
-  void logOnce(LogLevel level, const std::string& key, const std::string& msg) const {
+  void logOnce(LogLevel level, std::string const& key, std::string const& msg) const {
     {
-      std::scoped_lock lock(mutex_);
+      std::scoped_lock const lock(mutex_);
       if (!once_keys_.insert(key).second) {
         return;
       }
@@ -48,10 +48,10 @@ class Logger {
     log(level, msg);
   }
 
-  void logThrottled(LogLevel level, const std::string& key, double period, double now,
-                    const std::string& msg) const {
+  void logThrottled(LogLevel level, std::string const& key, double period, double now,
+                    std::string const& msg) const {
     {
-      std::scoped_lock lock(mutex_);
+      std::scoped_lock const lock(mutex_);
       auto it = last_emit_time_.find(key);
       if (it != last_emit_time_.end() && now - it->second < period) {
         return;

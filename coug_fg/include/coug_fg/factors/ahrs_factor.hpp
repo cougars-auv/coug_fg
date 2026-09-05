@@ -27,38 +27,38 @@ class AhrsFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  static gtsam::Rot3 trueNorthOrientation(const gtsam::Rot3& measured_orientation,
-                                          double mag_declination) {
+  static auto trueNorthOrientation(gtsam::Rot3 const& measured_orientation, double mag_declination)
+      -> gtsam::Rot3 {
     return gtsam::Rot3::Yaw(-mag_declination) * measured_orientation;
   }
 
-  static gtsam::Matrix3 sensorTangentCovariance(const gtsam::Matrix3& map_covariance,
-                                                const gtsam::Rot3& measured_orientation) {
-    const gtsam::Matrix3 map_R_sensor = measured_orientation.matrix();
+  static auto sensorTangentCovariance(gtsam::Matrix3 const& map_covariance,
+                                      gtsam::Rot3 const& measured_orientation) -> gtsam::Matrix3 {
+    gtsam::Matrix3 const map_R_sensor = measured_orientation.matrix();
 
     return map_R_sensor.transpose() * map_covariance * map_R_sensor;
   }
 
-  AhrsFactorArm(gtsam::Key pose_key, const gtsam::Rot3& measured_orientation,
-                const gtsam::Pose3& target_T_sensor, double mag_declination,
-                const gtsam::SharedNoiseModel& noise_model)
+  AhrsFactorArm(gtsam::Key pose_key, gtsam::Rot3 const& measured_orientation,
+                gtsam::Pose3 const& target_T_sensor, double mag_declination,
+                gtsam::SharedNoiseModel const& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
         measured_orientation_(trueNorthOrientation(measured_orientation, mag_declination)),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  gtsam::Vector evaluateError(const gtsam::Pose3& pose,
-                              gtsam::OptionalMatrixType H = nullptr) const override {
+  auto evaluateError(gtsam::Pose3 const& pose, gtsam::OptionalMatrixType H = nullptr) const
+      -> gtsam::Vector override {
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
-    gtsam::Rot3 predicted_orientation =
+    gtsam::Rot3 const predicted_orientation =
         pose.rotation().compose(target_R_sensor_, H ? &H_compose : nullptr);
 
     // 3D orientation residual (Lie algebra), anchored at the measurement to match the noise basis
     gtsam::Matrix33 H_between = gtsam::Matrix33::Zero();
-    gtsam::Rot3 orientation_error =
+    gtsam::Rot3 const orientation_error =
         measured_orientation_.between(predicted_orientation, nullptr, H ? &H_between : nullptr);
 
     gtsam::Matrix33 H_logmap = gtsam::Matrix33::Zero();
-    gtsam::Vector3 error = gtsam::Rot3::Logmap(orientation_error, H ? &H_logmap : nullptr);
+    gtsam::Vector3 const error = gtsam::Rot3::Logmap(orientation_error, H ? &H_logmap : nullptr);
 
     if (H) {
       // Jacobian with respect to pose (3x6)

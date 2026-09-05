@@ -37,17 +37,17 @@ constexpr double kResidualTol = 1e-9;
 }  // namespace
 
 TEST(RangeOriginDeltaFactorArmTest, Jacobians) {
-  const gtsam::Key pose_key_l = X(1);
-  const gtsam::Key delta_key_n = O(1);
-  const gtsam::Key pose_key_n = X(2);
-  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  const gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  gtsam::Key const pose_key_l = X(1);
+  gtsam::Key const delta_key_n = O(1);
+  gtsam::Key const pose_key_n = X(2);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                        gtsam::Point3(0.5, 0.5, 0.5));
-  const gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
+  gtsam::Pose3 const target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
                                        gtsam::Point3(0.2, -0.4, 0.1));
-  const double measured_range = 10.0;
+  double const measured_range = 10.0;
 
-  const RangeOriginDeltaFactorArm factor(pose_key_l, delta_key_n, pose_key_n, measured_range,
+  RangeOriginDeltaFactorArm const factor(pose_key_l, delta_key_n, pose_key_n, measured_range,
                                          target_T_sensor_l, target_T_sensor_n, model);
 
   gtsam::Values values;
@@ -63,31 +63,31 @@ TEST(RangeOriginDeltaFactorArmTest, Jacobians) {
 }
 
 TEST(RangeOriginDeltaFactorArmTest, Residual) {
-  const gtsam::Key pose_key_l = X(1);
-  const gtsam::Key delta_key_n = O(1);
-  const gtsam::Key pose_key_n = X(2);
-  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
-  const gtsam::Pose3 target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+  gtsam::Key const pose_key_l = X(1);
+  gtsam::Key const delta_key_n = O(1);
+  gtsam::Key const pose_key_n = X(2);
+  gtsam::SharedNoiseModel const model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  gtsam::Pose3 const target_T_sensor_l(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
                                        gtsam::Point3(0.5, 0.5, 0.5));
-  const gtsam::Pose3 target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
+  gtsam::Pose3 const target_T_sensor_n(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3),
                                        gtsam::Point3(0.2, -0.4, 0.1));
-  const gtsam::Pose3 pose_l(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  const gtsam::Pose3 delta_n(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
-  const gtsam::Pose3 pose_n(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0));
+  gtsam::Pose3 const pose_l(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  gtsam::Pose3 const delta_n(gtsam::Rot3::Ypr(0.5, 0.05, -0.05), gtsam::Point3(3.0, -2.0, 0.5));
+  gtsam::Pose3 const pose_n(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(8.0, 5.0, 6.0));
 
   // The neighbor's pose is in its own frame, so the origin delta places it in the map frame
-  const gtsam::Pose3 map_T_n = delta_n * pose_n;
+  gtsam::Pose3 const map_T_n = delta_n * pose_n;
 
   // Separation of the two modems, not of the two targets
-  const gtsam::Point3 map_p_sensor_l =
+  gtsam::Point3 const map_p_sensor_l =
       pose_l.rotation().matrix() * target_T_sensor_l.translation() + pose_l.translation();
-  const gtsam::Point3 map_p_sensor_n =
+  gtsam::Point3 const map_p_sensor_n =
       map_T_n.rotation().matrix() * target_T_sensor_n.translation() + map_T_n.translation();
-  const double sensor_range = (map_p_sensor_l - map_p_sensor_n).norm();
+  double const sensor_range = (map_p_sensor_l - map_p_sensor_n).norm();
 
   // Measured short of the prediction
   constexpr double kOffset = 0.4;
-  const RangeOriginDeltaFactorArm factor(pose_key_l, delta_key_n, pose_key_n,
+  RangeOriginDeltaFactorArm const factor(pose_key_l, delta_key_n, pose_key_n,
                                          sensor_range - kOffset, target_T_sensor_l,
                                          target_T_sensor_n, model);
 

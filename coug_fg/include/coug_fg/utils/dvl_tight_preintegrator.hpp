@@ -32,17 +32,17 @@ class DvlTightPreintegrator {
     prev_delta_R_ik_ = gtsam::Rot3();
   }
 
-  void integrateMeasurement(const gtsam::Vector3& measured_velocity, const gtsam::Rot3& delta_R_ik,
-                            const gtsam::Rot3& target_R_dvl, double dt,
-                            const gtsam::Matrix3& measured_velocity_cov,
-                            const gtsam::Matrix3& rot_cov_k, const gtsam::Matrix3& J_bg_k) {
+  void integrateMeasurement(gtsam::Vector3 const& measured_velocity, gtsam::Rot3 const& delta_R_ik,
+                            gtsam::Rot3 const& target_R_dvl, double dt,
+                            gtsam::Matrix3 const& measured_velocity_cov,
+                            gtsam::Matrix3 const& rot_cov_k, gtsam::Matrix3 const& J_bg_k) {
     // Transform the rotation error from the previous frame to this one
-    gtsam::Matrix3 k_R_prev = (prev_delta_R_ik_.inverse() * delta_R_ik).matrix().transpose();
+    gtsam::Matrix3 const k_R_prev = (prev_delta_R_ik_.inverse() * delta_R_ik).matrix().transpose();
     cross_cov_rot_trans_ = k_R_prev * cross_cov_rot_trans_;
 
     // Transform the velocity into the anchor frame (i) and integrate
-    gtsam::Vector3 target_v_dvl = target_R_dvl.rotate(measured_velocity);
-    gtsam::Vector3 i_v_dvl = delta_R_ik.rotate(target_v_dvl);
+    gtsam::Vector3 const target_v_dvl = target_R_dvl.rotate(measured_velocity);
+    gtsam::Vector3 const i_v_dvl = delta_R_ik.rotate(target_v_dvl);
     measured_translation_ += i_v_dvl * dt;
 
     gtsam::Matrix3 J_vel = delta_R_ik.matrix() * target_R_dvl.matrix() * dt;
@@ -56,11 +56,11 @@ class DvlTightPreintegrator {
     prev_delta_R_ik_ = delta_R_ik;
   }
 
-  [[nodiscard]] gtsam::Vector3 delta() const { return measured_translation_; }
+  [[nodiscard]] auto delta() const -> gtsam::Vector3 { return measured_translation_; }
 
-  [[nodiscard]] gtsam::Matrix3 covariance() const { return translation_cov_; }
+  [[nodiscard]] auto covariance() const -> gtsam::Matrix3 { return translation_cov_; }
 
-  [[nodiscard]] gtsam::Matrix3 preintMeasDerivativeWrtBias() const { return J_p_bg_; }
+  [[nodiscard]] auto preintMeasDerivativeWrtBias() const -> gtsam::Matrix3 { return J_p_bg_; }
 
  private:
   gtsam::Vector3 measured_translation_;

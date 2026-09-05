@@ -35,19 +35,19 @@ class BearingOriginDeltaFactorArm
   gtsam::Pose3 target_T_sensor_n_;
 
  public:
-  static gtsam::Unit3 losDirection(const gtsam::Point2& azi_el) {
-    const double azimuth = azi_el(0);
-    const double elevation = azi_el(1);
+  static auto losDirection(gtsam::Point2 const& azi_el) -> gtsam::Unit3 {
+    double const azimuth = azi_el(0);
+    double const elevation = azi_el(1);
 
     return gtsam::Unit3(gtsam::Point3(std::cos(elevation) * std::cos(azimuth),
                                       std::cos(elevation) * std::sin(azimuth),
                                       std::sin(elevation)));
   }
 
-  static gtsam::Matrix22 unit3TangentCovariance(const gtsam::Matrix22& azi_el_covariance,
-                                                const gtsam::Point2& azi_el) {
-    const double azimuth = azi_el(0);
-    const double elevation = azi_el(1);
+  static auto unit3TangentCovariance(gtsam::Matrix22 const& azi_el_covariance,
+                                     gtsam::Point2 const& azi_el) -> gtsam::Matrix22 {
+    double const azimuth = azi_el(0);
+    double const elevation = azi_el(1);
 
     // Columns of d(direction)/d(azimuth, elevation), tangent to the unit sphere
     gtsam::Matrix32 J_direction_azi_el = gtsam::Matrix32::Zero();
@@ -56,8 +56,8 @@ class BearingOriginDeltaFactorArm
     J_direction_azi_el.col(1) << -std::sin(elevation) * std::cos(azimuth),
         -std::sin(elevation) * std::sin(azimuth), std::cos(elevation);
 
-    const gtsam::Unit3 measured_direction = losDirection(azi_el);
-    const gtsam::Matrix22 J_basis_azi_el =
+    gtsam::Unit3 const measured_direction = losDirection(azi_el);
+    gtsam::Matrix22 const J_basis_azi_el =
         measured_direction.basis().transpose() * J_direction_azi_el;
 
     // Conjugate azimuth/elevation covariance into the Unit3 tangent space
@@ -72,45 +72,44 @@ class BearingOriginDeltaFactorArm
   }
 
   BearingOriginDeltaFactorArm(gtsam::Key pose_key_l, gtsam::Key delta_key_n, gtsam::Key pose_key_n,
-                              const gtsam::Point2& measured_azi_el,
-                              const gtsam::Pose3& target_T_sensor_l,
-                              const gtsam::Pose3& target_T_sensor_n,
-                              const gtsam::SharedNoiseModel& noise_model)
+                              gtsam::Point2 const& measured_azi_el,
+                              gtsam::Pose3 const& target_T_sensor_l,
+                              gtsam::Pose3 const& target_T_sensor_n,
+                              gtsam::SharedNoiseModel const& noise_model)
       : gtsam::NoiseModelFactor3<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3>(noise_model, pose_key_l,
                                                                            delta_key_n, pose_key_n),
         measured_azi_el_(measured_azi_el),
         target_T_sensor_l_(target_T_sensor_l),
         target_T_sensor_n_(target_T_sensor_n) {}
 
-  gtsam::Vector evaluateError(const gtsam::Pose3& pose_l, const gtsam::Pose3& delta_n,
-                              const gtsam::Pose3& pose_n,
-                              gtsam::OptionalMatrixType H_pose_l = nullptr,
-                              gtsam::OptionalMatrixType H_delta_n = nullptr,
-                              gtsam::OptionalMatrixType H_pose_n = nullptr) const override {
+  auto evaluateError(gtsam::Pose3 const& pose_l, gtsam::Pose3 const& delta_n,
+                     gtsam::Pose3 const& pose_n, gtsam::OptionalMatrixType H_pose_l = nullptr,
+                     gtsam::OptionalMatrixType H_delta_n = nullptr,
+                     gtsam::OptionalMatrixType H_pose_n = nullptr) const -> gtsam::Vector override {
     gtsam::Matrix66 H_compose_l = gtsam::Matrix66::Zero();
-    gtsam::Pose3 map_T_sensor_l =
+    gtsam::Pose3 const map_T_sensor_l =
         pose_l.compose(target_T_sensor_l_, H_pose_l ? &H_compose_l : nullptr);
 
     // Transform the neighbor's pose into the map frame with the origin delta
     gtsam::Matrix66 H_compose_delta = gtsam::Matrix66::Zero();
     gtsam::Matrix66 H_compose_pose = gtsam::Matrix66::Zero();
-    gtsam::Pose3 map_T_n = delta_n.compose(pose_n, H_delta_n ? &H_compose_delta : nullptr,
-                                           H_pose_n ? &H_compose_pose : nullptr);
+    gtsam::Pose3 const map_T_n = delta_n.compose(pose_n, H_delta_n ? &H_compose_delta : nullptr,
+                                                 H_pose_n ? &H_compose_pose : nullptr);
 
     gtsam::Matrix66 H_compose_n = gtsam::Matrix66::Zero();
-    gtsam::Pose3 map_T_sensor_n =
+    gtsam::Pose3 const map_T_sensor_n =
         map_T_n.compose(target_T_sensor_n_, (H_delta_n || H_pose_n) ? &H_compose_n : nullptr);
 
     gtsam::Matrix26 H_bearing_l = gtsam::Matrix26::Zero();
     gtsam::Matrix23 H_bearing_n = gtsam::Matrix23::Zero();
-    gtsam::Unit3 predicted_direction =
+    gtsam::Unit3 const predicted_direction =
         map_T_sensor_l.bearing(map_T_sensor_n.translation(), H_pose_l ? &H_bearing_l : nullptr,
                                (H_delta_n || H_pose_n) ? &H_bearing_n : nullptr);
 
     // 2D bearing residual, anchored at the measured direction to match the noise model basis
-    gtsam::Unit3 measured_direction = losDirection(measured_azi_el_);
+    gtsam::Unit3 const measured_direction = losDirection(measured_azi_el_);
     gtsam::Matrix22 H_error = gtsam::Matrix22::Zero();
-    gtsam::Vector2 error = measured_direction.errorVector(
+    gtsam::Vector2 const error = measured_direction.errorVector(
         predicted_direction, nullptr, (H_pose_l || H_delta_n || H_pose_n) ? &H_error : nullptr);
 
     if (H_pose_l) {
@@ -121,7 +120,7 @@ class BearingOriginDeltaFactorArm
     if (H_delta_n || H_pose_n) {
       gtsam::Matrix36 H_translation_n = gtsam::Matrix36::Zero();
       map_T_sensor_n.translation(H_translation_n);
-      const gtsam::Matrix26 H_sensor_n = H_error * H_bearing_n * H_translation_n * H_compose_n;
+      gtsam::Matrix26 const H_sensor_n = H_error * H_bearing_n * H_translation_n * H_compose_n;
 
       if (H_delta_n) {
         // Jacobian with respect to delta_n (2x6)

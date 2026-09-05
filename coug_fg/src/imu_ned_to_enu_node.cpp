@@ -18,7 +18,7 @@
 
 #include "coug_fg/imu_ned_to_enu.hpp"
 
-int main(int argc, char* argv[]) {
+auto main(int argc, char* argv[]) -> int {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::ImuNedToEnuNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);

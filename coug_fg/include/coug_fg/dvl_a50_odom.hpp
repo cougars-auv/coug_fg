@@ -30,16 +30,16 @@ namespace coug_fg {
 
 class DvlA50OdomNode : public rclcpp::Node {
  public:
-  explicit DvlA50OdomNode(const rclcpp::NodeOptions& options);
+  explicit DvlA50OdomNode(rclcpp::NodeOptions const& options);
 
  private:
   // --- Callbacks ---
-  void dvlCallback(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg);
+  void dvlCallback(dvl_msgs::msg::DVLDR::ConstSharedPtr const& msg);
 
   // --- Helpers ---
-  nav_msgs::msg::Odometry convertToOdom(
-      const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg, const std::string& dvl_frame,
-      const geometry_msgs::msg::TransformStamped& dvl_T_base_tf) const;
+  auto convertToOdom(dvl_msgs::msg::DVLDR::ConstSharedPtr const& msg, std::string const& dvl_frame,
+                     geometry_msgs::msg::TransformStamped const& dvl_T_base_tf) const
+      -> nav_msgs::msg::Odometry;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<dvl_msgs::msg::DVLDR>::SharedPtr dvl_sub_;

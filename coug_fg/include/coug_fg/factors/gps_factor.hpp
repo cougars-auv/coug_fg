@@ -27,20 +27,20 @@ class Gps2dFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Point3 target_p_sensor_;
 
  public:
-  Gps2dFactorArm(gtsam::Key pose_key, const gtsam::Point3& measured_position,
-                 const gtsam::Pose3& target_T_sensor, const gtsam::SharedNoiseModel& noise_model)
+  Gps2dFactorArm(gtsam::Key pose_key, gtsam::Point3 const& measured_position,
+                 gtsam::Pose3 const& target_T_sensor, gtsam::SharedNoiseModel const& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
         measured_position_(measured_position),
         target_p_sensor_(target_T_sensor.translation()) {}
 
-  gtsam::Vector evaluateError(const gtsam::Pose3& pose,
-                              gtsam::OptionalMatrixType H = nullptr) const override {
+  auto evaluateError(gtsam::Pose3 const& pose, gtsam::OptionalMatrixType H = nullptr) const
+      -> gtsam::Vector override {
     gtsam::Matrix36 H_transform = gtsam::Matrix36::Zero();
-    gtsam::Point3 predicted_position =
+    gtsam::Point3 const predicted_position =
         pose.transformFrom(target_p_sensor_, H ? &H_transform : nullptr);
 
     // 2D position residual (ignore Z)
-    gtsam::Vector2 error = (predicted_position - measured_position_).head<2>();
+    gtsam::Vector2 const error = (predicted_position - measured_position_).head<2>();
 
     if (H) {
       // Jacobian with respect to pose (2x6)

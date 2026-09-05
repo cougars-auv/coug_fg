@@ -53,14 +53,14 @@ namespace coug_fg {
 
 class FactorGraphNode : public rclcpp::Node {
  public:
-  explicit FactorGraphNode(const rclcpp::NodeOptions& options);
+  explicit FactorGraphNode(rclcpp::NodeOptions const& options);
 
   ~FactorGraphNode() override;
 
-  FactorGraphNode(const FactorGraphNode&) = delete;
-  FactorGraphNode& operator=(const FactorGraphNode&) = delete;
+  FactorGraphNode(FactorGraphNode const&) = delete;
+  auto operator=(FactorGraphNode const&) -> FactorGraphNode& = delete;
   FactorGraphNode(FactorGraphNode&&) = delete;
-  FactorGraphNode& operator=(FactorGraphNode&&) = delete;
+  auto operator=(FactorGraphNode&&) -> FactorGraphNode& = delete;
 
  private:
   // --- Initialization ---
@@ -73,25 +73,25 @@ class FactorGraphNode : public rclcpp::Node {
 
   void optimizeGraph();
 
-  void resetGraph(const std_srvs::srv::Trigger::Request::SharedPtr& request,
-                  const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
+  void resetGraph(std_srvs::srv::Trigger::Request::SharedPtr const& request,
+                  std::shared_ptr<std_srvs::srv::Trigger::Response> const& response);
 
   // --- Sensor Callbacks ---
-  void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
+  void imuCallback(sensor_msgs::msg::Imu::ConstSharedPtr const& msg);
 
-  void gpsCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
+  void gpsCallback(nav_msgs::msg::Odometry::ConstSharedPtr const& msg);
 
-  void depthCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
+  void depthCallback(nav_msgs::msg::Odometry::ConstSharedPtr const& msg);
 
-  void magCallback(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg);
+  void magCallback(sensor_msgs::msg::MagneticField::ConstSharedPtr const& msg);
 
-  void ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
+  void ahrsCallback(sensor_msgs::msg::Imu::ConstSharedPtr const& msg);
 
-  void dvlCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr& msg);
+  void dvlCallback(geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr const& msg);
 
-  void wrenchCallback(const geometry_msgs::msg::WrenchStamped::ConstSharedPtr& msg);
+  void wrenchCallback(geometry_msgs::msg::WrenchStamped::ConstSharedPtr const& msg);
 
-  void multiAgentCallback(const coug_interfaces::msg::AgentStatus::ConstSharedPtr& msg,
+  void multiAgentCallback(coug_interfaces::msg::AgentStatus::ConstSharedPtr const& msg,
                           size_t agent_queue_idx);
 
   void frontendThreadLoop();
@@ -103,42 +103,42 @@ class FactorGraphNode : public rclcpp::Node {
 
   void notifyBackend();
 
-  bool checkAndUpdateRateLimit(rclcpp::Time& last_time, double max_rate_hz);
+  auto checkAndUpdateRateLimit(rclcpp::Time& last_time, double max_rate_hz) -> bool;
 
-  bool loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, const std::string& child_frame,
-                      bool use_parameter_tf, const std::vector<double>& position,
-                      const std::vector<double>& orientation);
+  auto loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, std::string const& child_frame,
+                      bool use_parameter_tf, std::vector<double> const& position,
+                      std::vector<double> const& orientation) -> bool;
 
-  utils::TfBundle buildCurrentTfBundle();
+  auto buildCurrentTfBundle() -> utils::TfBundle;
 
-  utils::QueueBundle drainAllQueues();
+  auto drainAllQueues() -> utils::QueueBundle;
 
-  void restoreAllQueues(const utils::QueueBundle& queues);
+  void restoreAllQueues(utils::QueueBundle const& queues);
 
   // --- Publishing ---
-  void publishGlobalOdom(const gtsam::Pose3& curr_pose, const gtsam::Matrix& target_pose_cov,
-                         const rclcpp::Time& timestamp);
+  void publishGlobalOdom(gtsam::Pose3 const& curr_pose, gtsam::Matrix const& target_pose_cov,
+                         rclcpp::Time const& timestamp);
 
-  void publishNeighborGlobalOdom(size_t agent_queue_idx, const gtsam::Pose3& curr_pose,
-                                 const gtsam::Matrix& base_pose_cov, const rclcpp::Time& timestamp);
+  void publishNeighborGlobalOdom(size_t agent_queue_idx, gtsam::Pose3 const& curr_pose,
+                                 gtsam::Matrix const& base_pose_cov, rclcpp::Time const& timestamp);
 
-  void broadcastGlobalTf(const gtsam::Pose3& curr_pose, const rclcpp::Time& timestamp);
+  void broadcastGlobalTf(gtsam::Pose3 const& curr_pose, rclcpp::Time const& timestamp);
 
-  void broadcastNeighborGlobalTf(size_t agent_queue_idx, const gtsam::Pose3& curr_pose,
-                                 const rclcpp::Time& timestamp);
+  void broadcastNeighborGlobalTf(size_t agent_queue_idx, gtsam::Pose3 const& curr_pose,
+                                 rclcpp::Time const& timestamp);
 
-  void publishSmoothedPath(const gtsam::Values& values, const rclcpp::Time& timestamp);
+  void publishSmoothedPath(gtsam::Values const& values, rclcpp::Time const& timestamp);
 
-  void publishVelocity(const gtsam::Vector3& curr_vel, const gtsam::Matrix& vel_cov,
-                       const rclcpp::Time& timestamp);
+  void publishVelocity(gtsam::Vector3 const& curr_vel, gtsam::Matrix const& vel_cov,
+                       rclcpp::Time const& timestamp);
 
-  void publishImuBias(const gtsam::imuBias::ConstantBias& curr_imu_bias,
-                      const gtsam::Matrix& imu_bias_cov, const rclcpp::Time& timestamp);
+  void publishImuBias(gtsam::imuBias::ConstantBias const& curr_imu_bias,
+                      gtsam::Matrix const& imu_bias_cov, rclcpp::Time const& timestamp);
 
-  void publishMagBias(const gtsam::Point3& curr_mag_bias, const gtsam::Matrix& mag_bias_cov,
-                      const rclcpp::Time& timestamp);
+  void publishMagBias(gtsam::Point3 const& curr_mag_bias, gtsam::Matrix const& mag_bias_cov,
+                      rclcpp::Time const& timestamp);
 
-  void publishGraphMetrics(const rclcpp::Time& timestamp);
+  void publishGraphMetrics(rclcpp::Time const& timestamp);
 
   // --- Diagnostics ---
   void checkSensorStatus(diagnostic_updater::DiagnosticStatusWrapper& stat);

@@ -29,7 +29,7 @@
 
 namespace coug_fg {
 
-ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
+ImuNedToEnuNode::ImuNedToEnuNode(rclcpp::NodeOptions const& options)
     : Node("imu_ned_to_enu_node", options) {
   param_listener_ =
       std::make_shared<imu_ned_to_enu_node::ParamListener>(get_node_parameters_interface());
@@ -37,7 +37,7 @@ ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
 
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](const sensor_msgs::msg::Imu::ConstSharedPtr& msg) { imuCallback(msg); });
+      [this](sensor_msgs::msg::Imu::ConstSharedPtr const& msg) { imuCallback(msg); });
 
   imu_pub_ =
       create_publisher<sensor_msgs::msg::Imu>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -45,16 +45,16 @@ ImuNedToEnuNode::ImuNedToEnuNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void ImuNedToEnuNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
+void ImuNedToEnuNode::imuCallback(sensor_msgs::msg::Imu::ConstSharedPtr const& msg) {
   imu_pub_->publish(convertToEnu(msg));
 }
 
-sensor_msgs::msg::Imu ImuNedToEnuNode::convertToEnu(
-    const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
+auto ImuNedToEnuNode::convertToEnu(sensor_msgs::msg::Imu::ConstSharedPtr const& msg)
+    -> sensor_msgs::msg::Imu {
   sensor_msgs::msg::Imu imu_msg = *msg;
 
   // Convert NED -> ENU
-  static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
+  static tf2::Quaternion const kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
 
   tf2::Quaternion q;
   tf2::fromMsg(msg->orientation, q);
@@ -62,7 +62,7 @@ sensor_msgs::msg::Imu ImuNedToEnuNode::convertToEnu(
 
   if (imu_msg.orientation_covariance[0] >= 0.0) {
     // IMU orientation covariance is expressed about the world-frame axes
-    static const Eigen::Matrix3d kNedToEnu3D =
+    static Eigen::Matrix3d const kNedToEnu3D =
         (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
     Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov(
         imu_msg.orientation_covariance.data());

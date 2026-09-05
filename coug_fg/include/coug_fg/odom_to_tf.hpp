@@ -27,15 +27,15 @@ namespace coug_fg {
 
 class OdomToTfNode : public rclcpp::Node {
  public:
-  explicit OdomToTfNode(const rclcpp::NodeOptions& options);
+  explicit OdomToTfNode(rclcpp::NodeOptions const& options);
 
  private:
   // --- Callbacks ---
-  void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
+  void odomCallback(nav_msgs::msg::Odometry::ConstSharedPtr const& msg);
 
   // --- Helpers ---
-  static geometry_msgs::msg::TransformStamped convertToTf(
-      const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
+  static auto convertToTf(nav_msgs::msg::Odometry::ConstSharedPtr const& msg)
+      -> geometry_msgs::msg::TransformStamped;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;

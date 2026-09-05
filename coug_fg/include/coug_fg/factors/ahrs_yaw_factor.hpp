@@ -31,26 +31,26 @@ class AhrsYawFactorArm : public gtsam::NoiseModelFactor1<gtsam::Pose3> {
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  AhrsYawFactorArm(gtsam::Key pose_key, const gtsam::Rot3& measured_orientation,
-                   const gtsam::Pose3& target_T_sensor, double mag_declination,
-                   const gtsam::SharedNoiseModel& noise_model)
+  AhrsYawFactorArm(gtsam::Key pose_key, gtsam::Rot3 const& measured_orientation,
+                   gtsam::Pose3 const& target_T_sensor, double mag_declination,
+                   gtsam::SharedNoiseModel const& noise_model)
       : NoiseModelFactor1<gtsam::Pose3>(noise_model, pose_key),
         measured_yaw_(
             AhrsFactorArm::trueNorthOrientation(measured_orientation, mag_declination).yaw()),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
-  gtsam::Vector evaluateError(const gtsam::Pose3& pose,
-                              gtsam::OptionalMatrixType H = nullptr) const override {
+  auto evaluateError(gtsam::Pose3 const& pose, gtsam::OptionalMatrixType H = nullptr) const
+      -> gtsam::Vector override {
     gtsam::Matrix33 H_compose = gtsam::Matrix33::Zero();
-    gtsam::Rot3 predicted_orientation =
+    gtsam::Rot3 const predicted_orientation =
         pose.rotation().compose(target_R_sensor_, H ? &H_compose : nullptr);
 
     // Singular at +/-90 deg pitch (gimbal lock)
     gtsam::Matrix13 H_yaw = gtsam::Matrix13::Zero();
-    const double predicted_yaw = predicted_orientation.yaw(H ? &H_yaw : nullptr);
+    double const predicted_yaw = predicted_orientation.yaw(H ? &H_yaw : nullptr);
 
     // 1D heading residual, wrapped into [-pi, pi]
-    const double error = std::remainder(predicted_yaw - measured_yaw_, 2.0 * M_PI);
+    double const error = std::remainder(predicted_yaw - measured_yaw_, 2.0 * M_PI);
 
     if (H) {
       // Jacobian with respect to pose (1x6)

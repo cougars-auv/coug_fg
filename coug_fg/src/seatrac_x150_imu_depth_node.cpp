@@ -18,7 +18,7 @@
 
 #include "coug_fg/seatrac_x150_imu_depth.hpp"
 
-int main(int argc, char* argv[]) {
+auto main(int argc, char* argv[]) -> int {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::SeatracX150ImuDepthNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);

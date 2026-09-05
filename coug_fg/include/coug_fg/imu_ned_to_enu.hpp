@@ -24,14 +24,15 @@ namespace coug_fg {
 
 class ImuNedToEnuNode : public rclcpp::Node {
  public:
-  explicit ImuNedToEnuNode(const rclcpp::NodeOptions& options);
+  explicit ImuNedToEnuNode(rclcpp::NodeOptions const& options);
 
  private:
   // --- Callbacks ---
-  void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
+  void imuCallback(sensor_msgs::msg::Imu::ConstSharedPtr const& msg);
 
   // --- Helpers ---
-  static sensor_msgs::msg::Imu convertToEnu(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
+  static auto convertToEnu(sensor_msgs::msg::Imu::ConstSharedPtr const& msg)
+      -> sensor_msgs::msg::Imu;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;

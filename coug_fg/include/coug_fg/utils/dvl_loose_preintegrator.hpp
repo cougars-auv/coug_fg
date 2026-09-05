@@ -24,10 +24,10 @@ class DvlLoosePreintegrator {
  public:
   DvlLoosePreintegrator() { reset(gtsam::Rot3()); }
 
-  void reset(const gtsam::Rot3& initial_orientation,
-             const gtsam::Rot3& target_R_ahrs = gtsam::Rot3(),
-             const gtsam::Rot3& target_R_dvl = gtsam::Rot3(),
-             const gtsam::Matrix3& ahrs_tangent_cov = gtsam::Matrix3::Zero()) {
+  void reset(gtsam::Rot3 const& initial_orientation,
+             gtsam::Rot3 const& target_R_ahrs = gtsam::Rot3(),
+             gtsam::Rot3 const& target_R_dvl = gtsam::Rot3(),
+             gtsam::Matrix3 const& ahrs_tangent_cov = gtsam::Matrix3::Zero()) {
     map_R_i_ = initial_orientation;
     target_R_ahrs_ = target_R_ahrs.matrix();
     dvl_R_ahrs_ = (target_R_dvl.inverse() * target_R_ahrs).matrix();
@@ -37,12 +37,12 @@ class DvlLoosePreintegrator {
     J_ahrs_ = gtsam::Matrix3::Zero();
   }
 
-  void integrateMeasurement(const gtsam::Vector3& measured_velocity,
-                            const gtsam::Rot3& measured_orientation, double dt,
-                            const gtsam::Matrix3& measured_velocity_cov) {
+  void integrateMeasurement(gtsam::Vector3 const& measured_velocity,
+                            gtsam::Rot3 const& measured_orientation, double dt,
+                            gtsam::Matrix3 const& measured_velocity_cov) {
     // Transform the velocity into the anchor frame (i) and integrate
-    gtsam::Rot3 i_R_k = map_R_i_.between(measured_orientation);
-    gtsam::Vector3 i_v_dvl = i_R_k.rotate(measured_velocity);
+    gtsam::Rot3 const i_R_k = map_R_i_.between(measured_orientation);
+    gtsam::Vector3 const i_v_dvl = i_R_k.rotate(measured_velocity);
     measured_translation_ += i_v_dvl * dt;
 
     gtsam::Matrix3 J_vel = i_R_k.matrix() * dt;
@@ -52,9 +52,9 @@ class DvlLoosePreintegrator {
                      i_R_k.matrix() * gtsam::skewSymmetric(measured_velocity) * dvl_R_ahrs_);
   }
 
-  [[nodiscard]] gtsam::Vector3 delta() const { return measured_translation_; }
+  [[nodiscard]] auto delta() const -> gtsam::Vector3 { return measured_translation_; }
 
-  [[nodiscard]] gtsam::Matrix3 covariance() const {
+  [[nodiscard]] auto covariance() const -> gtsam::Matrix3 {
     return velocity_noise_cov_ + J_ahrs_ * ahrs_tangent_cov_ * J_ahrs_.transpose();
   }
 

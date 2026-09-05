@@ -18,7 +18,7 @@
 
 #include "coug_fg/dvl_a50_odom.hpp"
 
-int main(int argc, char* argv[]) {
+auto main(int argc, char* argv[]) -> int {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<coug_fg::DvlA50OdomNode>(rclcpp::NodeOptions());
   rclcpp::spin(node);

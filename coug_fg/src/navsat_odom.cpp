@@ -32,7 +32,7 @@
 
 namespace coug_fg {
 
-NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
+NavsatOdomNode::NavsatOdomNode(rclcpp::NodeOptions const& options)
     : Node("navsat_odom_node", options),
       diagnostic_updater_(this),
       local_cartesian_(0.0, 0.0, 0.0, GeographicLib::Geocentric::WGS84()) {
@@ -42,7 +42,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
 
   navsat_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
       params_.input_topic, rclcpp::SensorDataQoS(),
-      [this](const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) { navsatCallback(msg); });
+      [this](sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg) { navsatCallback(msg); });
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
@@ -59,7 +59,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   } else {
     origin_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
         params_.origin_topic, rclcpp::SystemDefaultsQoS(),
-        [this](const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) { originCallback(msg); });
+        [this](sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg) { originCallback(msg); });
   }
 
   if (params_.set_origin && params_.use_parameter_origin) {
@@ -75,13 +75,13 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   }
 
   if (params_.publish_diagnostics) {
-    const std::string ns = this->get_namespace();
-    const std::string clean_ns = (ns == "/") ? "" : ns;
+    std::string const ns = this->get_namespace();
+    std::string const clean_ns = (ns == "/") ? "" : ns;
     diagnostic_updater_.setHardwareID(clean_ns + "/navsat_odom_node");
 
-    const std::string prefix = clean_ns.empty() ? "" : "[" + clean_ns + "] ";
+    std::string const prefix = clean_ns.empty() ? "" : "[" + clean_ns + "] ";
 
-    const std::string origin_task = prefix + "Origin Status";
+    std::string const origin_task = prefix + "Origin Status";
     diagnostic_updater_.add(origin_task, [this](diagnostic_updater::DiagnosticStatusWrapper& stat) {
       checkOriginStatus(stat);
     });
@@ -90,7 +90,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   RCLCPP_INFO(get_logger(), "Initialization complete.");
 }
 
-void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
+void NavsatOdomNode::originCallback(sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg) {
   if (!origin_set_ && msg->status.status >= sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
     setOrigin(*msg);
     RCLCPP_INFO(get_logger(), "GPS origin received: Lat %.6f, Lon %.6f, Alt %.2f",
@@ -98,7 +98,7 @@ void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::ConstShar
   }
 }
 
-void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
+void NavsatOdomNode::navsatCallback(sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg) {
   if (msg->status.status == sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX) {
     RCLCPP_WARN(get_logger(), "Received NavSatFix with no fix.");
     return;
@@ -130,7 +130,7 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstShar
   odom_pub_->publish(convertToOdom(msg));
 }
 
-void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
+void NavsatOdomNode::setOrigin(sensor_msgs::msg::NavSatFix const& msg) {
   local_cartesian_.Reset(msg.latitude, msg.longitude, msg.altitude);
   origin_navsat_ = msg;
   if (origin_navsat_.header.frame_id.empty()) {
@@ -139,8 +139,8 @@ void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
   origin_set_ = true;
 }
 
-nav_msgs::msg::Odometry NavsatOdomNode::convertToOdom(
-    const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
+auto NavsatOdomNode::convertToOdom(sensor_msgs::msg::NavSatFix::ConstSharedPtr const& msg)
+    -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;
@@ -158,7 +158,7 @@ nav_msgs::msg::Odometry NavsatOdomNode::convertToOdom(
 
   odom_msg.pose.pose.orientation.w = 1.0;
 
-  const auto& cov = msg->position_covariance;
+  auto const& cov = msg->position_covariance;
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
       odom_msg.pose.covariance[i * 6 + j] = cov[i * 3 + j];

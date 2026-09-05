@@ -14,7 +14,7 @@ repos:
     rev: v1.2.0
     hooks:
       - id: addlicense
-        args: ["-l", "apache", "-c", "BYU FROST Lab", "-v"]
+        args: ["-c", "BYU FROST Lab", "-v"]
         exclude: |
           (?x)^(
             (.*/)?(config|params)/.*\.ya?ml|
@@ -82,3 +82,8 @@ repos:
     hooks:
       - id: shellcheck
         args: ["--exclude=SC1090,SC1091"]
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
+    hooks:
+      - id: shfmt

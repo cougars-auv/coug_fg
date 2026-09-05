@@ -16,6 +16,7 @@
 
 #include <rcl/time.h>
 
+#include <Eigen/Core>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -130,23 +131,26 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
 
   // Convert FRD -> FLU
   static constexpr std::array<double, 3> kFrdToFlu = {1.0, -1.0, -1.0};
+  static constexpr size_t kDvlCovarianceSize = 9;
 
   twist_msg.twist.twist.linear.x = kFrdToFlu[0] * msg->velocity.x;
   twist_msg.twist.twist.linear.y = kFrdToFlu[1] * msg->velocity.y;
   twist_msg.twist.twist.linear.z = kFrdToFlu[2] * msg->velocity.z;
 
+  Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov_out(
+      twist_msg.twist.covariance.data());
+
   if (params_.use_fom_covariance) {
     const double var_vel = msg->fom * params_.fom_covariance_scale;
-    twist_msg.twist.covariance[0] = var_vel;
-    twist_msg.twist.covariance[7] = var_vel;
-    twist_msg.twist.covariance[14] = var_vel;
+    cov_out.topLeftCorner<3, 3>() = Eigen::Vector3d::Constant(var_vel).asDiagonal();
+  } else if (msg->covariance.size() < kDvlCovarianceSize) {
+    RCLCPP_WARN(get_logger(), "Received DVL covariance with %zu elements, expected %zu.",
+                msg->covariance.size(), kDvlCovarianceSize);
   } else {
-    for (int i = 0; i < 3; ++i) {
-      for (int j = 0; j < 3; ++j) {
-        twist_msg.twist.covariance[i * 6 + j] =
-            kFrdToFlu[i] * kFrdToFlu[j] * msg->covariance[i * 3 + j];
-      }
-    }
+    const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> frd_cov(
+        msg->covariance.data());
+    const Eigen::DiagonalMatrix<double, 3> frd_to_flu(kFrdToFlu[0], kFrdToFlu[1], kFrdToFlu[2]);
+    cov_out.topLeftCorner<3, 3>() = frd_to_flu * frd_cov * frd_to_flu;
   }
   return twist_msg;
 }

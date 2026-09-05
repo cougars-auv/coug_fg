@@ -1050,7 +1050,7 @@ void FactorGraphNode::checkGraphStatus(diagnostic_updater::DiagnosticStatusWrapp
 }
 
 void FactorGraphNode::resetGraph(
-    const std_srvs::srv::Trigger::Request::SharedPtr&,
+    const std_srvs::srv::Trigger::Request::SharedPtr& /*request*/,
     const std::shared_ptr<std_srvs::srv::Trigger::Response>& response) {
   RCLCPP_WARN(get_logger(), "Reset requested.");
 

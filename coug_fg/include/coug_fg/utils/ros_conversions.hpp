@@ -19,6 +19,7 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Rot3.h>
 
+#include <Eigen/Core>
 #include <array>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose.hpp>
@@ -59,7 +60,7 @@ inline auto toGtsam(const geometry_msgs::msg::Transform& msg) -> gtsam::Pose3 {
 
 inline auto toGtsam(const std::array<double, 36>& cov) -> gtsam::Matrix66 {
   return swapCovarianceBlocks(
-      Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor> >(cov.data()));
+      Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(cov.data()));
 }
 
 inline auto toPointMsg(const gtsam::Point3& point) -> geometry_msgs::msg::Point {
@@ -97,32 +98,20 @@ inline auto toPoseMsg(const gtsam::Pose3& pose) -> geometry_msgs::msg::Pose {
 
 inline auto toCovariance36Msg(const gtsam::Matrix33& cov) -> std::array<double, 36> {
   std::array<double, 36> cov_msg{};
-  cov_msg.fill(0.0);
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      cov_msg[i * 6 + j] = cov(i, j);
-    }
-  }
+  Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(cov_msg.data()).topLeftCorner<3, 3>() =
+      cov;
   return cov_msg;
 }
 
 inline auto toCovariance9Msg(const gtsam::Matrix33& cov) -> std::array<double, 9> {
   std::array<double, 9> cov_msg{};
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      cov_msg[i * 3 + j] = cov(i, j);
-    }
-  }
+  Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(cov_msg.data()) = cov;
   return cov_msg;
 }
 
 inline auto toCovariance36Msg(const gtsam::Matrix66& cov) -> std::array<double, 36> {
   std::array<double, 36> cov_msg{};
-  for (int i = 0; i < 6; ++i) {
-    for (int j = 0; j < 6; ++j) {
-      cov_msg[i * 6 + j] = cov(i, j);
-    }
-  }
+  Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(cov_msg.data()) = cov;
   return cov_msg;
 }
 

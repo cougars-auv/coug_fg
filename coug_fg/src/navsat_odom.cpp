@@ -14,6 +14,7 @@
 
 #include "coug_fg/navsat_odom.hpp"
 
+#include <Eigen/Core>
 #include <GeographicLib/Geocentric.hpp>
 #include <algorithm>
 #include <chrono>
@@ -158,12 +159,10 @@ auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstShare
 
   odom_msg.pose.pose.orientation.w = 1.0;
 
-  const auto& cov = msg->position_covariance;
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      odom_msg.pose.covariance[i * 6 + j] = cov[i * 3 + j];
-    }
-  }
+  const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov(
+      msg->position_covariance.data());
+  Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(odom_msg.pose.covariance.data())
+      .topLeftCorner<3, 3>() = cov;
 
   static constexpr double kUnmeasuredVariance = 1e9;
   odom_msg.pose.covariance[21] = kUnmeasuredVariance;

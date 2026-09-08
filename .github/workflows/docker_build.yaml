@@ -38,4 +38,4 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           repository: ${{ env.UPSTREAM_REPO }}
           event-type: docker-build
-          client-payload: '{"repo": "${{ github.repository }}", "sha": "${{ github.sha }}"}'
+          client-payload: '{"repo": "${{ github.event.repository.name }}", "sha": "${{ github.sha }}"}'

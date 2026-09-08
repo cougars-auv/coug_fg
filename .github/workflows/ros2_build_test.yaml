@@ -25,8 +25,8 @@ permissions:
   contents: read
 
 env:
-  DOCKER_IMAGE: frostlab/cougars:runtime
-  # DOCKER_IMAGE: frostlab/cougars:dev
+  DOCKER_IMAGE: frostlab/cougars:runtime-latest
+  # DOCKER_IMAGE: frostlab/cougars:dev-latest
   UPSTREAM_REPO: cougars-auv/cougars-dev
 
 jobs:
@@ -87,4 +87,4 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           repository: ${{ env.UPSTREAM_REPO }}
           event-type: ros2-build-test
-          client-payload: '{"repo": "${{ github.repository }}", "sha": "${{ github.sha }}"}'
+          client-payload: '{"repo": "${{ github.event.repository.name }}", "sha": "${{ github.sha }}"}'

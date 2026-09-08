@@ -41,8 +41,7 @@ jobs:
         with:
           path: ${{ github.workspace }}/.ccache
           key: ccache-${{ github.repository }}-${{ matrix.runner }}-${{ github.run_id }}
-          restore-keys: |
-            ccache-${{ github.repository }}-${{ matrix.runner }}-
+          restore-keys: ccache-${{ github.repository }}-${{ matrix.runner }}-
       - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}

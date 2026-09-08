@@ -340,7 +340,7 @@ pgm_const_vel.render()
 pgm_const_vel.figure.savefig(OUTPUT_DIR / "fg_const_vel.pdf", bbox_inches="tight")
 pgm_const_vel.figure.savefig(OUTPUT_DIR / "fg_const_vel.png", bbox_inches="tight", dpi=300)
 
-# --- MULTIAGENT GRAPH ---
+# --- MULTI-AGENT GRAPH ---
 
 # Lead agent factor graph
 pgm_multiagent = daft.PGM(directed=False)

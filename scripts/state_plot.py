@@ -55,9 +55,7 @@ def _mask_gaps(
     return np.insert(t, gaps, np.nan), np.insert(vals, gaps, np.nan)
 
 
-def plot_results(
-    results: dict[str, Any], pose_gt: dict[str, Any], label: str = ""
-) -> None:
+def plot_results(results: dict[str, Any], pose_gt: dict[str, Any], label: str = "") -> None:
     t0 = results["time"][0]
     t_fg = results["time"] - t0
 

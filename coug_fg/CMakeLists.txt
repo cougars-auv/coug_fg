@@ -44,27 +44,27 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GeographicLib REQUIRED IMPORTED_TARGET geographiclib)
 
 get_target_property(GTSAM_TARGET_INC gtsam INTERFACE_INCLUDE_DIRECTORIES)
-find_path(GTSAM_EIGEN_INCLUDE_DIR Eigen/Core
+find_path(
+  GTSAM_EIGEN_INCLUDE_DIR
+  Eigen/Core
   PATHS ${GTSAM_TARGET_INC}
   PATH_SUFFIXES gtsam/3rdparty/Eigen
   NO_DEFAULT_PATH
 )
 if(NOT GTSAM_EIGEN_INCLUDE_DIR)
-  message(FATAL_ERROR
+  message(
+    FATAL_ERROR
     "Could not find GTSAM's vendored Eigen (Eigen/Core) under any of: "
-    "${GTSAM_TARGET_INC}")
+    "${GTSAM_TARGET_INC}"
+  )
 endif()
 
 add_library(gtsam_with_eigen INTERFACE)
-target_include_directories(gtsam_with_eigen SYSTEM INTERFACE
-  "${GTSAM_EIGEN_INCLUDE_DIR}"
-)
-target_link_libraries(gtsam_with_eigen INTERFACE
-  gtsam
-  gtsam_unstable
-)
+target_include_directories(gtsam_with_eigen SYSTEM INTERFACE "${GTSAM_EIGEN_INCLUDE_DIR}")
+target_link_libraries(gtsam_with_eigen INTERFACE gtsam gtsam_unstable)
 
-set(COUG_FG_NODES
+set(
+  COUG_FG_NODES
   factor_graph
   dvl_a50_odom
   dvl_a50_twist_beams
@@ -95,7 +95,8 @@ ament_auto_add_library(factor_graph_component SHARED NO_TARGET_LINK_LIBRARIES
 
 target_compile_features(factor_graph_component PUBLIC cxx_std_17)
 
-target_link_libraries(factor_graph_component
+target_link_libraries(
+  factor_graph_component
   gtsam_with_eigen
   ${COUG_FG_PARAM_LIBRARIES}
   PkgConfig::GeographicLib
@@ -120,17 +121,17 @@ foreach(node IN LISTS COUG_FG_NODES)
 endforeach()
 
 pybind11_add_module(coug_fg_py src/factor_graph_py.cpp)
-target_link_libraries(coug_fg_py PRIVATE
-  factor_graph_component
-)
-install(FILES $<TARGET_FILE:coug_fg_py>
+target_link_libraries(coug_fg_py PRIVATE factor_graph_component)
+install(
+  FILES $<TARGET_FILE:coug_fg_py>
   DESTINATION "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
 )
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
-  set(COUG_FG_FACTOR_TESTS
+  set(
+    COUG_FG_FACTOR_TESTS
     test_ahrs_factor
     test_ahrs_origin_delta_factor
     test_ahrs_yaw_factor
@@ -152,9 +153,7 @@ if(BUILD_TESTING)
 
   foreach(test_name IN LISTS COUG_FG_FACTOR_TESTS)
     ament_add_gtest(${test_name} "test/${test_name}.cpp")
-    target_include_directories(${test_name} PRIVATE
-      "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    )
+    target_include_directories(${test_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
     target_link_libraries(${test_name} gtsam_with_eigen)
   endforeach()
 endif()

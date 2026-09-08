@@ -207,9 +207,7 @@ for i in range(5):
 
 pgm_dvl_beams.render()
 pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fg_dvl_beams.pdf", bbox_inches="tight")
-pgm_dvl_beams.figure.savefig(
-    OUTPUT_DIR / "fg_dvl_beams.png", bbox_inches="tight", dpi=300
-)
+pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fg_dvl_beams.png", bbox_inches="tight", dpi=300)
 
 # --- LOOSE PREINTEGRATED DVL GRAPH ---
 
@@ -230,9 +228,7 @@ for i in range(4):
     pgm_preint_loose.add_edge(f"dvl_preint{i}", f"x{i + 1}")
 
 pgm_preint_loose.render()
-pgm_preint_loose.figure.savefig(
-    OUTPUT_DIR / "fg_dvl_preint_loose.pdf", bbox_inches="tight"
-)
+pgm_preint_loose.figure.savefig(OUTPUT_DIR / "fg_dvl_preint_loose.pdf", bbox_inches="tight")
 pgm_preint_loose.figure.savefig(
     OUTPUT_DIR / "fg_dvl_preint_loose.png", bbox_inches="tight", dpi=300
 )
@@ -257,9 +253,7 @@ for i in range(4):
     pgm_preint_tight.add_edge(f"b{i}", f"dvl_preint{i}")
 
 pgm_preint_tight.render()
-pgm_preint_tight.figure.savefig(
-    OUTPUT_DIR / "fg_dvl_preint_tight.pdf", bbox_inches="tight"
-)
+pgm_preint_tight.figure.savefig(OUTPUT_DIR / "fg_dvl_preint_tight.pdf", bbox_inches="tight")
 pgm_preint_tight.figure.savefig(
     OUTPUT_DIR / "fg_dvl_preint_tight.png", bbox_inches="tight", dpi=300
 )
@@ -303,9 +297,7 @@ for i in range(4):
 
 pgm_dynamics.render()
 pgm_dynamics.figure.savefig(OUTPUT_DIR / "fg_dynamics.pdf", bbox_inches="tight")
-pgm_dynamics.figure.savefig(
-    OUTPUT_DIR / "fg_dynamics.png", bbox_inches="tight", dpi=300
-)
+pgm_dynamics.figure.savefig(OUTPUT_DIR / "fg_dynamics.png", bbox_inches="tight", dpi=300)
 
 # --- CONSTANT VELOCITY GRAPH ---
 
@@ -346,9 +338,7 @@ for i in range(1, 3):
 
 pgm_const_vel.render()
 pgm_const_vel.figure.savefig(OUTPUT_DIR / "fg_const_vel.pdf", bbox_inches="tight")
-pgm_const_vel.figure.savefig(
-    OUTPUT_DIR / "fg_const_vel.png", bbox_inches="tight", dpi=300
-)
+pgm_const_vel.figure.savefig(OUTPUT_DIR / "fg_const_vel.png", bbox_inches="tight", dpi=300)
 
 # --- MULTIAGENT GRAPH ---
 
@@ -369,15 +359,9 @@ for sym, row in [("x", 3), ("v", 2), ("b", 1)]:
 for i in range(5):
     col_x = start_x + (i * col_spacing)
 
-    pgm_multiagent.add_node(
-        f"x{i}", f"$\\mathbf{{x}}^0_{{{i}}}$", col_x, 3, plot_params=style_var
-    )
-    pgm_multiagent.add_node(
-        f"v{i}", f"$\\mathbf{{v}}^0_{{{i}}}$", col_x, 2, plot_params=style_var
-    )
-    pgm_multiagent.add_node(
-        f"b{i}", f"$\\mathbf{{b}}^0_{{{i}}}$", col_x, 1, plot_params=style_var
-    )
+    pgm_multiagent.add_node(f"x{i}", f"$\\mathbf{{x}}^0_{{{i}}}$", col_x, 3, plot_params=style_var)
+    pgm_multiagent.add_node(f"v{i}", f"$\\mathbf{{v}}^0_{{{i}}}$", col_x, 2, plot_params=style_var)
+    pgm_multiagent.add_node(f"b{i}", f"$\\mathbf{{b}}^0_{{{i}}}$", col_x, 1, plot_params=style_var)
 
 for sym in ["x", "v", "b"]:
     pgm_multiagent.add_edge(f"p{sym}", f"{sym}0")
@@ -591,6 +575,4 @@ pgm_multiagent.add_plate(
 
 pgm_multiagent.render()
 pgm_multiagent.figure.savefig(OUTPUT_DIR / "fg_multiagent.pdf", bbox_inches="tight")
-pgm_multiagent.figure.savefig(
-    OUTPUT_DIR / "fg_multiagent.png", bbox_inches="tight", dpi=300
-)
+pgm_multiagent.figure.savefig(OUTPUT_DIR / "fg_multiagent.png", bbox_inches="tight", dpi=300)

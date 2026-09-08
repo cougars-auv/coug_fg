@@ -71,9 +71,7 @@ def save_tum(path: Path, pose: dict[str, Any]) -> None:
 def _load_tum(path: Path) -> dict[str, Any]:
     data = np.loadtxt(path, ndmin=2)
     pose = {k: data[:, i] for i, k in enumerate(TUM_KEYS)}
-    pose["roll"], pose["pitch"], pose["yaw"] = (
-        Rotation.from_quat(data[:, 4:8]).as_euler("xyz").T
-    )
+    pose["roll"], pose["pitch"], pose["yaw"] = Rotation.from_quat(data[:, 4:8]).as_euler("xyz").T
     return pose
 
 
@@ -101,9 +99,7 @@ def resolve_tum(
     return _export_bag_tum(bag_path, out_dir, topic)
 
 
-def load_ground_truth(
-    bag_path: str | Path, namespace: str
-) -> tuple[dict[str, Any], Path | None]:
+def load_ground_truth(bag_path: str | Path, namespace: str) -> tuple[dict[str, Any], Path | None]:
     agent_dir = evo_agent_dir(bag_path, namespace)
     truth_topic = f"/{namespace}/{TRUTH_TOPIC}"
     tum_path = resolve_tum(bag_path, agent_dir, truth_topic)

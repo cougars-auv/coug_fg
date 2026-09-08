@@ -24,9 +24,7 @@ from launch_ros.actions import Node
 
 
 def agent_frame(agent_ns: LaunchConfiguration, frame: str) -> PythonExpression:
-    return PythonExpression(
-        ["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"]
-    )
+    return PythonExpression(["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"])
 
 
 def generate_launch_description() -> LaunchDescription:

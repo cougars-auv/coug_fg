@@ -35,9 +35,7 @@ def _replay_messages(
         logger.error("No matching sensor topics found in the bag.")
         return False
 
-    conn_str = "\n".join(
-        f"  - {c.topic} ({topic_to_sensors[c.topic]})" for c in matched_conns
-    )
+    conn_str = "\n".join(f"  - {c.topic} ({topic_to_sensors[c.topic]})" for c in matched_conns)
     logger.info(f"Matched sensor topics:\n{conn_str}")
 
     for conn, _, rawdata in tqdm(
@@ -68,9 +66,7 @@ def process_bag_offline(
     urdf = UrdfTree(urdf_path) if urdf_path else None
     graph = OfflineFactorGraph(config_paths, namespace, urdf)
 
-    with AnyReader(
-        [Path(bag_path)], default_typestore=get_typestore(Stores.ROS2_JAZZY)
-    ) as reader:
+    with AnyReader([Path(bag_path)], default_typestore=get_typestore(Stores.ROS2_JAZZY)) as reader:
         replayed = _replay_messages(reader, graph, graph.topic_map)
 
     if replayed:

@@ -38,9 +38,7 @@ def _recorded_topics(bag_path: Path) -> set[str]:
     return {t["topic_metadata"]["name"] for t in topics if t["message_count"]}
 
 
-def _evaluate_agent(
-    bag_path: Path, agent: str, recorded: set[str], evo_flags: list[str]
-) -> None:
+def _evaluate_agent(bag_path: Path, agent: str, recorded: set[str], evo_flags: list[str]) -> None:
     agent_dir = evo_cli.evo_agent_dir(bag_path, agent)
     truth_topic = f"/{agent}/{evo_cli.TRUTH_TOPIC}"
     gt_tum = evo_cli.resolve_tum(bag_path, agent_dir, truth_topic, recorded)

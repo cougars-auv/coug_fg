@@ -73,9 +73,7 @@ class OfflineFactorGraph:
                 "LevenbergMarquardt requires publish_smoothed_path to be set to true."
             )
 
-        self._keyframe_source = coug_fg_py.parse_keyframe_source(
-            self._params["keyframe_source"]
-        )
+        self._keyframe_source = coug_fg_py.parse_keyframe_source(self._params["keyframe_source"])
         self._backup_keyframe_source = coug_fg_py.parse_keyframe_source(
             self._params["backup_keyframe_source"]
         )
@@ -108,9 +106,7 @@ class OfflineFactorGraph:
             if multiagent["enable_multiagent"]
             else []
         )
-        self._multiagent_keys = [
-            f"multiagent_{i}" for i in range(len(self._multiagent_topics))
-        ]
+        self._multiagent_keys = [f"multiagent_{i}" for i in range(len(self._multiagent_topics))]
 
         for source in (self._keyframe_source, self._backup_keyframe_source):
             sensor = SOURCE_SENSORS.get(source)
@@ -127,9 +123,7 @@ class OfflineFactorGraph:
             key: [] for key in (*SENSORS, *self._multiagent_keys)
         }
 
-        self._tfs: dict[
-            str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
-        ] = {}
+        self._tfs: dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]] = {}
 
         self._stream_time = 0.0
         self._last_msg_time: dict[str, float] = {}
@@ -144,9 +138,7 @@ class OfflineFactorGraph:
     @property
     def topic_map(self) -> dict[str, list[str]]:
         sources = [(self._params["topics"][s], s) for s in SENSORS if self._enabled[s]]
-        sources += list(
-            zip(self._multiagent_topics, self._multiagent_keys, strict=True)
-        )
+        sources += list(zip(self._multiagent_topics, self._multiagent_keys, strict=True))
 
         prefix = f"/{self._namespace}/" if self._namespace else "/"
         topics: dict[str, list[str]] = {}
@@ -155,9 +147,7 @@ class OfflineFactorGraph:
             topics.setdefault(resolved, []).append(key)
         return topics
 
-    def add_message(
-        self, sensor: str, frame_id: str, measurement: tuple[Any, ...]
-    ) -> None:
+    def add_message(self, sensor: str, frame_id: str, measurement: tuple[Any, ...]) -> None:
         # Offline, the graph/timer fires on message stamps instead of the wall clock
         self._stream_time = max(self._stream_time, measurement[0])
 
@@ -193,18 +183,14 @@ class OfflineFactorGraph:
         base_pos, base_quat = self._tfs["base"]
         base_rot = Rotation.from_quat(base_quat)
         target_positions = np.column_stack((results["x"], results["y"], results["z"]))
-        target_quats = np.column_stack(
-            (results["qx"], results["qy"], results["qz"], results["qw"])
-        )
+        target_quats = np.column_stack((results["qx"], results["qy"], results["qz"], results["qw"]))
 
         map_R_target = Rotation.from_quat(target_quats)
         map_R_base = map_R_target * base_rot
         map_t_base = map_R_target.apply(base_pos) + target_positions
 
         results["x"], results["y"], results["z"] = map_t_base.T
-        results["qx"], results["qy"], results["qz"], results["qw"] = (
-            map_R_base.as_quat().T
-        )
+        results["qx"], results["qy"], results["qz"], results["qw"] = map_R_base.as_quat().T
         results["roll"], results["pitch"], results["yaw"] = map_R_base.as_euler("xyz").T
 
         return results
@@ -222,11 +208,7 @@ class OfflineFactorGraph:
         if sensor in self._tfs:
             return
 
-        cfg = (
-            self._params["multiagent"]
-            if sensor == "modem"
-            else self._params["sensors"][sensor]
-        )
+        cfg = self._params["multiagent"] if sensor == "modem" else self._params["sensors"][sensor]
         frame = cfg["parameter_frame"] if cfg["use_parameter_frame"] else frame_id
         self._tfs[sensor] = self._lookup_static_tf(cfg, frame)
 
@@ -271,9 +253,7 @@ class OfflineFactorGraph:
         if self._keyframe_source == KeyframeSource.TIMER:
             return self._keyframe_source
 
-        sensor = SOURCE_SENSORS.get(
-            self._keyframe_source, SOURCE_SENSORS[KeyframeSource.DEPTH]
-        )
+        sensor = SOURCE_SENSORS.get(self._keyframe_source, SOURCE_SENSORS[KeyframeSource.DEPTH])
         last_received = self._last_msg_time.get(sensor)
         newest_stamp = self._last_msg_time.get("imu")
 
@@ -299,9 +279,7 @@ class OfflineFactorGraph:
 
     def _update_graph(self) -> None:
         sensor = SOURCE_SENSORS.get(self._active_keyframe_source())
-        target_time = (
-            self._last_msg_time.get(sensor) if sensor and self._queues[sensor] else None
-        )
+        target_time = self._last_msg_time.get(sensor) if sensor and self._queues[sensor] else None
         if target_time is None or (
             self._last_target_time is not None and target_time <= self._last_target_time
         ):
@@ -326,9 +304,7 @@ class OfflineFactorGraph:
     def _notify_frontend(self) -> None:
         if not self.is_initialized:
             self._initialize_graph()
-        elif self._check_and_update_rate_limit(
-            "update", self._params["max_update_rate_hz"]
-        ):
+        elif self._check_and_update_rate_limit("update", self._params["max_update_rate_hz"]):
             self._update_graph()
             self._notify_backend()
 
@@ -344,9 +320,7 @@ class OfflineFactorGraph:
         if result := self._core.optimize():
             new_keyframes = result.pop("new_keyframes")
             if result.pop("processing_overflow"):
-                logger.warning(
-                    f"Processing overflow. Batching {new_keyframes} keyframes."
-                )
+                logger.warning(f"Processing overflow. Batching {new_keyframes} keyframes.")
             self._results.append(result)
 
     def _notify_backend(self) -> None:

@@ -80,9 +80,7 @@ def _read_urdf_param(yaml_path: Path, top_keys: list[str]) -> str | None:
 
     for top_key in top_keys:
         try:
-            return str(
-                data[top_key]["coug_description_launch"]["ros__parameters"]["urdf_file"]
-            )
+            return str(data[top_key]["coug_description_launch"]["ros__parameters"]["urdf_file"])
         except (KeyError, TypeError):
             continue
     return None
@@ -91,9 +89,7 @@ def _read_urdf_param(yaml_path: Path, top_keys: list[str]) -> str | None:
 def _read_fleet_urdf_param(config_paths: list[str]) -> str | None:
     for path in map(Path, config_paths):
         for config_dir in (path.parent / "fleet", path.parent):
-            urdf_file = _read_urdf_param(
-                config_dir / "coug_description_params.yaml", ["/**"]
-            )
+            urdf_file = _read_urdf_param(config_dir / "coug_description_params.yaml", ["/**"])
             if urdf_file:
                 return urdf_file
     return None

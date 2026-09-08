@@ -60,7 +60,11 @@ if(NOT GTSAM_EIGEN_INCLUDE_DIR)
 endif()
 
 add_library(gtsam_with_eigen INTERFACE)
-target_include_directories(gtsam_with_eigen SYSTEM INTERFACE "${GTSAM_EIGEN_INCLUDE_DIR}")
+target_include_directories(
+  gtsam_with_eigen
+  SYSTEM
+  INTERFACE "${GTSAM_EIGEN_INCLUDE_DIR}"
+)
 target_link_libraries(gtsam_with_eigen INTERFACE gtsam gtsam_unstable)
 
 set(
@@ -124,7 +128,8 @@ pybind11_add_module(coug_fg_py src/factor_graph_py.cpp)
 target_link_libraries(coug_fg_py PRIVATE factor_graph_component)
 install(
   FILES $<TARGET_FILE:coug_fg_py>
-  DESTINATION "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
+  DESTINATION
+    "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
 )
 
 if(BUILD_TESTING)
@@ -153,7 +158,10 @@ if(BUILD_TESTING)
 
   foreach(test_name IN LISTS COUG_FG_FACTOR_TESTS)
     ament_add_gtest(${test_name} "test/${test_name}.cpp")
-    target_include_directories(${test_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_include_directories(
+      ${test_name}
+      PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    )
     target_link_libraries(${test_name} gtsam_with_eigen)
   endforeach()
 endif()

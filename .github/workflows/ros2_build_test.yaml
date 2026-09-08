@@ -26,6 +26,7 @@ permissions:
 
 env:
   DOCKER_IMAGE: frostlab/cougars:runtime
+  # DOCKER_IMAGE: frostlab/cougars:dev
   UPSTREAM_REPO: cougars-auv/cougars-dev
 
 jobs:

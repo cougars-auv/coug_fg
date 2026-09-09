@@ -28,6 +28,16 @@ dvl_a50_twist_beams_node:
   override_timestamp:
     type: bool
     default_value: false
+  beam_velocity_noise_sigma:
+    type: double
+    default_value: 0.011
+    validation:
+      gt_eq<>: [0.0]
+  beam_distance_noise_sigma:
+    type: double
+    default_value: 0.1
+    validation:
+      gt_eq<>: [0.0]
   beam_field_of_view_radians:
     type: double
     default_value: 0.0768

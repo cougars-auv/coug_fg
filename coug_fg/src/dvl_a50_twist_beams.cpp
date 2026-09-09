@@ -162,6 +162,12 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
   beams_msg.header.stamp = resolveStamp(msg);
 
+  beams_msg.altitude = msg->altitude;
+  beams_msg.altitude_valid = msg->altitude > 0.0;
+
+  const double velocity_sigma = params_.beam_velocity_noise_sigma;
+  const double distance_sigma = params_.beam_distance_noise_sigma;
+
   beams_msg.beams.reserve(msg->beams.size());
   for (const auto& in : msg->beams) {
     if (in.id < 0 || static_cast<size_t>(in.id) >= beam_frames_.size()) {
@@ -173,7 +179,9 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
     beam.frame_id = beam_frames_[in.id];
     beam.valid = in.valid;
     beam.velocity = in.velocity;
+    beam.velocity_variance = velocity_sigma * velocity_sigma;
     beam.distance = in.distance;
+    beam.distance_variance = distance_sigma * distance_sigma;
     beams_msg.beams.push_back(beam);
   }
   return beams_msg;

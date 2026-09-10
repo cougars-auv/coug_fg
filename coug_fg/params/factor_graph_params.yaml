@@ -5,6 +5,9 @@ factor_graph_node:
   publish_neighbor_global_tf:
     type: bool
     default_value: false
+  transform_time_offset:
+    type: double
+    default_value: 0.0
   publish_smoothed_path:
     type: bool
     default_value: false

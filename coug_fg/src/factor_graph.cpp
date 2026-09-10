@@ -32,6 +32,7 @@
 #include <mutex>
 #include <optional>
 #include <rclcpp/callback_group.hpp>
+#include <rclcpp/duration.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/node_options.hpp>
@@ -664,7 +665,7 @@ void FactorGraphNode::broadcastGlobalTf(const gtsam::Pose3& curr_pose,
     const gtsam::Pose3 map_T_odom = map_T_base * odom_T_base.inverse();
 
     geometry_msgs::msg::TransformStamped tf_msg;
-    tf_msg.header.stamp = timestamp;
+    tf_msg.header.stamp = timestamp + rclcpp::Duration::from_seconds(params_.transform_time_offset);
     tf_msg.header.frame_id = params_.map_frame;
     tf_msg.child_frame_id = params_.odom_frame;
     tf_msg.transform.translation = toVectorMsg(map_T_odom.translation());
@@ -680,7 +681,7 @@ void FactorGraphNode::broadcastNeighborGlobalTf(size_t agent_queue_idx,
                                                 const gtsam::Pose3& curr_pose,
                                                 const rclcpp::Time& timestamp) {
   geometry_msgs::msg::TransformStamped tf_msg;
-  tf_msg.header.stamp = timestamp;
+  tf_msg.header.stamp = timestamp + rclcpp::Duration::from_seconds(params_.transform_time_offset);
   tf_msg.header.frame_id = params_.map_frame;
   tf_msg.child_frame_id =
       params_.multiagent_namespaces[agent_queue_idx] + "/" + params_.multiagent_base_frame;

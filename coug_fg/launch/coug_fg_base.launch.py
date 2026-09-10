@@ -72,14 +72,10 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "use_sim_time",
                 default_value="false",
-                description="Use simulation/rosbag clock if true",
             ),
             DeclareLaunchArgument(
                 "agent_list",
                 default_value="[auv0]",
-                description=(
-                    "YAML list of agent namespaces (e.g. '[coug1sim]' or '[coug1sim, coug2sim]')"
-                ),
             ),
             OpaqueFunction(function=launch_setup),
         ]

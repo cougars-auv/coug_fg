@@ -61,12 +61,10 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "use_sim_time",
                 default_value="false",
-                description="Use simulation/rosbag clock if true",
             ),
             DeclareLaunchArgument(
                 "agent_ns",
                 default_value="auv0",
-                description="Namespace for the agent (e.g. auv0)",
             ),
             Node(
                 package="coug_fg",

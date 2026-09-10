@@ -91,22 +91,18 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "use_sim_time",
                 default_value="false",
-                description="Use simulation/rosbag clock if true",
             ),
             DeclareLaunchArgument(
                 "agent_ns",
                 default_value="auv0",
-                description="Namespace for the agent (e.g. auv0)",
             ),
             DeclareLaunchArgument(
                 "lead_agent",
                 default_value="",
-                description="Namespace of the lead agent (optional)",
             ),
             DeclareLaunchArgument(
                 "loc_comparison",
                 default_value="false",
-                description="Launch additional localization nodes if true",
             ),
             Node(
                 package="coug_fg",

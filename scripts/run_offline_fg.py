@@ -17,12 +17,14 @@ import argparse
 import logging
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 import evo_cli
 import matplotlib.pyplot as plt
 import state_plot
 from logs import setup_logging
+from matplotlib.figure import Figure
 from offline import pipeline
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -32,22 +34,28 @@ NAMESPACE = "turtlmap"
 EVO_FLAGS = ["--align"]  # , "--project_to_plane", "xy"]
 
 
-def _config_paths(namespace: str) -> list[str]:
-    config_dir = Path(os.environ["CONFIG_DIR"])
+def _snapshot_config() -> Path:
+    snapshot = Path(tempfile.mkdtemp(prefix="config_"))
+    shutil.copytree(os.environ["CONFIG_DIR"], snapshot, dirs_exist_ok=True)
+    return snapshot
+
+
+def _config_paths(config_dir: Path, namespace: str) -> list[str]:
     return [
         str(config_dir / "fleet" / "coug_fg_params.yaml"),
         str(config_dir / f"{namespace}_params.yaml"),
     ]
 
 
-def _save_config(dest_dir: Path) -> None:
-    config_dir = os.environ.get("CONFIG_DIR", "")
-    if not config_dir or not Path(config_dir).is_dir():
-        return
-
+def _save_config(config_dir: Path, dest_dir: Path) -> None:
     dest = dest_dir / "config"
     shutil.copytree(config_dir, dest, dirs_exist_ok=True)
     logger.info(f"Config saved: {dest}")
+
+
+def _save_plot(fig: Figure, dest: Path) -> None:
+    fig.savefig(dest, dpi=150)
+    logger.info(f"State plot saved: {dest}")
 
 
 def main() -> None:
@@ -60,8 +68,8 @@ def main() -> None:
 
     setup_logging()
     evo_flags = args.evo_flags.split()
-    cfg_paths = _config_paths(args.namespace)
-    plot_args = []
+    config_snapshot = _snapshot_config()
+    cfg_paths = _config_paths(config_snapshot, args.namespace)
 
     with logging_redirect_tqdm():
         for bag in args.bags:
@@ -73,7 +81,7 @@ def main() -> None:
 
             evo_dir = evo_cli.evo_agent_dir(bag, args.namespace) / args.prefix
             evo_dir.mkdir(parents=True, exist_ok=True)
-            _save_config(evo_dir)
+            _save_config(config_snapshot, evo_dir)
             est_path = evo_dir / f"{args.namespace}_{args.prefix}.tum"
             evo_cli.save_tum(est_path, results)
 
@@ -82,7 +90,8 @@ def main() -> None:
 
             label, t0 = Path(bag).name, results["time"][0]
             gts = [pose_gt, *evo_cli.load_sim_ground_truth(bag, args.namespace)]
-            plot_args.append((results, gts, label, state_plot.LAYOUT, t0))
+            fig = state_plot.plot_results(results, gts, label, state_plot.LAYOUT, t0)
+            _save_plot(fig, evo_dir / f"{args.namespace}_{args.prefix}.png")
 
             for ns, neighbor in results["neighbors"].items():
                 neighbor_dir = evo_dir / "neighbors" / ns
@@ -97,10 +106,11 @@ def main() -> None:
                     )
 
                 layout = state_plot.NEIGHBOR_LAYOUT
-                plot_args.append((neighbor, [neighbor_gt], f"{label} ({ns})", layout, t0))
+                fig = state_plot.plot_results(
+                    neighbor, [neighbor_gt], f"{label} ({ns})", layout, t0
+                )
+                _save_plot(fig, neighbor_dir / f"{ns}_{args.prefix}.png")
 
-    for results, gts, label, layout, t0 in plot_args:
-        state_plot.plot_results(results, gts, label, layout, t0)
     plt.show()
 
 

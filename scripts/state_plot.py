@@ -17,6 +17,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from matplotlib.figure import Figure
 
 GT_COLOR = "#000000"
 FG_COLOR = "#55A868"
@@ -67,10 +68,10 @@ def plot_results(
     label: str,
     layout: list[tuple[list[str], list[str]]],
     t0: float,
-) -> None:
+) -> Figure:
     t_fg = results["time"] - t0
 
-    _, axes = plt.subplots(len(layout), 3, figsize=(15, 8), num=label or None)
+    fig, axes = plt.subplots(len(layout), 3, figsize=(15, 8), num=label or None)
     for row, (keys, axis_labels) in enumerate(layout):
         for col, (key, axis_label) in enumerate(zip(keys, axis_labels, strict=True)):
             ax = axes[row, col]
@@ -84,4 +85,5 @@ def plot_results(
             if row == len(layout) - 1:
                 ax.set_xlabel("Time (s)")
 
-    plt.tight_layout()
+    fig.tight_layout()
+    return fig

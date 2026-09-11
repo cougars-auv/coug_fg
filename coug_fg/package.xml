@@ -3,7 +3,7 @@
 <package format="3">
   <name>coug_fg</name>
   <version>0.0.0</version>
-  <description>Factor graph odometry and localization.</description>
+  <description>Multi-agent factor graph odometry and localization.</description>
   <maintainer email="snelsond@byu.edu">snelsondurrant</maintainer>
   <license>Apache-2.0</license>
 

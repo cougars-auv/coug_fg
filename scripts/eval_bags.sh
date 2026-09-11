@@ -17,18 +17,26 @@ set -e
 
 # --- Selection ---
 while true; do
-  bags=$(cd "${BAGS_DIR}" && find . -name "metadata.yaml" -exec dirname {} \; |
+  selected_bags=$(cd "${BAGS_DIR}" && find . -name "metadata.yaml" -exec dirname {} \; |
     sed 's|^\./||' | sort -r |
-    gum choose --no-limit --header "Select bags to evaluate...") || exit 0
-  [[ -n ${bags} ]] && break
+    gum choose --no-limit --header "Select bags to evaluate:") || exit 0
+  [[ -n ${selected_bags} ]] && break
+done
+
+mapfile -t selected_bags <<<"${selected_bags}"
+bag_paths=()
+for bag in "${selected_bags[@]}"; do
+  bag_paths+=("${BAGS_DIR}/${bag}")
 done
 
 while true; do
-  agents=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
+  selected_agents=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
     sed 's/_params.yaml$//' | sort |
-    gum choose --no-limit --header "Select agents to evaluate...") || exit 0
-  [[ -n ${agents} ]] && break
+    gum choose --no-limit --header "Select agents to evaluate:") || exit 0
+  [[ -n ${selected_agents} ]] && break
 done
+
+mapfile -t selected_agents <<<"${selected_agents}"
 
 # --- Options ---
 evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
@@ -36,16 +44,12 @@ evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--project_to_plane xy") || exit 0
 evo_flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')
 
-mapfile -t selected_bags <<<"${bags}"
-bag_paths=()
-for bag in "${selected_bags[@]}"; do
-  bag_paths+=("${BAGS_DIR}/${bag}")
-done
+# --- Run ---
+run_args=(
+  --bags "${bag_paths[@]}"
+  --agents "${selected_agents[@]}"
+  "--evo-flags=${evo_flags}"
+)
 
-mapfile -t selected_agents <<<"${agents}"
-
-# --- Evaluate ---
-python3 "$(dirname "$0")/eval_bags.py" \
-  --bags "${bag_paths[@]}" \
-  --agents "${selected_agents[@]}" \
-  --evo-flags="${evo_flags}"
+echo "python3 $(dirname "$0")/eval_bags.py ${run_args[*]}"
+python3 "$(dirname "$0")/eval_bags.py" "${run_args[@]}"

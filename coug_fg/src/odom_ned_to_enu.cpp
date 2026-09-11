@@ -14,7 +14,6 @@
 
 #include "coug_fg/odom_ned_to_enu.hpp"
 
-#include <Eigen/Core>
 #include <cmath>
 #include <memory>
 #include <rclcpp/logging.hpp>
@@ -22,10 +21,10 @@
 #include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <tf2/LinearMath/Quaternion.hpp>
-#include <tf2/LinearMath/Vector3.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "coug_fg/odom_ned_to_enu_parameters.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
 namespace coug_fg {
@@ -55,32 +54,17 @@ auto OdomNedToEnuNode::convertToEnu(const nav_msgs::msg::Odometry::ConstSharedPt
   nav_msgs::msg::Odometry odom_msg = *msg;
 
   // Convert NED -> ENU
-  static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
+  static const geometry_msgs::msg::TransformStamped kNedToEnu = []() {
+    geometry_msgs::msg::TransformStamped transform;
+    transform.transform.rotation = tf2::toMsg(tf2::Quaternion(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0));
+    return transform;
+  }();
 
-  const auto& ned_position = msg->pose.pose.position;
-  const tf2::Vector3 enu_position =
-      tf2::quatRotate(kNedToEnu, tf2::Vector3(ned_position.x, ned_position.y, ned_position.z));
-  odom_msg.pose.pose.position.x = enu_position.x();
-  odom_msg.pose.pose.position.y = enu_position.y();
-  odom_msg.pose.pose.position.z = enu_position.z();
-
-  tf2::Quaternion q;
-  tf2::fromMsg(msg->pose.pose.orientation, q);
-  odom_msg.pose.pose.orientation = tf2::toMsg(kNedToEnu * q);
-
-  if (odom_msg.pose.covariance[0] >= 0.0) {
+  if (msg->pose.covariance[0] >= 0.0) {
     // Pose orientation covariance is expressed about the world-frame axes
-    static const Eigen::Matrix<double, 6, 6> kNedToEnu6D = []() {
-      static const Eigen::Matrix3d kNedToEnu3D =
-          (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
-      Eigen::Matrix<double, 6, 6> transform = Eigen::Matrix<double, 6, 6>::Zero();
-      transform.block<3, 3>(0, 0) = kNedToEnu3D;
-      transform.block<3, 3>(3, 3) = kNedToEnu3D;
-      return transform;
-    }();
-    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> covariance(
-        odom_msg.pose.covariance.data());
-    covariance = (kNedToEnu6D * covariance * kNedToEnu6D.transpose()).eval();
+    tf2::doTransform(msg->pose, odom_msg.pose, kNedToEnu);
+  } else {
+    tf2::doTransform(msg->pose.pose, odom_msg.pose.pose, kNedToEnu);
   }
 
   return odom_msg;

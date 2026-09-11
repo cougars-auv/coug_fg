@@ -85,7 +85,17 @@ def main() -> None:
             plot_args.append((results, gts, label, state_plot.LAYOUT, t0))
 
             for ns, neighbor in results["neighbors"].items():
-                neighbor_gt, _ = evo_cli.load_ground_truth(bag, ns)
+                neighbor_dir = evo_dir / "neighbors" / ns
+                neighbor_dir.mkdir(parents=True, exist_ok=True)
+                neighbor_path = neighbor_dir / f"{ns}_{args.prefix}.tum"
+                evo_cli.save_tum(neighbor_path, neighbor)
+
+                neighbor_gt, neighbor_gt_path = evo_cli.load_ground_truth(bag, ns)
+                if neighbor_gt_path is not None:
+                    evo_cli.run_evo_evaluations(
+                        neighbor_gt_path, neighbor_path, neighbor_dir, evo_flags
+                    )
+
                 layout = state_plot.NEIGHBOR_LAYOUT
                 plot_args.append((neighbor, [neighbor_gt], f"{label} ({ns})", layout, t0))
 

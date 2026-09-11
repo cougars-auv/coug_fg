@@ -16,35 +16,18 @@
 set -e
 
 # --- Selection ---
-mapfile -t leaf_dirs < <(
-  cd "${BAGS_DIR}"
-  find . -name "metadata.yaml" -exec dirname {} \; | sed 's|^\./||'
-)
-
-dir_list=(bags)
-for d in "${leaf_dirs[@]}"; do
-  p="${d}"
-  while [[ ${p} != . && -n ${p} ]]; do
-    dir_list+=("${p}")
-    p=$(dirname "${p}")
-  done
+while true; do
+  bags=$(cd "${BAGS_DIR}" && find . -name "metadata.yaml" -exec dirname {} \; |
+    sed 's|^\./||' | sort -r |
+    gum choose --no-limit --header "Select bags to evaluate...") || exit 0
+  [[ -n ${bags} ]] && break
 done
 
-selected_dir=$(printf '%s\n' "${dir_list[@]}" | sort -u |
-  gum filter --placeholder "Select directory or bag to evaluate ('bags' for all)...") || exit 0
-[[ -z ${selected_dir} ]] && exit 0
-
-if [[ ${selected_dir} == bags ]]; then
-  target_dir="${BAGS_DIR}"
-else
-  target_dir="${BAGS_DIR}/${selected_dir}"
-fi
-
 while true; do
-  selected_agents=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
+  agents=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
     sed 's/_params.yaml$//' | sort |
     gum choose --no-limit --header "Select agents to evaluate...") || exit 0
-  [[ -n ${selected_agents} ]] && break
+  [[ -n ${agents} ]] && break
 done
 
 # --- Options ---
@@ -53,10 +36,16 @@ evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--project_to_plane xy") || exit 0
 evo_flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')
 
-mapfile -t selected_agents <<<"${selected_agents}"
+mapfile -t selected_bags <<<"${bags}"
+bag_paths=()
+for bag in "${selected_bags[@]}"; do
+  bag_paths+=("${BAGS_DIR}/${bag}")
+done
+
+mapfile -t selected_agents <<<"${agents}"
 
 # --- Evaluate ---
 python3 "$(dirname "$0")/eval_bags.py" \
-  --target-dir "${target_dir}" \
+  --bags "${bag_paths[@]}" \
   --agents "${selected_agents[@]}" \
   --evo-flags="${evo_flags}"

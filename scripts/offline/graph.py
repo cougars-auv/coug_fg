@@ -53,6 +53,12 @@ TRIGGER_SOURCES: dict[str, KeyframeSource] = {
 }
 
 
+def _stack_states(states: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        k: np.array([s[k] for s in states]) for k, v in states[0].items() if not isinstance(v, list)
+    }
+
+
 # IMPORTANT! This should match the ROS 2 framework in factor_graph.cpp as closely as possible.
 class OfflineFactorGraph:
     def __init__(
@@ -168,16 +174,14 @@ class OfflineFactorGraph:
         if self._is_lm and self.is_initialized:
             result = self._core.optimize()
             self._results = list(result.get("smoothed_path", [])) if result else []
+            if self._results:
+                self._results[-1]["neighbors"] = result["smoothed_neighbors"]
 
     def get_results(self) -> dict[str, Any] | None:
         if not self._results:
             return None
 
-        results = {
-            k: np.array([r[k] for r in self._results])
-            for k in self._results[0]
-            if k != "smoothed_path"
-        }
+        results = _stack_states(self._results)
 
         # Offline, pose covariance is just left at the target frame here
         base_pos, base_quat = self._tfs["base"]
@@ -193,7 +197,24 @@ class OfflineFactorGraph:
         results["qx"], results["qy"], results["qz"], results["qw"] = map_R_base.as_quat().T
         results["roll"], results["pitch"], results["yaw"] = map_R_base.as_euler("xyz").T
 
+        results["neighbors"] = self._get_neighbor_results()
         return results
+
+    def _get_neighbor_results(self) -> dict[str, dict[str, Any]]:
+        rows = [r for result in self._results for r in result.get("neighbors", [])]
+
+        neighbors = {}
+        for i, ns in enumerate(self._params["multiagent"]["namespaces"]):
+            latest = list({r["time"]: r for r in rows if r["agent_queue_idx"] == i}.values())
+            if not latest:
+                continue
+
+            neighbor = _stack_states(latest)
+            quats = np.column_stack([neighbor[k] for k in ("qx", "qy", "qz", "qw")])
+            map_R_neighbor = Rotation.from_quat(quats)
+            neighbor["roll"], neighbor["pitch"], neighbor["yaw"] = map_R_neighbor.as_euler("xyz").T
+            neighbors[ns] = neighbor
+        return neighbors
 
     def _check_and_update_rate_limit(self, key: str, max_rate_hz: float) -> bool:
         if max_rate_hz <= 0.0:

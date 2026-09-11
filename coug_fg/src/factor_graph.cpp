@@ -902,7 +902,7 @@ void FactorGraphNode::optimizeGraph() {
     static constexpr double kSecondsToNanoseconds = 1e9;
     const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * kSecondsToNanoseconds));
     publishGlobalOdom(result->pose, result->pose_cov, stamp);
-    for (const auto& neighbor : result->neighbor_results) {
+    for (const auto& neighbor : result->neighbors) {
       const rclcpp::Time neighbor_stamp(
           static_cast<int64_t>(neighbor.timestamp * kSecondsToNanoseconds));
       publishNeighborGlobalOdom(neighbor.agent_queue_idx, neighbor.pose, neighbor.pose_cov,

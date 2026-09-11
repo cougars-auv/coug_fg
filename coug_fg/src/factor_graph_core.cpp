@@ -1337,6 +1337,12 @@ void FactorGraphCore::addMultiAgentFactors(
     values.insert(N(neighbor.curr_step), neighbor.curr_pose);
     timestamps[N(neighbor.curr_step)] = sent_time;
 
+    if (params_.publish_smoothed_path) {
+      neighbor_time_to_key_[agent_queue_idx]
+                           [static_cast<int64_t>(sent_time * kSecondsToNanoseconds)] =
+                               N(neighbor.curr_step);
+    }
+
     if (params_.multiagent.neighbor.depth.enable_depth) {
       addNeighborDepthFactor(graph, *msg, neighbor, agent_queue_idx);
     }
@@ -1501,9 +1507,13 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
   if (params_.publish_smoothed_path || params_.multiagent.enable_multiagent) {
     time_to_key_[static_cast<int64_t>(target_time * kSecondsToNanoseconds)] = X(curr_step_);
     if (inc_smoother_) {
-      time_to_key_.erase(time_to_key_.begin(),
-                         time_to_key_.lower_bound(static_cast<int64_t>(
-                             (target_time - params_.smoother_lag_sec) * kSecondsToNanoseconds)));
+      const auto lag_start_ns =
+          static_cast<int64_t>((target_time - params_.smoother_lag_sec) * kSecondsToNanoseconds);
+      time_to_key_.erase(time_to_key_.begin(), time_to_key_.lower_bound(lag_start_ns));
+      for (auto& [agent_queue_idx, neighbor_time_to_key] : neighbor_time_to_key_) {
+        neighbor_time_to_key.erase(neighbor_time_to_key.begin(),
+                                   neighbor_time_to_key.lower_bound(lag_start_ns));
+      }
     }
   }
 
@@ -1653,7 +1663,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
     result.imu_bias = prev_imu_bias_;
     result.mag_bias = prev_mag_bias_;
 
-    result.neighbor_results.reserve(neighbors_.size());
+    result.neighbors.reserve(neighbors_.size());
     for (const auto& [agent_queue_idx, neighbor] : neighbors_) {
       NeighborResult estimate;
       estimate.agent_queue_idx = agent_queue_idx;
@@ -1677,7 +1687,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
         estimate.pose = *estimate.origin_delta * estimate.pose;
       }
 
-      result.neighbor_results.push_back(std::move(estimate));
+      result.neighbors.push_back(std::move(estimate));
     }
   }
 
@@ -1710,7 +1720,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   const gtsam::Values* cov_values = nullptr;
   std::optional<gtsam::Marginals> cov_marginals;
   if (params_.publish_neighbor_pose_cov && params_.multiagent.estimate_origin_delta &&
-      !result.neighbor_results.empty()) {
+      !result.neighbors.empty()) {
     if (inc_smoother_) {
       cov_values = &inc_smoother_->getLinearizationPoint();
       cov_marginals.emplace(inc_smoother_->getFactors(), *cov_values);
@@ -1742,7 +1752,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
            cross.transpose();
   };
 
-  for (auto& neighbor : result.neighbor_results) {
+  for (auto& neighbor : result.neighbors) {
     neighbor.pose_cov = neighbor_cov(neighbor.pose_key, neighbor.agent_queue_idx);
   }
 
@@ -1769,6 +1779,12 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
 auto FactorGraphCore::snapshotTimeKeys() const -> std::map<int64_t, gtsam::Key> {
   const std::scoped_lock lock(state_mutex_);
   return time_to_key_;
+}
+
+auto FactorGraphCore::snapshotNeighborTimeKeys() const
+    -> std::unordered_map<size_t, std::map<int64_t, gtsam::Key>> {
+  const std::scoped_lock lock(state_mutex_);
+  return neighbor_time_to_key_;
 }
 
 }  // namespace coug_fg

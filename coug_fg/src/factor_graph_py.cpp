@@ -52,6 +52,7 @@ namespace coug_fg {
 
 using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
 using gtsam::symbol_shorthand::M;  // Magnetometer hard-iron bias (x,y,z)
+using gtsam::symbol_shorthand::O;  // Neighbor origin delta Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 
 using utils::AgentStatusData;
@@ -150,6 +151,21 @@ auto toStateDict(double time, const gtsam::Pose3& pose,
     state["mag_bias_x"] = mag_bias->x();
     state["mag_bias_y"] = mag_bias->y();
     state["mag_bias_z"] = mag_bias->z();
+  }
+  return state;
+}
+
+auto toNeighborStateDict(double time, size_t agent_queue_idx, const gtsam::Pose3& pose,
+                         const std::optional<gtsam::Pose3>& origin_delta) -> pybind11::dict {
+  pybind11::dict state = toStateDict(time, pose, std::nullopt, std::nullopt, std::nullopt);
+  state["agent_queue_idx"] = agent_queue_idx;
+  if (origin_delta) {
+    state["delta_x"] = origin_delta->x();
+    state["delta_y"] = origin_delta->y();
+    state["delta_z"] = origin_delta->z();
+    state["delta_roll"] = origin_delta->rotation().roll();
+    state["delta_pitch"] = origin_delta->rotation().pitch();
+    state["delta_yaw"] = origin_delta->rotation().yaw();
   }
   return state;
 }
@@ -531,6 +547,13 @@ auto FactorGraphPy::optimize() -> pybind11::dict {
   result["processing_overflow"] = opt_result->processing_overflow;
   result["new_keyframes"] = opt_result->new_keyframes;
 
+  pybind11::list neighbors;
+  for (const auto& neighbor : opt_result->neighbors) {
+    neighbors.append(toNeighborStateDict(neighbor.timestamp, neighbor.agent_queue_idx,
+                                         neighbor.pose, neighbor.origin_delta));
+  }
+  result["neighbors"] = neighbors;
+
   if (params_.publish_smoothed_path && !opt_result->smoothed_path.empty()) {
     const gtsam::Values& estimates = opt_result->smoothed_path;
     pybind11::list smoothed;
@@ -552,6 +575,27 @@ auto FactorGraphPy::optimize() -> pybind11::dict {
                       estimates.at<gtsam::imuBias::ConstantBias>(B(step)), step_mag_bias));
     }
     result["smoothed_path"] = smoothed;
+
+    pybind11::list smoothed_neighbors;
+    for (const auto& [agent_queue_idx, time_to_key] : core_->snapshotNeighborTimeKeys()) {
+      const gtsam::Key delta_key = O(agent_queue_idx);
+      std::optional<gtsam::Pose3> map_T_delta;
+      if (estimates.exists(delta_key)) {
+        map_T_delta = estimates.at<gtsam::Pose3>(delta_key);
+      }
+      for (const auto& [time_ns, pose_key] : time_to_key) {
+        if (!estimates.exists(pose_key)) {
+          continue;
+        }
+        // Transform the neighbor's pose into the map frame with the origin delta
+        const gtsam::Pose3 map_T_neighbor =
+            map_T_delta.value_or(gtsam::Pose3()) * estimates.at<gtsam::Pose3>(pose_key);
+        smoothed_neighbors.append(
+            toNeighborStateDict(static_cast<double>(time_ns) * kNanosecondsToSeconds,
+                                agent_queue_idx, map_T_neighbor, map_T_delta));
+      }
+    }
+    result["smoothed_neighbors"] = smoothed_neighbors;
   }
   return result;
 }

@@ -39,6 +39,15 @@ LAYOUT = [
     ),
 ]
 
+NEIGHBOR_LAYOUT = [
+    *LAYOUT[:2],
+    (["delta_x", "delta_y", "delta_z"], ["Delta X (m)", "Delta Y (m)", "Delta Z (m)"]),
+    (
+        ["delta_roll", "delta_pitch", "delta_yaw"],
+        ["Delta Roll (rad)", "Delta Pitch (rad)", "Delta Yaw (rad)"],
+    ),
+]
+
 
 def _mask_gaps(
     t: npt.NDArray[np.float64], vals: npt.NDArray[np.float64]
@@ -52,12 +61,17 @@ def _mask_gaps(
     return np.insert(t, gaps, np.nan), np.insert(vals, gaps, np.nan)
 
 
-def plot_results(results: dict[str, Any], gts: list[dict[str, Any]], label: str = "") -> None:
-    t0 = results["time"][0]
+def plot_results(
+    results: dict[str, Any],
+    gts: list[dict[str, Any]],
+    label: str,
+    layout: list[tuple[list[str], list[str]]],
+    t0: float,
+) -> None:
     t_fg = results["time"] - t0
 
-    _, axes = plt.subplots(len(LAYOUT), 3, figsize=(15, 8), num=label or None)
-    for row, (keys, axis_labels) in enumerate(LAYOUT):
+    _, axes = plt.subplots(len(layout), 3, figsize=(15, 8), num=label or None)
+    for row, (keys, axis_labels) in enumerate(layout):
         for col, (key, axis_label) in enumerate(zip(keys, axis_labels, strict=True)):
             ax = axes[row, col]
             for gt in gts:
@@ -67,7 +81,7 @@ def plot_results(results: dict[str, Any], gts: list[dict[str, Any]], label: str 
             if key in results:
                 ax.plot(t_fg, results[key], "-", color=FG_COLOR, label="FG")
             ax.set_ylabel(axis_label)
-            if row == len(LAYOUT) - 1:
+            if row == len(layout) - 1:
                 ax.set_xlabel("Time (s)")
 
     plt.tight_layout()

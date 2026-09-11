@@ -71,7 +71,7 @@ struct OptimizeResult {
   size_t total_factors{0};
   size_t total_variables{0};
 
-  std::vector<NeighborResult> neighbor_results;
+  std::vector<NeighborResult> neighbors;
 };
 
 class FactorGraphCore {
@@ -89,6 +89,9 @@ class FactorGraphCore {
   auto optimize() -> std::optional<OptimizeResult>;
 
   auto snapshotTimeKeys() const -> std::map<int64_t, gtsam::Key>;
+
+  auto snapshotNeighborTimeKeys() const
+      -> std::unordered_map<size_t, std::map<int64_t, gtsam::Key>>;
 
  private:
   struct InitialState {
@@ -279,6 +282,7 @@ class FactorGraphCore {
   // --- Buffer ---
   mutable std::mutex state_mutex_;
   std::map<int64_t, gtsam::Key> time_to_key_;
+  std::unordered_map<size_t, std::map<int64_t, gtsam::Key>> neighbor_time_to_key_;
   gtsam::NonlinearFactorGraph buffer_graph_;
   gtsam::Values buffer_values_;
   gtsam::IncrementalFixedLagSmoother::KeyTimestampMap buffer_timestamps_;

@@ -80,11 +80,17 @@ def main() -> None:
             if gt_path is not None:
                 evo_cli.run_evo_evaluations(gt_path, est_path, evo_dir, evo_flags)
 
+            label, t0 = Path(bag).name, results["time"][0]
             gts = [pose_gt, *evo_cli.load_sim_ground_truth(bag, args.namespace)]
-            plot_args.append((results, gts, Path(bag).name))
+            plot_args.append((results, gts, label, state_plot.LAYOUT, t0))
 
-    for results, gts, label in plot_args:
-        state_plot.plot_results(results, gts, label)
+            for ns, neighbor in results["neighbors"].items():
+                neighbor_gt, _ = evo_cli.load_ground_truth(bag, ns)
+                layout = state_plot.NEIGHBOR_LAYOUT
+                plot_args.append((neighbor, [neighbor_gt], f"{label} ({ns})", layout, t0))
+
+    for results, gts, label, layout, t0 in plot_args:
+        state_plot.plot_results(results, gts, label, layout, t0)
     plt.show()
 
 

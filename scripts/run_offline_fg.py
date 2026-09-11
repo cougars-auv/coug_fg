@@ -54,7 +54,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--bags", nargs="+", required=True)
     parser.add_argument("--namespace", default=NAMESPACE)
-    parser.add_argument("--tag", default="offline")
+    parser.add_argument("--prefix", default="offline")
     parser.add_argument("--evo-flags", default=" ".join(EVO_FLAGS))
     args = parser.parse_args()
 
@@ -71,10 +71,10 @@ def main() -> None:
             if not results:
                 continue
 
-            evo_dir = evo_cli.evo_agent_dir(bag, args.namespace) / args.tag
+            evo_dir = evo_cli.evo_agent_dir(bag, args.namespace) / args.prefix
             evo_dir.mkdir(parents=True, exist_ok=True)
             _save_config(evo_dir)
-            est_path = evo_dir / f"{args.namespace}_{args.tag}.tum"
+            est_path = evo_dir / f"{args.namespace}_{args.prefix}.tum"
             evo_cli.save_tum(est_path, results)
 
             if gt_path is not None:

@@ -29,12 +29,8 @@ namespace=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
 [[ -z ${namespace} ]] && exit 0
 
 # --- Options ---
-tag=$(gum input --placeholder "Set output tag..." || echo "")
-if [[ -n ${tag} ]]; then
-  tag="${tag}$(date +'_%Y-%m-%d-%H-%M-%S')"
-else
-  tag="offline$(date +'_%Y-%m-%d-%H-%M-%S')"
-fi
+prefix=$(gum input --placeholder "Set output prefix..." || true)
+prefix="${prefix:-offline}$(date +'_%Y-%m-%d-%H-%M-%S')"
 
 evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--align" \
@@ -51,5 +47,5 @@ done
 python3 "$(dirname "$0")/run_offline_fg.py" \
   --bags "${bag_paths[@]}" \
   --namespace "${namespace}" \
-  --tag "${tag}" \
+  --prefix "${prefix}" \
   --evo-flags="${evo_flags}"

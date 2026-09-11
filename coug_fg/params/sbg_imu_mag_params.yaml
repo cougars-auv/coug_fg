@@ -14,3 +14,11 @@ sbg_imu_mag_node:
     default_value: "imu/mag"
     validation:
       not_empty<>: []
+  use_parameter_frame:
+    type: bool
+    default_value: false
+  parameter_frame:
+    type: string
+    default_value: "imu_link"
+    validation:
+      not_empty<>: []

@@ -48,6 +48,9 @@ void SbgImuMagNode::magCallback(const sensor_msgs::msg::MagneticField::ConstShar
 auto SbgImuMagNode::convertToTesla(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) const
     -> sensor_msgs::msg::MagneticField {
   sensor_msgs::msg::MagneticField mag_msg = *msg;
+  if (params_.use_parameter_frame) {
+    mag_msg.header.frame_id = params_.parameter_frame;
+  }
 
   const double scale = params_.au_to_tesla;
 

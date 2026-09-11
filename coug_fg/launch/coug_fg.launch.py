@@ -245,6 +245,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 agent_param_file,
                 {
                     "use_sim_time": use_sim_time,
+                    "parameter_frame": imu_link_frame,
                 },
             ],
         ),

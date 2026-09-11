@@ -80,10 +80,11 @@ def main() -> None:
             if gt_path is not None:
                 evo_cli.run_evo_evaluations(gt_path, est_path, evo_dir, evo_flags)
 
-            plot_args.append((results, pose_gt, Path(bag).name))
+            gts = [pose_gt, *evo_cli.load_sim_ground_truth(bag, args.namespace)]
+            plot_args.append((results, gts, Path(bag).name))
 
-    for results, pose_gt, label in plot_args:
-        state_plot.plot_results(results, pose_gt, label)
+    for results, gts, label in plot_args:
+        state_plot.plot_results(results, gts, label)
     plt.show()
 
 

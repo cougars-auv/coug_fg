@@ -14,15 +14,24 @@
 
 import logging
 import subprocess
+from collections import defaultdict
+from operator import attrgetter
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+from rosbags.highlevel import AnyReader
+from rosbags.typesys import Stores, get_typestore
 from scipy.spatial.transform import Rotation
 
 logger = logging.getLogger(__name__)
 
 TRUTH_TOPIC = "odometry/truth"
+SIM_TRUTH_FIELDS = {
+    "VelocitySensor": {"v": "twist.twist.linear"},
+    "imu/bias": {"accel_bias_": "twist.twist.linear", "gyro_bias_": "twist.twist.angular"},
+    "imu/mag/bias": {"mag_bias_": "magnetic_field"},
+}
 ESTIMATORS: dict[str, str] = {
     "global": "odometry/global",
     "global_isam2": "odometry/global_isam2",
@@ -107,6 +116,22 @@ def load_ground_truth(bag_path: str | Path, namespace: str) -> tuple[dict[str, A
         return {}, None
 
     return _load_tum(tum_path), tum_path
+
+
+def load_sim_ground_truth(bag_path: str | Path, namespace: str) -> list[dict[str, Any]]:
+    fields = {f"/{namespace}/{topic}": f for topic, f in SIM_TRUTH_FIELDS.items()}
+    gts: dict[str, dict[str, list[float]]] = {topic: defaultdict(list) for topic in fields}
+    with AnyReader([Path(bag_path)], default_typestore=get_typestore(Stores.ROS2_JAZZY)) as reader:
+        conns = [c for c in reader.connections if c.topic in fields]
+        for conn, _, rawdata in reader.messages(connections=conns) if conns else ():
+            msg: Any = reader.deserialize(rawdata, conn.msgtype)
+            gt = gts[conn.topic]
+            gt["time"].append(msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
+            for key, field in fields[conn.topic].items():
+                for axis in "xyz":
+                    gt[key + axis].append(attrgetter(f"{field}.{axis}")(msg))
+
+    return [{k: np.array(v) for k, v in gt.items()} for gt in gts.values() if gt]
 
 
 def run_evo_evaluations(

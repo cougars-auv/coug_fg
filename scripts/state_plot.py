@@ -22,23 +22,20 @@ GT_COLOR = "#000000"
 FG_COLOR = "#55A868"
 
 LAYOUT = [
-    (["x", "y", "z"], ["X (m)", "Y (m)", "Z (m)"], True),
-    (["roll", "pitch", "yaw"], ["Roll (rad)", "Pitch (rad)", "Yaw (rad)"], True),
-    (["vx", "vy", "vz"], ["Vx (m/s)", "Vy (m/s)", "Vz (m/s)"], False),
+    (["x", "y", "z"], ["X (m)", "Y (m)", "Z (m)"]),
+    (["roll", "pitch", "yaw"], ["Roll (rad)", "Pitch (rad)", "Yaw (rad)"]),
+    (["vx", "vy", "vz"], ["Vx (m/s)", "Vy (m/s)", "Vz (m/s)"]),
     (
         ["accel_bias_x", "accel_bias_y", "accel_bias_z"],
         ["Accel Bias X", "Accel Bias Y", "Accel Bias Z"],
-        False,
     ),
     (
         ["gyro_bias_x", "gyro_bias_y", "gyro_bias_z"],
         ["Gyro Bias X", "Gyro Bias Y", "Gyro Bias Z"],
-        False,
     ),
     (
         ["mag_bias_x", "mag_bias_y", "mag_bias_z"],
         ["Mag Bias X (T)", "Mag Bias Y (T)", "Mag Bias Z (T)"],
-        False,
     ),
 ]
 
@@ -55,17 +52,18 @@ def _mask_gaps(
     return np.insert(t, gaps, np.nan), np.insert(vals, gaps, np.nan)
 
 
-def plot_results(results: dict[str, Any], pose_gt: dict[str, Any], label: str = "") -> None:
+def plot_results(results: dict[str, Any], gts: list[dict[str, Any]], label: str = "") -> None:
     t0 = results["time"][0]
     t_fg = results["time"] - t0
 
     _, axes = plt.subplots(len(LAYOUT), 3, figsize=(15, 8), num=label or None)
-    for row, (keys, axis_labels, show_gt) in enumerate(LAYOUT):
+    for row, (keys, axis_labels) in enumerate(LAYOUT):
         for col, (key, axis_label) in enumerate(zip(keys, axis_labels, strict=True)):
             ax = axes[row, col]
-            if show_gt and pose_gt:
-                gt_t, gt_vals = _mask_gaps(pose_gt["time"] - t0, pose_gt[key])
-                ax.plot(gt_t, gt_vals, "-", color=GT_COLOR, label="GT")
+            for gt in gts:
+                if key in gt:
+                    gt_t, gt_vals = _mask_gaps(gt["time"] - t0, gt[key])
+                    ax.plot(gt_t, gt_vals, "-", color=GT_COLOR, label="GT")
             if key in results:
                 ax.plot(t_fg, results[key], "-", color=FG_COLOR, label="FG")
             ax.set_ylabel(axis_label)

@@ -64,6 +64,7 @@ def main() -> None:
     parser.add_argument("--namespace", default=NAMESPACE)
     parser.add_argument("--prefix", default="offline")
     parser.add_argument("--evo-flags", default=" ".join(EVO_FLAGS))
+    parser.add_argument("--no-show", action="store_true")
     args = parser.parse_args()
 
     setup_logging()
@@ -111,7 +112,8 @@ def main() -> None:
                 )
                 _save_plot(fig, neighbor_dir / f"{ns}_{args.prefix}.png")
 
-    plt.show()
+    if not args.no_show:
+        plt.show()
 
 
 if __name__ == "__main__":

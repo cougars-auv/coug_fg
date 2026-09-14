@@ -367,7 +367,8 @@ auto toQueueDict(const QueueBundle& queue_bundle) -> pybind11::dict {
 }  // namespace
 
 FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const std::string& ns) {
-  if (!rclcpp::ok()) {
+  const bool owns_context = !rclcpp::ok();
+  if (owns_context) {
     rclcpp::init(0, nullptr);
   }
 
@@ -379,11 +380,17 @@ FactorGraphPy::FactorGraphPy(const std::vector<std::string>& config_paths, const
 
   rclcpp::NodeOptions options;
   options.arguments(args);
-  auto param_node = std::make_shared<rclcpp::Node>("factor_graph_node", ns, options);
+  {
+    auto param_node = std::make_shared<rclcpp::Node>("factor_graph_node", ns, options);
 
-  const factor_graph_node::ParamListener param_listener(
-      param_node->get_node_parameters_interface());
-  params_ = param_listener.get_params();
+    const factor_graph_node::ParamListener param_listener(
+        param_node->get_node_parameters_interface());
+    params_ = param_listener.get_params();
+  }
+
+  if (owns_context) {
+    rclcpp::shutdown();
+  }
 
   core_ = std::make_unique<FactorGraphCore>(params_);
   core_->setLogCallback(&pyLogCallback);

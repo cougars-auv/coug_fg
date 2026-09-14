@@ -17,9 +17,6 @@ dvl_a50_twist_beams_node:
     default_value: 0.01
     validation:
       gt<>: [0.0]
-  use_fom_covariance:
-    type: bool
-    default_value: false
   fom_covariance_scale:
     type: double
     default_value: 4.0
@@ -61,6 +58,11 @@ dvl_a50_twist_beams_node:
   twist_output_topic:
     type: string
     default_value: "dvl/twist"
+    validation:
+      not_empty<>: []
+  twist_fom_output_topic:
+    type: string
+    default_value: "dvl/twist_fom"
     validation:
       not_empty<>: []
   beams_output_topic:

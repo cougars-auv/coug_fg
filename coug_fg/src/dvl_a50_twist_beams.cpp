@@ -54,6 +54,9 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
   twist_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
       params_.twist_output_topic, rclcpp::SystemDefaultsQoS());
 
+  twist_fom_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
+      params_.twist_fom_output_topic, rclcpp::SystemDefaultsQoS());
+
   beams_pub_ =
       create_publisher<DvlBeamList>(params_.beams_output_topic, rclcpp::SystemDefaultsQoS());
 
@@ -90,7 +93,8 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
   }
 
   if (msg->velocity_valid || msg->fom <= params_.fom_valid_threshold) {
-    twist_pub_->publish(convertToTwist(msg));
+    twist_pub_->publish(convertToTwist(msg, false));
+    twist_fom_pub_->publish(convertToTwist(msg, true));
   } else {
     RCLCPP_WARN(get_logger(), "Received invalid DVL velocity.");
   }
@@ -122,7 +126,8 @@ auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr
   return {sec, nanosec, RCL_ROS_TIME};
 }
 
-auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
+auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg,
+                                          bool use_fom_covariance)
     -> geometry_msgs::msg::TwistWithCovarianceStamped {
   geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
   twist_msg.header.frame_id =
@@ -140,7 +145,7 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov_out(
       twist_msg.twist.covariance.data());
 
-  if (params_.use_fom_covariance) {
+  if (use_fom_covariance) {
     const double var_vel = msg->fom * params_.fom_covariance_scale;
     cov_out.topLeftCorner<3, 3>() = Eigen::Vector3d::Constant(var_vel).asDiagonal();
   } else if (msg->covariance.size() < kDvlCovarianceSize) {

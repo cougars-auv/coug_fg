@@ -39,7 +39,7 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
   // --- Helpers ---
   auto resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const -> rclcpp::Time;
 
-  auto convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
+  auto convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg, bool use_fom_covariance)
       -> geometry_msgs::msg::TwistWithCovarianceStamped;
 
   auto convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
@@ -51,6 +51,7 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
   // --- ROS Interfaces ---
   rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvl_sub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_fom_pub_;
   rclcpp::Publisher<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_pub_;
   std::array<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr, 4> range_pubs_;
 

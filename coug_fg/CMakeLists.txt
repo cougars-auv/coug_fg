@@ -128,9 +128,10 @@ endforeach()
 pybind11_add_module(coug_fg_py src/factor_graph_py.cpp)
 target_link_libraries(coug_fg_py PRIVATE factor_graph_component)
 install(
-  FILES $<TARGET_FILE:coug_fg_py>
-  DESTINATION
-    "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
+  TARGETS coug_fg_py
+  LIBRARY
+    DESTINATION
+      "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
 )
 
 if(BUILD_TESTING)

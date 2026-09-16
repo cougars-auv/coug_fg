@@ -511,7 +511,7 @@
     ros__parameters:
       frequency: 30.0
       two_d_mode: false
-      publish_tf: false # Published by FG instead
+      publish_tf: false # Published by FG instead.
       print_diagnostics: true
 
       imu0: "imu/data"
@@ -629,7 +629,7 @@
     ros__parameters:
       frequency: 30.0
       two_d_mode: false
-      publish_tf: false # Published by FG instead
+      publish_tf: false # Published by FG instead.
       print_diagnostics: true
 
       imu0: "imu/data"

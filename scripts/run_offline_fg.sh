@@ -36,20 +36,18 @@ agent_ns=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
 
 # --- Options ---
 prefix=$(gum input --placeholder "Set output prefix..." || true)
-prefix="${prefix:-offline}$(date +'_%Y-%m-%d-%H-%M-%S')"
 
 evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--align" \
   "--project_to_plane xy") || exit 0
-evo_flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')
 
-# --- Run ---
 run_args=(
   --bags "${bag_paths[@]}"
   --namespace "${agent_ns}"
-  --prefix "${prefix}"
-  "--evo-flags=${evo_flags}"
+  --prefix "${prefix:-offline}$(date +'_%Y-%m-%d-%H-%M-%S')"
+  "--evo-flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')"
 )
 
+# --- Run ---
 echo "python3 $(dirname "$0")/run_offline_fg.py ${run_args[*]}"
 python3 "$(dirname "$0")/run_offline_fg.py" "${run_args[@]}"

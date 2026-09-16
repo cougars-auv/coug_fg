@@ -42,14 +42,13 @@ mapfile -t selected_agents <<<"${selected_agents}"
 evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
   "--align" \
   "--project_to_plane xy") || exit 0
-evo_flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')
 
-# --- Run ---
 run_args=(
   --bags "${bag_paths[@]}"
   --agents "${selected_agents[@]}"
-  "--evo-flags=${evo_flags}"
+  "--evo-flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')"
 )
 
+# --- Run ---
 echo "python3 $(dirname "$0")/eval_bags.py ${run_args[*]}"
 python3 "$(dirname "$0")/eval_bags.py" "${run_args[@]}"

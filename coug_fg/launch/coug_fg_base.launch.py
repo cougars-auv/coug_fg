@@ -45,6 +45,9 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
             f"{agent_ns}_params.yaml",
         ]
     )
+    scenario_param_file = (
+        LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file
+    )
 
     return [
         Node(
@@ -54,6 +57,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
@@ -76,6 +80,10 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "agent_list",
                 default_value="[auv0]",
+            ),
+            DeclareLaunchArgument(
+                "scenario_param_file",
+                default_value="",
             ),
             OpaqueFunction(function=launch_setup),
         ]

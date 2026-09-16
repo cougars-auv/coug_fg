@@ -17,7 +17,7 @@ set -e
 
 # --- Selection ---
 while true; do
-  selected_bags=$(cd "${BAGS_DIR}" && find . -name "metadata.yaml" -exec dirname {} \; |
+  selected_bags=$(cd "${BAGS_DIR}" && find . -name metadata.yaml -printf '%h\n' |
     sed 's|^\./||' | sort -r |
     gum choose --no-limit --header "Select bags to evaluate:") || exit 0
   [[ -n ${selected_bags} ]] && break
@@ -30,8 +30,7 @@ for bag in "${selected_bags[@]}"; do
 done
 
 while true; do
-  selected_agents=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
-    sed 's/_params.yaml$//' | sort |
+  selected_agents=$(basename -s _params.yaml -a "${CONFIG_DIR}"/*_params.yaml |
     gum choose --no-limit --header "Select agents to evaluate:") || exit 0
   [[ -n ${selected_agents} ]] && break
 done
@@ -46,7 +45,7 @@ evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
 run_args=(
   --bags "${bag_paths[@]}"
   --agents "${selected_agents[@]}"
-  "--evo-flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')"
+  "--evo-flags=${evo_options//$'\n'/ }"
 )
 
 # --- Run ---

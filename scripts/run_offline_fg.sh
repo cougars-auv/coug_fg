@@ -17,7 +17,7 @@ set -e
 
 # --- Selection ---
 while true; do
-  selected_bags=$(cd "${BAGS_DIR}" && find . -name "metadata.yaml" -exec dirname {} \; |
+  selected_bags=$(cd "${BAGS_DIR}" && find . -name metadata.yaml -printf '%h\n' |
     sed 's|^\./||' | sort -r |
     gum choose --no-limit --header "Select bags to process:") || exit 0
   [[ -n ${selected_bags} ]] && break
@@ -29,8 +29,7 @@ for bag in "${selected_bags[@]}"; do
   bag_paths+=("${BAGS_DIR}/${bag}")
 done
 
-agent_ns=$(basename -a "${CONFIG_DIR}"/*_params.yaml |
-  sed 's/_params.yaml$//' | sort |
+agent_ns=$(basename -s _params.yaml -a "${CONFIG_DIR}"/*_params.yaml |
   gum filter --placeholder "Select an agent to process...") || exit 0
 [[ -z ${agent_ns} ]] && exit 0
 
@@ -45,7 +44,7 @@ run_args=(
   --bags "${bag_paths[@]}"
   --namespace "${agent_ns}"
   --prefix "${prefix:-offline}$(date +'_%Y-%m-%d-%H-%M-%S')"
-  "--evo-flags=$(printf '%s\n' "${evo_options}" | tr '\n' ' ')"
+  "--evo-flags=${evo_options//$'\n'/ }"
 )
 
 # --- Run ---

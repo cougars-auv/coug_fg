@@ -70,6 +70,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             [agent_ns, "_params.yaml"],
         ]
     )
+    scenario_param_file = LaunchConfiguration("scenario_param_file")
 
     odom_frame = agent_frame(agent_ns, "odom")
     base_link_frame = agent_frame(agent_ns, "base_link")
@@ -115,6 +116,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 fleet_param_file,
                 *initial_prior_params,
                 agent_param_file,
+                scenario_param_file,
                 factor_graph_params,
             ],
         ),
@@ -128,6 +130,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 fleet_param_file,
                 *initial_prior_params,
                 agent_param_file,
+                scenario_param_file,
                 {
                     **factor_graph_params,
                     "global_odom_topic": "odometry/global_isam2",
@@ -148,6 +151,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 fleet_param_file,
                 *initial_prior_params,
                 agent_param_file,
+                scenario_param_file,
                 {
                     **factor_graph_params,
                     "global_odom_topic": "odometry/global_lpi",
@@ -167,6 +171,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 fleet_param_file,
                 *initial_prior_params,
                 agent_param_file,
+                scenario_param_file,
                 {
                     **factor_graph_params,
                     "global_odom_topic": "odometry/global_tpi",
@@ -183,6 +188,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "beam0_frame": beam0_link_frame,
@@ -200,6 +206,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "odom_frame": "map",
@@ -215,6 +222,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
@@ -229,6 +237,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
@@ -243,6 +252,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "parameter_frame": imu_link_frame,
@@ -256,6 +266,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
@@ -270,6 +281,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {"use_sim_time": use_sim_time},
             ],
         ),
@@ -280,6 +292,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {"use_sim_time": use_sim_time},
             ],
         ),
@@ -290,6 +303,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {"use_sim_time": use_sim_time},
             ],
         ),
@@ -300,6 +314,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {"use_sim_time": use_sim_time},
             ],
         ),
@@ -310,6 +325,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {"use_sim_time": use_sim_time},
             ],
             condition=IfCondition(EqualsSubstitution(agent_ns, "bluerov2")),
@@ -322,6 +338,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "odom_frame": odom_frame,
@@ -340,6 +357,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 fleet_param_file,
                 *initial_state_params,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
@@ -359,6 +377,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 fleet_param_file,
                 *initial_state_params,
                 agent_param_file,
+                scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
@@ -382,6 +401,15 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "agent_ns",
                 default_value="auv0",
+            ),
+            DeclareLaunchArgument(
+                "scenario_param_file",
+                default_value=PathJoinSubstitution(
+                    [
+                        EnvironmentVariable("CONFIG_DIR"),
+                        [LaunchConfiguration("agent_ns"), "_params.yaml"],
+                    ]
+                ),
             ),
             DeclareLaunchArgument(
                 "lead_agent",

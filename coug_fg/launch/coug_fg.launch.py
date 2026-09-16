@@ -129,7 +129,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 *initial_prior_params,
                 agent_param_file,
                 {
-                    **factor_graph_params,  # type: ignore[dict-item]
+                    **factor_graph_params,
                     "global_odom_topic": "odometry/global_isam2",
                     "smoothed_path_topic": "smoothed_path_isam2",
                     "publish_global_tf": False,
@@ -149,7 +149,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 *initial_prior_params,
                 agent_param_file,
                 {
-                    **factor_graph_params,  # type: ignore[dict-item]
+                    **factor_graph_params,
                     "global_odom_topic": "odometry/global_lpi",
                     "smoothed_path_topic": "smoothed_path_lpi",
                     "publish_global_tf": False,
@@ -168,7 +168,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 *initial_prior_params,
                 agent_param_file,
                 {
-                    **factor_graph_params,  # type: ignore[dict-item]
+                    **factor_graph_params,
                     "global_odom_topic": "odometry/global_tpi",
                     "smoothed_path_topic": "smoothed_path_tpi",
                     "publish_global_tf": False,

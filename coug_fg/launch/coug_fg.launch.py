@@ -38,13 +38,13 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     agent_ns = LaunchConfiguration("agent_ns")
     lead_agent = LaunchConfiguration("lead_agent")
     loc_comparison = LaunchConfiguration("loc_comparison")
-    initial_position = LaunchConfiguration("initial_position").perform(context)
-    initial_orientation = LaunchConfiguration("initial_orientation").perform(context)
+    initial_position_str = LaunchConfiguration("initial_position").perform(context)
+    initial_orientation_str = LaunchConfiguration("initial_orientation").perform(context)
 
     is_lead_agent = EqualsSubstitution(agent_ns, lead_agent)
 
-    position = json.loads(initial_position) if initial_position else None
-    orientation = json.loads(initial_orientation) if initial_orientation else None
+    position = json.loads(initial_position_str) if initial_position_str else None
+    orientation = json.loads(initial_orientation_str) if initial_orientation_str else None
 
     initial_prior_params = []
     initial_state_params = []

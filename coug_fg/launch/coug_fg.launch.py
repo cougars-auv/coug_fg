@@ -70,7 +70,9 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             [agent_ns, "_params.yaml"],
         ]
     )
-    scenario_param_file = LaunchConfiguration("scenario_param_file")
+    scenario_param_file = (
+        LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file
+    )
 
     odom_frame = agent_frame(agent_ns, "odom")
     base_link_frame = agent_frame(agent_ns, "base_link")
@@ -404,12 +406,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument(
                 "scenario_param_file",
-                default_value=PathJoinSubstitution(
-                    [
-                        EnvironmentVariable("CONFIG_DIR"),
-                        [LaunchConfiguration("agent_ns"), "_params.yaml"],
-                    ]
-                ),
+                default_value="",
             ),
             DeclareLaunchArgument(
                 "lead_agent",

@@ -41,7 +41,7 @@ def generate_launch_description() -> LaunchDescription:
     agent_param_file = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
-            PythonExpression(["'", agent_ns, "' + '_params.yaml'"]),
+            [agent_ns, "_params.yaml"],
         ]
     )
 
@@ -80,9 +80,7 @@ def generate_launch_description() -> LaunchDescription:
                 parameters=[
                     fleet_param_file,
                     agent_param_file,
-                    {
-                        "use_sim_time": use_sim_time,
-                    },
+                    {"use_sim_time": use_sim_time},
                 ],
                 remappings=[
                     ("imu/data_raw", "camera/imu/data_raw"),

@@ -67,7 +67,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     agent_param_file = PathJoinSubstitution(
         [
             EnvironmentVariable("CONFIG_DIR"),
-            PythonExpression(["'", agent_ns, "' + '_params.yaml'"]),
+            [agent_ns, "_params.yaml"],
         ]
     )
 
@@ -270,9 +270,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                },
+                {"use_sim_time": use_sim_time},
             ],
         ),
         Node(
@@ -282,9 +280,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                },
+                {"use_sim_time": use_sim_time},
             ],
         ),
         Node(
@@ -294,9 +290,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                },
+                {"use_sim_time": use_sim_time},
             ],
         ),
         Node(
@@ -306,9 +300,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                },
+                {"use_sim_time": use_sim_time},
             ],
         ),
         Node(
@@ -318,9 +310,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             parameters=[
                 fleet_param_file,
                 agent_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                },
+                {"use_sim_time": use_sim_time},
             ],
             condition=IfCondition(EqualsSubstitution(agent_ns, "bluerov2")),
         ),

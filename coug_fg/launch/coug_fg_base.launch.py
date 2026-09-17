@@ -35,11 +35,8 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
     fleet_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]
     )
-    agent_param_file = PathJoinSubstitution(
-        [EnvironmentVariable("CONFIG_DIR"), f"{agent_ns}_params.yaml"]
-    )
     scenario_param_file = (
-        LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file
+        LaunchConfiguration("scenario_param_file").perform(context) or fleet_param_file
     )
 
     return [
@@ -49,7 +46,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
             name="navsat_odom_node",
             parameters=[
                 fleet_param_file,
-                agent_param_file,
                 scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,

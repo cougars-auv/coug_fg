@@ -33,17 +33,10 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node
     agent_ns = agent_list[0]
 
     fleet_param_file = PathJoinSubstitution(
-        [
-            EnvironmentVariable("CONFIG_DIR"),
-            "fleet",
-            "coug_fg_params.yaml",
-        ]
+        [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]
     )
     agent_param_file = PathJoinSubstitution(
-        [
-            EnvironmentVariable("CONFIG_DIR"),
-            f"{agent_ns}_params.yaml",
-        ]
+        [EnvironmentVariable("CONFIG_DIR"), f"{agent_ns}_params.yaml"]
     )
     scenario_param_file = (
         LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file

@@ -36,8 +36,8 @@ def agent_frame(agent_ns: LaunchConfiguration, frame: str) -> PythonExpression:
 def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Action]:
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_ns = LaunchConfiguration("agent_ns")
-    lead_agent = LaunchConfiguration("lead_agent")
     loc_comparison = LaunchConfiguration("loc_comparison")
+    lead_agent = LaunchConfiguration("lead_agent")
     initial_position_str = LaunchConfiguration("initial_position").perform(context)
     initial_orientation_str = LaunchConfiguration("initial_orientation").perform(context)
 
@@ -58,17 +58,10 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         initial_state_params = [{"initial_state": position + orientation + [0.0] * 9}]
 
     fleet_param_file = PathJoinSubstitution(
-        [
-            EnvironmentVariable("CONFIG_DIR"),
-            "fleet",
-            "coug_fg_params.yaml",
-        ]
+        [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]
     )
     agent_param_file = PathJoinSubstitution(
-        [
-            EnvironmentVariable("CONFIG_DIR"),
-            [agent_ns, "_params.yaml"],
-        ]
+        [EnvironmentVariable("CONFIG_DIR"), [agent_ns, "_params.yaml"]]
     )
     scenario_param_file = (
         LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file
@@ -409,12 +402,12 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="",
             ),
             DeclareLaunchArgument(
-                "lead_agent",
-                default_value="",
-            ),
-            DeclareLaunchArgument(
                 "loc_comparison",
                 default_value="false",
+            ),
+            DeclareLaunchArgument(
+                "lead_agent",
+                default_value="",
             ),
             DeclareLaunchArgument(
                 "initial_position",

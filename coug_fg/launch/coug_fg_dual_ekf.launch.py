@@ -32,17 +32,10 @@ def generate_launch_description() -> LaunchDescription:
     agent_ns = LaunchConfiguration("agent_ns")
 
     fleet_param_file = PathJoinSubstitution(
-        [
-            EnvironmentVariable("CONFIG_DIR"),
-            "fleet",
-            "coug_fg_params.yaml",
-        ]
+        [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]
     )
     agent_param_file = PathJoinSubstitution(
-        [
-            EnvironmentVariable("CONFIG_DIR"),
-            [agent_ns, "_params.yaml"],
-        ]
+        [EnvironmentVariable("CONFIG_DIR"), [agent_ns, "_params.yaml"]]
     )
     scenario_param_file = PythonExpression(
         ["'", LaunchConfiguration("scenario_param_file"), "' or '", agent_param_file, "'"]

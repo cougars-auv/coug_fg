@@ -21,6 +21,7 @@
 #include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2/convert.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "coug_fg/odom_ned_to_enu_parameters.hpp"

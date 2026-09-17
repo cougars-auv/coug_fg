@@ -15,6 +15,7 @@
 #include "coug_fg/factor_graph_py.hpp"
 
 #include <gtsam/base/Vector.h>
+#include <gtsam/base/types.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Quaternion.h>

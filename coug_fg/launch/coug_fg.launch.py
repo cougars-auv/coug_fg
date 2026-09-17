@@ -316,7 +316,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         Node(
             package="topic_tools",
             executable="relay",
-            name="gps_to_truth_relay",
+            name="rtk_gps_truth_relay",
             parameters=[
                 fleet_param_file,
                 agent_param_file,

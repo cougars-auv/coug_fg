@@ -69,7 +69,8 @@ def evo_agent_dir(bag_path: str | Path, namespace: str) -> Path:
 
 
 def _latest_tum(directory: Path) -> Path | None:
-    return max(directory.glob("*.tum"), key=lambda p: p.stat().st_mtime, default=None)
+    candidates = sorted(directory.glob("*.tum"), key=lambda p: p.stat().st_mtime)
+    return candidates[-1] if candidates else None
 
 
 def save_tum(path: Path, pose: dict[str, Any]) -> None:

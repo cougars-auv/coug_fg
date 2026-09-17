@@ -54,7 +54,7 @@ class UrdfTree:
         source_pos, source_rot = self._root_tf(source_frame)
         pos = target_rot.inv().apply(source_pos - target_pos)
         rot = target_rot.inv() * source_rot
-        return pos, rot.as_quat()
+        return pos, rot.as_quat(canonical=False)
 
     def _root_tf(self, frame: str) -> tuple[npt.NDArray[np.float64], Rotation]:
         link = frame.split("/")[-1]  # Strip robot_state_publisher frame_prefix

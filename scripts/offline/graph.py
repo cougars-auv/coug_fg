@@ -194,7 +194,9 @@ class OfflineFactorGraph:
         map_t_base = map_R_target.apply(base_pos) + target_positions
 
         results["x"], results["y"], results["z"] = map_t_base.T
-        results["qx"], results["qy"], results["qz"], results["qw"] = map_R_base.as_quat().T
+        results["qx"], results["qy"], results["qz"], results["qw"] = map_R_base.as_quat(
+            canonical=False
+        ).T
         results["roll"], results["pitch"], results["yaw"] = map_R_base.as_euler("xyz").T
 
         results["neighbors"] = self._get_neighbor_results()

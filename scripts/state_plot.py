@@ -71,6 +71,7 @@ def plot_results(
 ) -> Figure:
     t_fg = results["time"] - t0
 
+    fig: Figure
     fig, axes = plt.subplots(len(layout), 3, figsize=(15, 8), num=label or None)
     for row, (keys, axis_labels) in enumerate(layout):
         for col, (key, axis_label) in enumerate(zip(keys, axis_labels, strict=True)):

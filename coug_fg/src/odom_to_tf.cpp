@@ -20,6 +20,9 @@
 #include <rclcpp/node.hpp>
 #include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <string>
+#include <tf2/LinearMath/Transform.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/transform_broadcaster.hpp>
 
 #include "coug_fg/odom_to_tf_parameters.hpp"
@@ -45,15 +48,26 @@ void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& m
   tf_broadcaster_->sendTransform(convertToTf(msg));
 }
 
-auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
+auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) const
     -> geometry_msgs::msg::TransformStamped {
+  const std::string& parent_frame =
+      params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
+
+  tf2::Transform parent_T_child;
+  tf2::fromMsg(msg->pose.pose, parent_T_child);
+
   geometry_msgs::msg::TransformStamped tf_msg;
-  tf_msg.header = msg->header;
-  tf_msg.child_frame_id = msg->child_frame_id;
-  tf_msg.transform.translation.x = msg->pose.pose.position.x;
-  tf_msg.transform.translation.y = msg->pose.pose.position.y;
-  tf_msg.transform.translation.z = msg->pose.pose.position.z;
-  tf_msg.transform.rotation = msg->pose.pose.orientation;
+  tf_msg.header.stamp = msg->header.stamp;
+
+  if (params_.invert) {
+    tf_msg.header.frame_id = msg->child_frame_id;
+    tf_msg.child_frame_id = parent_frame;
+    tf_msg.transform = tf2::toMsg(parent_T_child.inverse());
+  } else {
+    tf_msg.header.frame_id = parent_frame;
+    tf_msg.child_frame_id = msg->child_frame_id;
+    tf_msg.transform = tf2::toMsg(parent_T_child);
+  }
   return tf_msg;
 }
 

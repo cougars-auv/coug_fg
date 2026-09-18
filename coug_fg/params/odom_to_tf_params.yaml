@@ -1,6 +1,17 @@
 odom_to_tf_node:
+  invert:
+    type: bool
+    default_value: false
   input_topic:
     type: string
     default_value: "dvl/odometry"
+    validation:
+      not_empty<>: []
+  use_parameter_frame:
+    type: bool
+    default_value: false
+  parameter_frame:
+    type: string
+    default_value: "odom"
     validation:
       not_empty<>: []

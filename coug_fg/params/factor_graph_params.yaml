@@ -20,10 +20,10 @@ factor_graph_node:
   publish_mag_bias:
     type: bool
     default_value: false
-  publish_diagnostics:
+  publish_graph_metrics:
     type: bool
     default_value: false
-  publish_graph_metrics:
+  publish_diagnostics:
     type: bool
     default_value: false
   publish_pose_cov:

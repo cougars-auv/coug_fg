@@ -16,7 +16,7 @@ fluid_pressure_odom_node:
       gt<>: [0.0]
   gravity:
     type: double
-    default_value: 9.81
+    default_value: 9.8
     validation:
       gt<>: [0.0]
   max_pressure_delta:

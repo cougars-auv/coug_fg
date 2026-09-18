@@ -17,7 +17,7 @@ navsat_odom_node:
       gt<>: [0.0]
   use_parameter_origin:
     type: bool
-    default_value: true
+    default_value: false
   origin_latitude:
     type: double
     default_value: 40.33940

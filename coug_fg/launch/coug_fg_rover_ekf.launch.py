@@ -44,6 +44,7 @@ def generate_launch_description() -> LaunchDescription:
     odom_frame = agent_frame(agent_ns, "odom")
     base_link_frame = agent_frame(agent_ns, "base_link")
     gps_link_frame = agent_frame(agent_ns, "gps_link")
+    odom_3d_frame = agent_frame(agent_ns, "odom_3d")
 
     return LaunchDescription(
         [
@@ -125,6 +126,38 @@ def generate_launch_description() -> LaunchDescription:
                     },
                 ],
                 remappings=[("odometry/filtered", "odometry/global")],
+            ),
+            Node(
+                package="robot_localization",
+                executable="ekf_node",
+                name="ekf_filter_node_odom_3d",
+                parameters=[
+                    fleet_param_file,
+                    agent_param_file,
+                    scenario_param_file,
+                    {
+                        "use_sim_time": use_sim_time,
+                        "map_frame": "map",
+                        "odom_frame": odom_frame,
+                        "base_link_frame": base_link_frame,
+                        "world_frame": odom_frame,
+                    },
+                ],
+                remappings=[("odometry/filtered", "odometry/local_3d")],
+            ),
+            Node(
+                package="coug_fg",
+                executable="odom_to_tf",
+                name="odom_3d_to_tf_node",
+                parameters=[
+                    fleet_param_file,
+                    agent_param_file,
+                    scenario_param_file,
+                    {
+                        "use_sim_time": use_sim_time,
+                        "parameter_frame": odom_3d_frame,
+                    },
+                ],
             ),
         ]
     )

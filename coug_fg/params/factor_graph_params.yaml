@@ -4,7 +4,7 @@ factor_graph_node:
     default_value: true
   publish_neighbor_global_tf:
     type: bool
-    default_value: false
+    default_value: true
   transform_time_offset:
     type: double
     default_value: 0.0
@@ -306,10 +306,10 @@ factor_graph_node:
   gps:
     enable_gps:
       type: bool
-      default_value: false
+      default_value: true
     enable_gps_init_priors:
       type: bool
-      default_value: false
+      default_value: true
     use_parameter_frame:
       type: bool
       default_value: false
@@ -369,7 +369,7 @@ factor_graph_node:
       default_value: true
     enable_depth_init_priors:
       type: bool
-      default_value: false
+      default_value: true
     use_parameter_frame:
       type: bool
       default_value: false
@@ -425,7 +425,7 @@ factor_graph_node:
   mag:
     enable_mag:
       type: bool
-      default_value: false
+      default_value: true
     estimate_hard_iron_bias:
       type: bool
       default_value: true
@@ -493,7 +493,7 @@ factor_graph_node:
       default_value: false
     enable_ahrs_init_priors:
       type: bool
-      default_value: false
+      default_value: true
     constrain_yaw_only:
       type: bool
       default_value: true
@@ -561,7 +561,7 @@ factor_graph_node:
       default_value: false
     enable_dvl_init_priors:
       type: bool
-      default_value: false
+      default_value: true
     use_parameter_frame:
       type: bool
       default_value: false

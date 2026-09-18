@@ -2,7 +2,7 @@
   ros__parameters:
     # --- Node Settings ---
     publish_global_tf: true # Publish the map -> odom transform.
-    publish_neighbor_global_tf: false # Publish the map -> neighbor base transforms.
+    publish_neighbor_global_tf: true # Publish the map -> neighbor base transforms.
     transform_time_offset: 0.0 # [s]
     publish_smoothed_path: false
     publish_velocity: false
@@ -87,8 +87,8 @@
       diagnostic_timeout_sec: 1.0 # [s]
 
     gps:
-      enable_gps: false
-      enable_gps_init_priors: false
+      enable_gps: true
+      enable_gps_init_priors: true
       use_parameter_frame: false
       use_parameter_tf: false
       parameter_tf: # Relative to the target frame.
@@ -105,7 +105,7 @@
 
     depth:
       enable_depth: true
-      enable_depth_init_priors: false
+      enable_depth_init_priors: true
       use_parameter_frame: false
       use_parameter_tf: false
       parameter_tf: # Relative to the target frame.
@@ -121,7 +121,7 @@
       robust_k: 1.345
 
     mag:
-      enable_mag: false
+      enable_mag: true
       estimate_hard_iron_bias: true
       use_parameter_frame: false
       use_parameter_tf: false
@@ -141,7 +141,7 @@
 
     ahrs:
       enable_ahrs: false
-      enable_ahrs_init_priors: false
+      enable_ahrs_init_priors: true
       constrain_yaw_only: true
       use_parameter_frame: false
       use_parameter_tf: false
@@ -162,7 +162,7 @@
 
     dvl:
       enable_dvl: false
-      enable_dvl_init_priors: false
+      enable_dvl_init_priors: true
       use_parameter_frame: false
       use_parameter_tf: false
       parameter_tf: # Relative to the target frame.

@@ -14,11 +14,16 @@
 
 #pragma once
 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+
 #include <GeographicLib/LocalCartesian.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
+#include <geometry_msgs/msg/quaternion.hpp>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <string>
 
@@ -36,10 +41,15 @@ class NavsatOdomNode : public rclcpp::Node {
 
   void navsatCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg);
 
+  void ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
+
   // --- Helpers ---
   void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
 
-  auto convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg)
+  auto resolveOrientation(const std::string& gps_frame) -> geometry_msgs::msg::Quaternion;
+
+  auto convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg,
+                     const std::string& gps_frame, const geometry_msgs::msg::Quaternion& map_R_gps)
       -> nav_msgs::msg::Odometry;
 
   // --- Diagnostics ---
@@ -48,10 +58,14 @@ class NavsatOdomNode : public rclcpp::Node {
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr navsat_sub_;
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr origin_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr ahrs_sub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr origin_pub_;
   rclcpp::TimerBase::SharedPtr origin_timer_;
   diagnostic_updater::Updater diagnostic_updater_;
+
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // --- Parameters ---
   std::shared_ptr<navsat_odom_node::ParamListener> param_listener_;
@@ -61,6 +75,7 @@ class NavsatOdomNode : public rclcpp::Node {
   GeographicLib::LocalCartesian local_cartesian_;
   sensor_msgs::msg::NavSatFix origin_navsat_;
   bool origin_set_{false};
+  sensor_msgs::msg::Imu::ConstSharedPtr last_ahrs_;
 };
 
 }  // namespace coug_fg

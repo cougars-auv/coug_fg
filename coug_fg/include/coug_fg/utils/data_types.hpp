@@ -80,8 +80,10 @@ struct AgentStatusData {
   double timestamp{0.0};
   gtsam::Pose3 pose;
   gtsam::Matrix66 pose_covariance;
+  bool includes_depth{false};
   double pressure_depth{0.0};
-  gtsam::Rot3 imu_orientation;
+  bool includes_ahrs{false};
+  gtsam::Rot3 ahrs_orientation;
   bool includes_range{false};
   double range_dist{0.0};
   bool includes_usbl{false};

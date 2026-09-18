@@ -14,10 +14,15 @@
 
 #pragma once
 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+
+#include <geometry_msgs/msg/quaternion.hpp>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/fluid_pressure.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 
@@ -36,14 +41,24 @@ class FluidPressureOdomNode : public rclcpp::Node {
   void calibrateCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
                          const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
 
+  void ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
+
   // --- Helpers ---
+  auto resolveOrientation(const std::string& depth_frame) -> geometry_msgs::msg::Quaternion;
+
   auto convertToOdom(const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg, double pressure,
-                     double reference_pressure) const -> nav_msgs::msg::Odometry;
+                     double reference_pressure, const std::string& depth_frame,
+                     const geometry_msgs::msg::Quaternion& map_R_depth) const
+      -> nav_msgs::msg::Odometry;
 
   // --- ROS Interfaces ---
   rclcpp::Subscription<sensor_msgs::msg::FluidPressure>::SharedPtr pressure_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr ahrs_sub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr calibrate_srv_;
+
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // --- Parameters ---
   std::shared_ptr<fluid_pressure_odom_node::ParamListener> param_listener_;
@@ -54,6 +69,7 @@ class FluidPressureOdomNode : public rclcpp::Node {
   int rejected_count_{0};
   bool calibrated_{false};
   double calibrated_pressure_{0.0};
+  sensor_msgs::msg::Imu::ConstSharedPtr last_ahrs_;
 };
 
 }  // namespace coug_fg

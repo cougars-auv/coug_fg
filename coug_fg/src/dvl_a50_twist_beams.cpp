@@ -145,18 +145,24 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov_out(
       twist_msg.twist.covariance.data());
 
+  static constexpr double kUnknownCovariance = -1.0;
+
   if (use_fom_covariance) {
     const double var_vel = msg->fom * params_.fom_covariance_scale;
     cov_out.topLeftCorner<3, 3>() = Eigen::Vector3d::Constant(var_vel).asDiagonal();
   } else if (msg->covariance.size() < kDvlCovarianceSize) {
     RCLCPP_WARN(get_logger(), "Received DVL covariance with %zu elements, expected %zu.",
                 msg->covariance.size(), kDvlCovarianceSize);
+    cov_out(0, 0) = kUnknownCovariance;
   } else {
     const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> frd_cov(
         msg->covariance.data());
     const Eigen::DiagonalMatrix<double, 3> frd_to_flu(kFrdToFlu[0], kFrdToFlu[1], kFrdToFlu[2]);
     cov_out.topLeftCorner<3, 3>() = frd_to_flu * frd_cov * frd_to_flu;
   }
+
+  cov_out(3, 3) = kUnknownCovariance;
+
   return twist_msg;
 }
 
@@ -171,7 +177,7 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
   beams_msg.altitude_valid = msg->altitude > 0.0;
 
   const double velocity_sigma = params_.beam_velocity_noise_sigma;
-  const double distance_sigma = params_.beam_distance_noise_sigma;
+  const double distance_sigma = params_.beam_range_noise_sigma;
 
   beams_msg.beams.reserve(msg->beams.size());
   for (const auto& in : msg->beams) {

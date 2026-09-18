@@ -29,6 +29,9 @@ fluid_pressure_odom_node:
     default_value: 5
     validation:
       gt_eq<>: [1]
+  use_ahrs:
+    type: bool
+    default_value: true
   input_topic:
     type: string
     default_value: "pressure/data"
@@ -37,6 +40,11 @@ fluid_pressure_odom_node:
   output_topic:
     type: string
     default_value: "depth/odometry"
+    validation:
+      not_empty<>: []
+  ahrs_topic:
+    type: string
+    default_value: "imu/data"
     validation:
       not_empty<>: []
   calibrate_service:

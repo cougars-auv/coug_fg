@@ -18,16 +18,28 @@
 #include <GeographicLib/Geocentric.hpp>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <diagnostic_updater/diagnostic_status_wrapper.hpp>
 #include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <string>
+#include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2/convert.hpp>
+#include <tf2/exceptions.hpp>
+#include <tf2/time.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
 
 #include "coug_fg/navsat_odom_parameters.hpp"
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
+#include "geometry_msgs/msg/quaternion.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "sensor_msgs/msg/nav_sat_status.hpp"
 
@@ -47,6 +59,15 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
 
   odom_pub_ =
       create_publisher<nav_msgs::msg::Odometry>(params_.output_topic, rclcpp::SystemDefaultsQoS());
+
+  if (params_.use_ahrs) {
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    ahrs_sub_ = create_subscription<sensor_msgs::msg::Imu>(
+        params_.ahrs_topic, rclcpp::SensorDataQoS(),
+        [this](const sensor_msgs::msg::Imu::ConstSharedPtr& msg) { ahrsCallback(msg); });
+  }
 
   if (params_.set_origin) {
     origin_pub_ = create_publisher<sensor_msgs::msg::NavSatFix>(params_.origin_topic,
@@ -128,7 +149,22 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstShar
     return;
   }
 
-  odom_pub_->publish(convertToOdom(msg));
+  const std::string gps_frame =
+      params_.use_parameter_child_frame ? params_.parameter_child_frame : msg->header.frame_id;
+
+  geometry_msgs::msg::Quaternion map_R_gps;
+  if (params_.use_ahrs) {
+    map_R_gps = resolveOrientation(gps_frame);
+  }
+
+  odom_pub_->publish(convertToOdom(msg, gps_frame, map_R_gps));
+}
+
+void NavsatOdomNode::ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
+  const double var = msg->orientation_covariance[0];
+  if (std::isfinite(var) && var > 0.0) {
+    last_ahrs_ = msg;
+  }
 }
 
 void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
@@ -140,13 +176,40 @@ void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
   origin_set_ = true;
 }
 
-auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg)
+auto NavsatOdomNode::resolveOrientation(const std::string& gps_frame)
+    -> geometry_msgs::msg::Quaternion {
+  geometry_msgs::msg::Quaternion map_R_gps;
+
+  if (!last_ahrs_) {
+    return map_R_gps;
+  }
+
+  geometry_msgs::msg::TransformStamped ahrs_T_gps_tf;
+  try {
+    ahrs_T_gps_tf =
+        tf_buffer_->lookupTransform(last_ahrs_->header.frame_id, gps_frame, tf2::TimePointZero);
+  } catch (const tf2::TransformException& ex) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
+                         last_ahrs_->header.frame_id.c_str(), gps_frame.c_str(), ex.what());
+    return map_R_gps;
+  }
+
+  tf2::Quaternion map_R_ahrs;
+  tf2::Quaternion ahrs_R_gps;
+  tf2::fromMsg(last_ahrs_->orientation, map_R_ahrs);
+  tf2::fromMsg(ahrs_T_gps_tf.transform.rotation, ahrs_R_gps);
+
+  return tf2::toMsg((map_R_ahrs * ahrs_R_gps).normalized());
+}
+
+auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg,
+                                   const std::string& gps_frame,
+                                   const geometry_msgs::msg::Quaternion& map_R_gps)
     -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;
   odom_msg.header.frame_id = params_.map_frame;
-  odom_msg.child_frame_id =
-      params_.use_parameter_child_frame ? params_.parameter_child_frame : msg->header.frame_id;
+  odom_msg.child_frame_id = gps_frame;
 
   double east = 0.0;
   double north = 0.0;
@@ -157,7 +220,7 @@ auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstShare
   odom_msg.pose.pose.position.y = north;
   odom_msg.pose.pose.position.z = up;
 
-  odom_msg.pose.pose.orientation.w = 1.0;
+  odom_msg.pose.pose.orientation = map_R_gps;
 
   const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov(
       msg->position_covariance.data());

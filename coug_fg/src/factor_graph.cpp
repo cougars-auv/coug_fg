@@ -395,8 +395,10 @@ void FactorGraphNode::multiAgentCallback(const AgentStatus::ConstSharedPtr& msg,
   status_msg->timestamp = rclcpp::Time(msg->header.stamp).seconds();
   status_msg->pose = toGtsam(msg->local_odometry);
   status_msg->pose_covariance = toGtsam(msg->odometry_covariance);
+  status_msg->includes_depth = msg->includes_depth;
   status_msg->pressure_depth = msg->pressure_depth;
-  status_msg->imu_orientation = toGtsam(msg->imu_orientation);
+  status_msg->includes_ahrs = msg->includes_ahrs;
+  status_msg->ahrs_orientation = toGtsam(msg->ahrs_orientation);
   status_msg->includes_range = msg->includes_range;
   status_msg->range_dist = msg->range_dist;
   status_msg->includes_usbl = msg->includes_usbl;
@@ -726,9 +728,7 @@ void FactorGraphNode::publishVelocity(const gtsam::Vector3& curr_vel, const gtsa
   vel_msg.twist.twist.linear = toVectorMsg(curr_vel);
   vel_msg.twist.covariance = toCovariance36Msg(gtsam::Matrix33(vel_cov));
 
-  for (int i = 3; i < 6; ++i) {
-    vel_msg.twist.covariance[i * 6 + i] = kUnknownCovariance;
-  }
+  vel_msg.twist.covariance[21] = kUnknownCovariance;
   vel_pub_->publish(vel_msg);
 }
 

@@ -30,6 +30,12 @@
 
 namespace coug_fg {
 
+namespace {
+
+constexpr double kUnknownCovariance = -1.0;
+
+}  // namespace
+
 SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& options)
     : Node("seatrac_x150_imu_depth_node", options) {
   param_listener_ =
@@ -90,7 +96,6 @@ auto SeatracX150ImuDepthNode::convertToImu(
   imu_msg.orientation_covariance[4] = sigmas[1] * sigmas[1];
   imu_msg.orientation_covariance[8] = sigmas[2] * sigmas[2];
 
-  static constexpr double kUnknownCovariance = -1.0;
   imu_msg.linear_acceleration_covariance[0] = kUnknownCovariance;
   imu_msg.angular_velocity_covariance[0] = kUnknownCovariance;
 
@@ -109,10 +114,18 @@ auto SeatracX150ImuDepthNode::convertToOdom(
 
   static constexpr double kSeatracToMeters = 0.1;
   odom_msg.pose.pose.position.z = msg->depth_local * kSeatracToMeters;
-  odom_msg.pose.pose.orientation.w = 1.0;
 
-  const double var_depth = params_.depth_noise_sigma * params_.depth_noise_sigma;
+  const double var_depth = params_.position_z_noise_sigma * params_.position_z_noise_sigma;
   odom_msg.pose.covariance[14] = var_depth;
+
+  static constexpr double kUnmeasuredVariance = 1e9;
+  odom_msg.pose.covariance[0] = kUnmeasuredVariance;
+  odom_msg.pose.covariance[7] = kUnmeasuredVariance;
+  odom_msg.pose.covariance[21] = kUnmeasuredVariance;
+  odom_msg.pose.covariance[28] = kUnmeasuredVariance;
+  odom_msg.pose.covariance[35] = kUnmeasuredVariance;
+
+  odom_msg.twist.covariance[0] = kUnknownCovariance;
 
   return odom_msg;
 }

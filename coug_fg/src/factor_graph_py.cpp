@@ -81,8 +81,8 @@ using AhrsMsgs = std::vector<std::tuple<double, Eigen::Vector4d, Eigen::Matrix3d
 using DvlMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
 using WrenchMsgs = std::vector<std::tuple<double, Vector6d>>;
 using AgentStatusMsg =
-    std::tuple<double, Eigen::Vector3d, Eigen::Vector4d, Matrix6d, double, Eigen::Vector4d, bool,
-               double, bool, double, double, bool, double>;
+    std::tuple<double, Eigen::Vector3d, Eigen::Vector4d, Matrix6d, bool, double, bool,
+               Eigen::Vector4d, bool, double, bool, double, double, bool, double>;
 using MultiAgentMsgs = std::vector<std::vector<AgentStatusMsg>>;
 using TfMap = std::unordered_map<std::string, std::pair<Eigen::Vector3d, Eigen::Vector4d>>;
 
@@ -255,15 +255,17 @@ auto toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& dept
 
   queues.multiagent.resize(multiagent.size());
   for (size_t agent_queue_idx = 0; agent_queue_idx < multiagent.size(); ++agent_queue_idx) {
-    for (const auto& [t, position, q, pose_cov, depth_z, imu_q, includes_range, range_dist,
-                      includes_usbl, usbl_azimuth, usbl_elevation, includes_position,
-                      position_depth] : multiagent[agent_queue_idx]) {
+    for (const auto& [t, position, q, pose_cov, includes_depth, depth_z, includes_ahrs, ahrs_q,
+                      includes_range, range_dist, includes_usbl, usbl_azimuth, usbl_elevation,
+                      includes_position, position_depth] : multiagent[agent_queue_idx]) {
       auto status_msg = std::make_shared<AgentStatusData>();
       status_msg->timestamp = t;
       status_msg->pose = toPose3(position, q);
       status_msg->pose_covariance = swapCovarianceBlocks(pose_cov);
+      status_msg->includes_depth = includes_depth;
       status_msg->pressure_depth = depth_z;
-      status_msg->imu_orientation = toRot3(imu_q);
+      status_msg->includes_ahrs = includes_ahrs;
+      status_msg->ahrs_orientation = toRot3(ahrs_q);
       status_msg->includes_range = includes_range;
       status_msg->range_dist = range_dist;
       status_msg->includes_usbl = includes_usbl;
@@ -345,8 +347,9 @@ auto toQueueDict(const QueueBundle& queue_bundle) -> pybind11::dict {
       neighbor.emplace_back(
           status_msg->timestamp, status_msg->pose.translation(),
           toQuatXyzw(status_msg->pose.rotation()),
-          swapCovarianceBlocks(status_msg->pose_covariance), status_msg->pressure_depth,
-          toQuatXyzw(status_msg->imu_orientation), status_msg->includes_range,
+          swapCovarianceBlocks(status_msg->pose_covariance), status_msg->includes_depth,
+          status_msg->pressure_depth, status_msg->includes_ahrs,
+          toQuatXyzw(status_msg->ahrs_orientation), status_msg->includes_range,
           status_msg->range_dist, status_msg->includes_usbl, status_msg->usbl_azimuth,
           status_msg->usbl_elevation, status_msg->includes_position, status_msg->position_depth);
     }

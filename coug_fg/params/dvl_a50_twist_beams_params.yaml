@@ -30,7 +30,7 @@ dvl_a50_twist_beams_node:
     default_value: 0.011
     validation:
       gt_eq<>: [0.0]
-  beam_distance_noise_sigma:
+  beam_range_noise_sigma:
     type: double
     default_value: 0.1
     validation:

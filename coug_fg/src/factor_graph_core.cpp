@@ -1148,6 +1148,10 @@ void FactorGraphCore::addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph,
                                              const AgentStatusData& msg,
                                              const NeighborState& neighbor,
                                              size_t agent_queue_idx) {
+  if (!msg.includes_depth) {
+    return;
+  }
+
   const gtsam::Pose3 kNoArm;
 
   const double depth_sigma = params_.multiagent.neighbor.depth.position_z_noise_sigma *
@@ -1169,6 +1173,10 @@ void FactorGraphCore::addNeighborDepthFactor(gtsam::NonlinearFactorGraph& graph,
 void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
                                             const AgentStatusData& msg,
                                             const NeighborState& neighbor, size_t agent_queue_idx) {
+  if (!msg.includes_ahrs) {
+    return;
+  }
+
   const gtsam::Pose3 kNoArm;
 
   const gtsam::Matrix3 map_ahrs_cov =
@@ -1177,17 +1185,17 @@ void FactorGraphCore::addNeighborAhrsFactor(gtsam::NonlinearFactorGraph& graph,
 
   // Conjugate map-frame orientation covariance into the sensor-frame tangent space
   gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Gaussian::Covariance(
-      AhrsFactorArm::sensorTangentCovariance(map_ahrs_cov, msg.imu_orientation));
+      AhrsFactorArm::sensorTangentCovariance(map_ahrs_cov, msg.ahrs_orientation));
 
   ahrs_noise = applyRobustKernel(ahrs_noise, params_.multiagent.neighbor.ahrs.robust_kernel,
                                  params_.multiagent.neighbor.ahrs.robust_k);
 
   if (params_.multiagent.estimate_origin_delta) {
     graph.emplace_shared<AhrsOriginDeltaFactorArm>(
-        O(agent_queue_idx), N(neighbor.curr_step), msg.imu_orientation, kNoArm,
+        O(agent_queue_idx), N(neighbor.curr_step), msg.ahrs_orientation, kNoArm,
         params_.multiagent.neighbor.ahrs.mag_declination_radians, ahrs_noise);
   } else {
-    graph.emplace_shared<AhrsFactorArm>(N(neighbor.curr_step), msg.imu_orientation, kNoArm,
+    graph.emplace_shared<AhrsFactorArm>(N(neighbor.curr_step), msg.ahrs_orientation, kNoArm,
                                         params_.multiagent.neighbor.ahrs.mag_declination_radians,
                                         ahrs_noise);
   }

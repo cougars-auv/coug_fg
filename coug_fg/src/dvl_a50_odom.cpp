@@ -132,6 +132,9 @@ auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& m
   odom_msg.pose.covariance[28] = sigmas[1] * sigmas[1];
   odom_msg.pose.covariance[35] = sigmas[2] * sigmas[2];
 
+  static constexpr double kUnknownCovariance = -1.0;
+  odom_msg.twist.covariance[0] = kUnknownCovariance;
+
   return odom_msg;
 }
 

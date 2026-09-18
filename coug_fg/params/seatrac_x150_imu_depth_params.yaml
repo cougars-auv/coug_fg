@@ -10,7 +10,7 @@ seatrac_x150_imu_depth_node:
     default_value: 0.0
     validation:
       bounds<>: [-3.14159, 3.14159]
-  depth_noise_sigma:
+  position_z_noise_sigma:
     type: double
     default_value: 0.1
     validation:

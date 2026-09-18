@@ -33,6 +33,9 @@ navsat_odom_node:
     default_value: 1412.0
     validation:
       bounds<>: [-1000.0, 10000.0]
+  use_ahrs:
+    type: bool
+    default_value: true
   input_topic:
     type: string
     default_value: "gps/fix"
@@ -46,6 +49,11 @@ navsat_odom_node:
   origin_topic:
     type: string
     default_value: "/origin"
+    validation:
+      not_empty<>: []
+  ahrs_topic:
+    type: string
+    default_value: "imu/data"
     validation:
       not_empty<>: []
   map_frame:

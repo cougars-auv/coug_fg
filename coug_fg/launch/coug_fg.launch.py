@@ -86,6 +86,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         "odom_frame": odom_frame,
         "base_frame": base_link_frame,
         "target_frame": dvl_link_frame,
+        "multiagent_base_frame": "base_link_nbr",
         "imu.parameter_frame": imu_link_frame,
         "gps.parameter_frame": gps_link_frame,
         "depth.parameter_frame": depth_link_frame,
@@ -98,7 +99,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         "beams.beam3_parameter_frame": beam3_link_frame,
         "wrench.parameter_frame": com_link_frame,
         "multiagent.parameter_frame": modem_link_frame,
-        "multiagent_base_frame": "base_link_nbr",
         "multiagent.enable_multiagent": is_lead_agent,
     }
 

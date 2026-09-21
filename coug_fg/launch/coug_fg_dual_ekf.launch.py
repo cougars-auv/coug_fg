@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+import json
+from typing import Any
+
+from launch import LaunchContext, LaunchDescription
+from launch.action import Action
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import (
     EnvironmentVariable,
     LaunchConfiguration,
@@ -27,9 +31,18 @@ def agent_frame(agent_ns: LaunchConfiguration, frame: str) -> PythonExpression:
     return PythonExpression(["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"])
 
 
-def generate_launch_description() -> LaunchDescription:
+def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Action]:
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_ns = LaunchConfiguration("agent_ns")
+    initial_position_str = LaunchConfiguration("initial_position").perform(context)
+    initial_orientation_str = LaunchConfiguration("initial_orientation").perform(context)
+
+    position = json.loads(initial_position_str) if initial_position_str else None
+    orientation = json.loads(initial_orientation_str) if initial_orientation_str else None
+
+    initial_state_params = []
+    if position is not None and orientation is not None:
+        initial_state_params = [{"initial_state": position + orientation + [0.0] * 9}]
 
     fleet_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]
@@ -45,6 +58,79 @@ def generate_launch_description() -> LaunchDescription:
     base_link_frame = agent_frame(agent_ns, "base_link")
     gps_link_frame = agent_frame(agent_ns, "gps_link")
 
+    return [
+        Node(
+            package="coug_fg",
+            executable="navsat_odom",
+            name="navsat_odom_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "map_frame": "map",
+                    "parameter_child_frame": gps_link_frame,
+                },
+            ],
+        ),
+        Node(
+            package="imu_filter_madgwick",
+            executable="imu_filter_madgwick_node",
+            name="imu_filter_madgwick",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
+            ],
+            remappings=[
+                ("imu/data_raw", "camera/imu/data_raw"),
+                ("imu/mag", "camera/imu/mag"),
+                ("imu/data", "camera/imu/data"),
+            ],
+        ),
+        Node(
+            package="robot_localization",
+            executable="ekf_node",
+            name="ekf_filter_node_odom",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "map_frame": "map",
+                    "odom_frame": odom_frame,
+                    "base_link_frame": base_link_frame,
+                    "world_frame": odom_frame,
+                },
+            ],
+            remappings=[("odometry/filtered", "odometry/local")],
+        ),
+        Node(
+            package="robot_localization",
+            executable="ekf_node",
+            name="ekf_filter_node_map",
+            parameters=[
+                fleet_param_file,
+                *initial_state_params,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "map_frame": "map",
+                    "odom_frame": odom_frame,
+                    "base_link_frame": base_link_frame,
+                    "world_frame": "map",
+                },
+            ],
+            remappings=[("odometry/filtered", "odometry/global")],
+        ),
+    ]
+
+
+def generate_launch_description() -> LaunchDescription:
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -59,72 +145,14 @@ def generate_launch_description() -> LaunchDescription:
                 "scenario_param_file",
                 default_value="",
             ),
-            Node(
-                package="coug_fg",
-                executable="navsat_odom",
-                name="navsat_odom_node",
-                parameters=[
-                    fleet_param_file,
-                    agent_param_file,
-                    scenario_param_file,
-                    {
-                        "use_sim_time": use_sim_time,
-                        "map_frame": "map",
-                        "parameter_child_frame": gps_link_frame,
-                    },
-                ],
+            DeclareLaunchArgument(
+                "initial_position",
+                default_value="",
             ),
-            Node(
-                package="imu_filter_madgwick",
-                executable="imu_filter_madgwick_node",
-                name="imu_filter_madgwick",
-                parameters=[
-                    fleet_param_file,
-                    agent_param_file,
-                    scenario_param_file,
-                    {"use_sim_time": use_sim_time},
-                ],
-                remappings=[
-                    ("imu/data_raw", "camera/imu/data_raw"),
-                    ("imu/mag", "camera/imu/mag"),
-                    ("imu/data", "camera/imu/data"),
-                ],
+            DeclareLaunchArgument(
+                "initial_orientation",
+                default_value="",
             ),
-            Node(
-                package="robot_localization",
-                executable="ekf_node",
-                name="ekf_filter_node_odom",
-                parameters=[
-                    fleet_param_file,
-                    agent_param_file,
-                    scenario_param_file,
-                    {
-                        "use_sim_time": use_sim_time,
-                        "map_frame": "map",
-                        "odom_frame": odom_frame,
-                        "base_link_frame": base_link_frame,
-                        "world_frame": odom_frame,
-                    },
-                ],
-                remappings=[("odometry/filtered", "odometry/local")],
-            ),
-            Node(
-                package="robot_localization",
-                executable="ekf_node",
-                name="ekf_filter_node_map",
-                parameters=[
-                    fleet_param_file,
-                    agent_param_file,
-                    scenario_param_file,
-                    {
-                        "use_sim_time": use_sim_time,
-                        "map_frame": "map",
-                        "odom_frame": odom_frame,
-                        "base_link_frame": base_link_frame,
-                        "world_frame": "map",
-                    },
-                ],
-                remappings=[("odometry/filtered", "odometry/global")],
-            ),
+            OpaqueFunction(function=launch_setup),
         ]
     )

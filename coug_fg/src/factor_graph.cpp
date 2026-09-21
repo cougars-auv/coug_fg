@@ -112,38 +112,6 @@ void FactorGraphNode::setupRosInterfaces() {
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-  global_odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(params_.global_odom_topic,
-                                                               rclcpp::SystemDefaultsQoS());
-  if (params_.publish_smoothed_path) {
-    smoothed_path_pub_ = create_publisher<nav_msgs::msg::Path>(params_.smoothed_path_topic,
-                                                               rclcpp::SystemDefaultsQoS());
-  }
-  if (params_.publish_velocity) {
-    vel_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
-        params_.velocity_topic, rclcpp::SystemDefaultsQoS());
-  }
-  if (params_.publish_imu_bias) {
-    imu_bias_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
-        params_.imu_bias_topic, rclcpp::SystemDefaultsQoS());
-  }
-  if (params_.publish_mag_bias) {
-    mag_bias_pub_ = create_publisher<sensor_msgs::msg::MagneticField>(params_.mag_bias_topic,
-                                                                      rclcpp::SystemDefaultsQoS());
-  }
-  if (params_.publish_graph_metrics) {
-    graph_metrics_pub_ =
-        create_publisher<GraphMetrics>(params_.graph_metrics_topic, rclcpp::SystemDefaultsQoS());
-  }
-  if (params_.multiagent.enable_multiagent) {
-    multiagent_pubs_.reserve(params_.multiagent_namespaces.size());
-    for (const auto& neighbor_ns : params_.multiagent_namespaces) {
-      const std::string odom_topic = "/" + neighbor_ns + "/" + params_.multiagent_global_odom_topic;
-
-      multiagent_pubs_.push_back(
-          create_publisher<nav_msgs::msg::Odometry>(odom_topic, rclcpp::SystemDefaultsQoS()));
-    }
-  }
-
   reset_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   reset_srv_ = create_service<std_srvs::srv::Trigger>(
       params_.reset_service,
@@ -225,6 +193,38 @@ void FactorGraphNode::setupRosInterfaces() {
           };
       multiagent_subs_.push_back(create_subscription<AgentStatus>(
           status_topic, rclcpp::SystemDefaultsQoS(), callback, sensor_options));
+    }
+  }
+
+  global_odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(params_.global_odom_topic,
+                                                               rclcpp::SystemDefaultsQoS());
+  if (params_.publish_smoothed_path) {
+    smoothed_path_pub_ = create_publisher<nav_msgs::msg::Path>(params_.smoothed_path_topic,
+                                                               rclcpp::SystemDefaultsQoS());
+  }
+  if (params_.publish_velocity) {
+    vel_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
+        params_.velocity_topic, rclcpp::SystemDefaultsQoS());
+  }
+  if (params_.publish_imu_bias) {
+    imu_bias_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
+        params_.imu_bias_topic, rclcpp::SystemDefaultsQoS());
+  }
+  if (params_.publish_mag_bias) {
+    mag_bias_pub_ = create_publisher<sensor_msgs::msg::MagneticField>(params_.mag_bias_topic,
+                                                                      rclcpp::SystemDefaultsQoS());
+  }
+  if (params_.publish_graph_metrics) {
+    graph_metrics_pub_ =
+        create_publisher<GraphMetrics>(params_.graph_metrics_topic, rclcpp::SystemDefaultsQoS());
+  }
+  if (params_.multiagent.enable_multiagent) {
+    multiagent_pubs_.reserve(params_.multiagent_namespaces.size());
+    for (const auto& neighbor_ns : params_.multiagent_namespaces) {
+      const std::string odom_topic = "/" + neighbor_ns + "/" + params_.multiagent_global_odom_topic;
+
+      multiagent_pubs_.push_back(
+          create_publisher<nav_msgs::msg::Odometry>(odom_topic, rclcpp::SystemDefaultsQoS()));
     }
   }
 

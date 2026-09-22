@@ -38,7 +38,6 @@ ESTIMATORS: dict[str, str] = {
     "global_lpi": "odometry/global_lpi",
     "global_tpi": "odometry/global_tpi",
     "global_tm": "",
-    "global_iekf": "odometry/global_iekf",
     "global_ukf": "odometry/global_ukf",
     "global_ekf": "odometry/global_ekf",
     "global_nbr": "base/odometry/global_nbr",

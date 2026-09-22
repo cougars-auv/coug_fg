@@ -92,7 +92,7 @@ TEST(WrenchDynamicsFactorArmTest, Residual) {
   const gtsam::Pose3 pose_j(gtsam::Rot3::Ypr(0.4, -0.1, 0.2), gtsam::Point3(2.0, 3.0, 4.0));
   const gtsam::Vector3 vel_i(1.0, -0.5, 0.2);
 
-  // Step the Fossen model forward once
+  // Step the dynamics model forward once
   const gtsam::Vector3 target_force = target_T_sensor.rotation().matrix() * control_force;
   const gtsam::Vector3 vel_target_i = pose_i.rotation().matrix().transpose() * vel_i;
   const gtsam::Vector3 drag_force = -(

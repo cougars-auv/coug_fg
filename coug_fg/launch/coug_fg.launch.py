@@ -19,6 +19,7 @@ from launch import LaunchContext, LaunchDescription
 from launch.action import Action
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
+from launch.substitution import Substitution
 from launch.substitutions import (
     EnvironmentVariable,
     EqualsSubstitution,
@@ -29,7 +30,7 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 
 
-def agent_frame(agent_ns: LaunchConfiguration, frame: str) -> PythonExpression:
+def agent_frame(agent_ns: str | Substitution, frame: str) -> PythonExpression:
     return PythonExpression(["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"])
 
 
@@ -317,13 +318,13 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             package="topic_tools",
             executable="relay",
             name="rtk_gps_truth_relay",
+            condition=IfCondition(EqualsSubstitution(agent_ns, "bluerov2")),
             parameters=[
                 fleet_param_file,
                 agent_param_file,
                 scenario_param_file,
                 {"use_sim_time": use_sim_time},
             ],
-            condition=IfCondition(EqualsSubstitution(agent_ns, "bluerov2")),
         ),
         # --- Robot Localization Pipeline ---
         Node(

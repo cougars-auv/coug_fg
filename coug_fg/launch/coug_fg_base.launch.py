@@ -16,6 +16,7 @@ from typing import Any
 
 import yaml
 from launch import LaunchContext, LaunchDescription
+from launch.action import Action
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import (
     EnvironmentVariable,
@@ -25,7 +26,7 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 
 
-def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Node]:
+def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Action]:
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_list_str = LaunchConfiguration("agent_list").perform(context)
 

@@ -18,6 +18,7 @@ from typing import Any
 from launch import LaunchContext, LaunchDescription
 from launch.action import Action
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.substitution import Substitution
 from launch.substitutions import (
     EnvironmentVariable,
     LaunchConfiguration,
@@ -27,7 +28,7 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 
 
-def agent_frame(agent_ns: LaunchConfiguration, frame: str) -> PythonExpression:
+def agent_frame(agent_ns: str | Substitution, frame: str) -> PythonExpression:
     return PythonExpression(["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"])
 
 
@@ -50,8 +51,8 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     agent_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), [agent_ns, "_params.yaml"]]
     )
-    scenario_param_file = PythonExpression(
-        ["'", LaunchConfiguration("scenario_param_file"), "' or '", agent_param_file, "'"]
+    scenario_param_file = (
+        LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file
     )
 
     odom_frame = agent_frame(agent_ns, "odom")

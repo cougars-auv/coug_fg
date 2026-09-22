@@ -259,17 +259,17 @@ factor_graph_node:
       default_value: 200.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
+    use_parameter_sigmas:
       type: bool
       default_value: false
-    parameter_covariance:
-      accel_noise_sigmas:
+    parameter_sigmas:
+      accel_noise_density_sigmas:
         type: double_array
         default_value: [0.00056, 0.00056, 0.00056]
         validation:
           fixed_size<>: [3]
           lower_element_bounds<>: [0.0]
-      gyro_noise_sigmas:
+      gyro_noise_density_sigmas:
         type: double_array
         default_value: [0.0000524, 0.0000524, 0.0000524]
         validation:
@@ -337,10 +337,10 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
+    use_parameter_sigmas:
       type: bool
       default_value: false
-    parameter_covariance:
+    parameter_sigmas:
       position_noise_sigmas:
         type: double_array
         default_value: [0.015, 0.015]
@@ -397,10 +397,10 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
+    use_parameter_sigmas:
       type: bool
       default_value: false
-    parameter_covariance:
+    parameter_sigmas:
       position_z_noise_sigma:
         type: double
         default_value: 0.02
@@ -456,10 +456,10 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
+    use_parameter_sigmas:
       type: bool
       default_value: false
-    parameter_covariance:
+    parameter_sigmas:
       magnetic_field_noise_sigmas:
         type: double_array
         default_value: [3.0e-07, 3.0e-07, 3.0e-07]
@@ -524,10 +524,10 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
+    use_parameter_sigmas:
       type: bool
       default_value: false
-    parameter_covariance:
+    parameter_sigmas:
       orientation_noise_sigmas:
         type: double_array
         default_value: [0.00698, 0.00698, 0.01745]
@@ -589,10 +589,10 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
+    use_parameter_sigmas:
       type: bool
       default_value: false
-    parameter_covariance:
+    parameter_sigmas:
       velocity_noise_sigmas:
         type: double_array
         default_value: [0.02, 0.02, 0.02]
@@ -691,10 +691,10 @@ factor_graph_node:
       default_value: 1.0
       validation:
         gt<>: [0.0]
-    use_parameter_covariance:
+    use_parameter_sigmas:
       type: bool
       default_value: false
-    parameter_covariance:
+    parameter_sigmas:
       sigmas:
         type: double_array
         default_value: [0.02, 0.02, 0.02, 0.02]
@@ -1003,10 +1003,10 @@ factor_graph_node:
       default_value: [0.0, 0.0, 0.0]
       validation:
         fixed_size<>: [3]
-    use_parameter_priors_covariance:
+    use_parameter_priors_sigmas:
       type: bool
       default_value: true
-    parameter_priors_covariance:
+    parameter_priors_sigmas:
       initial_position_sigmas:
         type: double_array
         default_value: [0.001, 0.001, 0.001]

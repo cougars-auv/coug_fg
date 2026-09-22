@@ -181,6 +181,11 @@ auto resolveVar(bool use_param, double sigma, double scalar, double msg_var,
   return msg_var * scalar;
 }
 
+auto resolveSigma(bool use_param, double sigma, double scalar, double msg_var,
+                  const std::string& sensor, const Logger& logger) -> double {
+  return std::sqrt(resolveVar(use_param, sigma, scalar, msg_var, sensor, logger));
+}
+
 auto applyRobustKernel(const gtsam::SharedNoiseModel& noise, const std::string& kernel, double k)
     -> gtsam::SharedNoiseModel {
   switch (parseRobustKernel(kernel)) {
@@ -309,28 +314,25 @@ auto FactorGraphCore::computeInitialPoseCovariance(const gtsam::Rot3& map_R_targ
                                                    const std::shared_ptr<OdometryData>& depth,
                                                    const std::shared_ptr<AhrsData>& ahrs) const
     -> gtsam::Matrix6 {
-  const auto& sigmas = params_.priors.parameter_priors_covariance;
+  const auto& sigmas = params_.priors.parameter_priors_sigmas;
   gtsam::Matrix3 map_orientation_cov = sigmasSquaredDiag(sigmas.initial_orientation_sigmas);
   gtsam::Matrix3 map_position_cov = sigmasSquaredDiag(sigmas.initial_position_sigmas);
 
-  if (!params_.priors.use_parameter_priors && !params_.priors.use_parameter_priors_covariance) {
+  if (!params_.priors.use_parameter_priors && !params_.priors.use_parameter_priors_sigmas) {
     if (ahrs) {
       map_orientation_cov = resolveCov<3>(
-          params_.ahrs.use_parameter_covariance,
-          params_.ahrs.parameter_covariance.orientation_noise_sigmas,
+          params_.ahrs.use_parameter_sigmas, params_.ahrs.parameter_sigmas.orientation_noise_sigmas,
           params_.ahrs.covariance_scalar, ahrs->orientation_covariance, "AHRS", logger_);
     }
     if (gps) {
       map_position_cov.topLeftCorner<2, 2>() = resolveCov<2>(
-          params_.gps.use_parameter_covariance,
-          params_.gps.parameter_covariance.position_noise_sigmas, params_.gps.covariance_scalar,
-          gps->pose_covariance.block<2, 2>(3, 3), "GPS", logger_);
+          params_.gps.use_parameter_sigmas, params_.gps.parameter_sigmas.position_noise_sigmas,
+          params_.gps.covariance_scalar, gps->pose_covariance.block<2, 2>(3, 3), "GPS", logger_);
     }
     if (depth) {
-      map_position_cov(2, 2) = resolveVar(params_.depth.use_parameter_covariance,
-                                          params_.depth.parameter_covariance.position_z_noise_sigma,
-                                          params_.depth.covariance_scalar,
-                                          depth->pose_covariance(5, 5), "Depth", logger_);
+      map_position_cov(2, 2) = resolveVar(
+          params_.depth.use_parameter_sigmas, params_.depth.parameter_sigmas.position_z_noise_sigma,
+          params_.depth.covariance_scalar, depth->pose_covariance(5, 5), "Depth", logger_);
     }
   }
 
@@ -362,14 +364,13 @@ auto FactorGraphCore::computeInitialVelocityCovariance(
     const gtsam::Matrix3& target_orientation_cov) const -> gtsam::Matrix3 {
   gtsam::Matrix3 map_velocity_cov;
 
-  if (!params_.priors.use_parameter_priors && !params_.priors.use_parameter_priors_covariance &&
-      dvl) {
+  if (!params_.priors.use_parameter_priors && !params_.priors.use_parameter_priors_sigmas && dvl) {
     // Account for DVL rotation
     const gtsam::Matrix3 map_R_dvl = (map_R_target * tfs_.target_T_dvl.rotation()).matrix();
     const gtsam::Matrix3 dvl_velocity_cov = resolveCov<3>(
-        params_.dvl.use_parameter_covariance,
-        params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
-        dvl->velocity_covariance.bottomRightCorner<3, 3>(), "DVL", logger_);
+        params_.dvl.use_parameter_sigmas, params_.dvl.parameter_sigmas.velocity_noise_sigmas,
+        params_.dvl.covariance_scalar, dvl->velocity_covariance.bottomRightCorner<3, 3>(), "DVL",
+        logger_);
 
     // Conjugate DVL velocity covariance into the map frame
     map_velocity_cov = map_R_dvl * dvl_velocity_cov * map_R_dvl.transpose();
@@ -379,7 +380,7 @@ auto FactorGraphCore::computeInitialVelocityCovariance(
     // Conjugate prior velocity covariance into the map frame
     map_velocity_cov =
         map_R_base *
-        sigmasSquaredDiag(params_.priors.parameter_priors_covariance.initial_velocity_sigmas) *
+        sigmasSquaredDiag(params_.priors.parameter_priors_sigmas.initial_velocity_sigmas) *
         map_R_base.transpose();
   }
 
@@ -482,14 +483,14 @@ auto FactorGraphCore::configureImuPreintegration(const InitialState& init_state)
   imu_params->body_P_sensor = tfs_.target_T_imu;
 
   // GTSAM preintegration requires continuous-time densities
-  const bool use_param_cov = params_.imu.use_parameter_covariance;
+  const bool use_param_sigmas = params_.imu.use_parameter_sigmas;
   const double imu_dt = 1.0 / params_.imu.sensor_rate_hz;
   imu_params->accelerometerCovariance =
-      resolveCov<3>(use_param_cov, params_.imu.parameter_covariance.accel_noise_sigmas,
+      resolveCov<3>(use_param_sigmas, params_.imu.parameter_sigmas.accel_noise_density_sigmas,
                     params_.imu.covariance_scalar, init_state.imu->linear_acceleration_covariance,
                     "IMU accelerometer", logger_, imu_dt);
   imu_params->gyroscopeCovariance =
-      resolveCov<3>(use_param_cov, params_.imu.parameter_covariance.gyro_noise_sigmas,
+      resolveCov<3>(use_param_sigmas, params_.imu.parameter_sigmas.gyro_noise_density_sigmas,
                     params_.imu.covariance_scalar, init_state.imu->angular_velocity_covariance,
                     "IMU gyroscope", logger_, imu_dt);
   imu_params->biasAccCovariance = sigmasSquaredDiag(params_.imu.accel_bias_rw_sigmas);
@@ -592,12 +593,12 @@ auto FactorGraphCore::initialize(double init_time, const QueueBundle& queues, co
     if (params_.dvl.enable_dvl) {
       last_dvl_vel_ = init_state.dvl->linear_velocity;
       last_dvl_cov_ = resolveCov<3>(
-          params_.dvl.use_parameter_covariance,
-          params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
+          params_.dvl.use_parameter_sigmas, params_.dvl.parameter_sigmas.velocity_noise_sigmas,
+          params_.dvl.covariance_scalar,
           init_state.dvl->velocity_covariance.bottomRightCorner<3, 3>(), "DVL", logger_);
     } else {
       last_dvl_vel_ = gtsam::Vector3::Zero();
-      last_dvl_cov_ = sigmasSquaredDiag(params_.dvl.parameter_covariance.velocity_noise_sigmas) *
+      last_dvl_cov_ = sigmasSquaredDiag(params_.dvl.parameter_sigmas.velocity_noise_sigmas) *
                       params_.dvl.covariance_scalar;
     }
   }
@@ -643,7 +644,7 @@ void FactorGraphCore::addGpsFactor(gtsam::NonlinearFactorGraph& graph,
   const auto& gps_msg = gps_msgs.back();
 
   gtsam::SharedNoiseModel gps_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<2>(
-      params_.gps.use_parameter_covariance, params_.gps.parameter_covariance.position_noise_sigmas,
+      params_.gps.use_parameter_sigmas, params_.gps.parameter_sigmas.position_noise_sigmas,
       params_.gps.covariance_scalar, gps_msg->pose_covariance.block<2, 2>(3, 3), "GPS", logger_));
 
   gps_noise = applyRobustKernel(gps_noise, params_.gps.robust_kernel, params_.gps.robust_k);
@@ -660,10 +661,9 @@ void FactorGraphCore::addDepthFactor(gtsam::NonlinearFactorGraph& graph,
 
   const auto& depth_msg = depth_msgs.back();
 
-  const double depth_sigma = std::sqrt(resolveVar(
-      params_.depth.use_parameter_covariance,
-      params_.depth.parameter_covariance.position_z_noise_sigma, params_.depth.covariance_scalar,
-      depth_msg->pose_covariance(5, 5), "Depth", logger_));
+  const double depth_sigma = resolveSigma(
+      params_.depth.use_parameter_sigmas, params_.depth.parameter_sigmas.position_z_noise_sigma,
+      params_.depth.covariance_scalar, depth_msg->pose_covariance(5, 5), "Depth", logger_);
   gtsam::SharedNoiseModel depth_noise = gtsam::noiseModel::Isotropic::Sigma(1, depth_sigma);
 
   depth_noise = applyRobustKernel(depth_noise, params_.depth.robust_kernel, params_.depth.robust_k);
@@ -684,9 +684,8 @@ void FactorGraphCore::addMagFactor(gtsam::NonlinearFactorGraph& graph,
                               params_.mag.reference_field[2]);
 
   gtsam::SharedNoiseModel mag_noise = gtsam::noiseModel::Gaussian::Covariance(resolveCov<3>(
-      params_.mag.use_parameter_covariance,
-      params_.mag.parameter_covariance.magnetic_field_noise_sigmas, params_.mag.covariance_scalar,
-      mag_msg->magnetic_field_covariance, "Mag", logger_));
+      params_.mag.use_parameter_sigmas, params_.mag.parameter_sigmas.magnetic_field_noise_sigmas,
+      params_.mag.covariance_scalar, mag_msg->magnetic_field_covariance, "Mag", logger_));
 
   mag_noise = applyRobustKernel(mag_noise, params_.mag.robust_kernel, params_.mag.robust_k);
 
@@ -710,12 +709,11 @@ void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
   const auto& ahrs_msg = ahrs_msgs.back();
 
   if (params_.ahrs.constrain_yaw_only) {
-    const double ahrs_yaw_var = resolveVar(
-        params_.ahrs.use_parameter_covariance,
-        params_.ahrs.parameter_covariance.orientation_noise_sigmas[2],
-        params_.ahrs.covariance_scalar, ahrs_msg->orientation_covariance(2, 2), "AHRS", logger_);
-    gtsam::SharedNoiseModel ahrs_noise =
-        gtsam::noiseModel::Isotropic::Sigma(1, std::sqrt(ahrs_yaw_var));
+    const double ahrs_yaw_sigma = resolveSigma(
+        params_.ahrs.use_parameter_sigmas,
+        params_.ahrs.parameter_sigmas.orientation_noise_sigmas[2], params_.ahrs.covariance_scalar,
+        ahrs_msg->orientation_covariance(2, 2), "AHRS", logger_);
+    gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Isotropic::Sigma(1, ahrs_yaw_sigma);
 
     ahrs_noise = applyRobustKernel(ahrs_noise, params_.ahrs.robust_kernel, params_.ahrs.robust_k);
 
@@ -725,9 +723,8 @@ void FactorGraphCore::addAhrsFactor(gtsam::NonlinearFactorGraph& graph,
   }
 
   const gtsam::Matrix3 map_ahrs_cov = resolveCov<3>(
-      params_.ahrs.use_parameter_covariance,
-      params_.ahrs.parameter_covariance.orientation_noise_sigmas, params_.ahrs.covariance_scalar,
-      ahrs_msg->orientation_covariance, "AHRS", logger_);
+      params_.ahrs.use_parameter_sigmas, params_.ahrs.parameter_sigmas.orientation_noise_sigmas,
+      params_.ahrs.covariance_scalar, ahrs_msg->orientation_covariance, "AHRS", logger_);
 
   // Conjugate map-frame orientation covariance into the sensor-frame tangent space
   gtsam::SharedNoiseModel ahrs_noise = gtsam::noiseModel::Gaussian::Covariance(
@@ -749,7 +746,7 @@ void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,
   const auto& dvl_msg = dvl_msgs.back();
 
   gtsam::Matrix3 dvl_velocity_cov = resolveCov<3>(
-      params_.dvl.use_parameter_covariance, params_.dvl.parameter_covariance.velocity_noise_sigmas,
+      params_.dvl.use_parameter_sigmas, params_.dvl.parameter_sigmas.velocity_noise_sigmas,
       params_.dvl.covariance_scalar, dvl_msg->velocity_covariance.bottomRightCorner<3, 3>(), "DVL",
       logger_);
 
@@ -875,9 +872,8 @@ void FactorGraphCore::addDvlLoosePreintFactor(
 
   // Propagate AHRS orientation uncertainty into the preintegrated translation covariance
   const gtsam::Matrix3 map_ahrs_cov = resolveCov<3>(
-      params_.ahrs.use_parameter_covariance,
-      params_.ahrs.parameter_covariance.orientation_noise_sigmas, params_.ahrs.covariance_scalar,
-      ahrs_msgs.back()->orientation_covariance, "AHRS", logger_);
+      params_.ahrs.use_parameter_sigmas, params_.ahrs.parameter_sigmas.orientation_noise_sigmas,
+      params_.ahrs.covariance_scalar, ahrs_msgs.back()->orientation_covariance, "AHRS", logger_);
 
   const gtsam::Rot3 map_R_ahrs_prev = getInterpolatedOrientation(ahrs_msgs, prev_time_);
 
@@ -905,9 +901,9 @@ void FactorGraphCore::addDvlLoosePreintFactor(
     last_dvl_vel_ = dvl_msg->linear_velocity;
 
     last_dvl_cov_ = resolveCov<3>(
-        params_.dvl.use_parameter_covariance,
-        params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
-        dvl_msg->velocity_covariance.bottomRightCorner<3, 3>(), "DVL", logger_);
+        params_.dvl.use_parameter_sigmas, params_.dvl.parameter_sigmas.velocity_noise_sigmas,
+        params_.dvl.covariance_scalar, dvl_msg->velocity_covariance.bottomRightCorner<3, 3>(),
+        "DVL", logger_);
     last_dvl_time = curr_dvl_time;
   }
 
@@ -1033,9 +1029,9 @@ void FactorGraphCore::addDvlTightPreintFactor(
 
     last_dvl_vel_ = dvl_msg->linear_velocity;
     last_dvl_cov_ = resolveCov<3>(
-        params_.dvl.use_parameter_covariance,
-        params_.dvl.parameter_covariance.velocity_noise_sigmas, params_.dvl.covariance_scalar,
-        dvl_msg->velocity_covariance.bottomRightCorner<3, 3>(), "DVL", logger_);
+        params_.dvl.use_parameter_sigmas, params_.dvl.parameter_sigmas.velocity_noise_sigmas,
+        params_.dvl.covariance_scalar, dvl_msg->velocity_covariance.bottomRightCorner<3, 3>(),
+        "DVL", logger_);
     last_dvl_time = curr_dvl_time;
   }
 

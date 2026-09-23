@@ -44,7 +44,7 @@ def _evaluate_agent(bag: str, agent: str, recorded: set[str], evo_flags: list[st
     if gt_tum is None:
         return
 
-    logger.info(f"Evaluating agent: {agent}")
+    logger.info(f"Evaluating agent: '{agent}'.")
     for key, est_topic in evo_cli.ESTIMATORS.items():
         out_dir = agent_dir / key
         topic = f"/{agent}/{est_topic}" if est_topic else None
@@ -52,7 +52,7 @@ def _evaluate_agent(bag: str, agent: str, recorded: set[str], evo_flags: list[st
         if est_tum is None:
             continue
 
-        logger.info(f"Evaluating estimator: {key}")
+        logger.info(f"Evaluating estimator: '{key}'.")
         evo_cli.run_evo_evaluations(gt_tum, est_tum, out_dir, evo_flags)
 
     evo_cli.build_benchmark_tables(agent_dir)
@@ -68,7 +68,7 @@ def main() -> None:
     setup_logging()
     evo_flags = args.evo_flags.split()
     for bag in args.bags:
-        logger.info(f"Evaluating bag: {bag}")
+        logger.info(f"Evaluating bag: '{bag}'.")
         recorded = _recorded_topics(bag)
         for agent in args.agents:
             _evaluate_agent(bag, agent, recorded, evo_flags)

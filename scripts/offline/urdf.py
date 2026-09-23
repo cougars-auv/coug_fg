@@ -116,7 +116,7 @@ def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
     for urdf_dir in _urdf_search_dirs():
         candidate = urdf_dir / urdf_file
         if candidate.is_file():
-            logger.info(f"URDF loaded: {candidate}")
+            logger.info(f"URDF loaded: '{candidate}'.")
             return str(candidate)
 
     logger.warning(f"URDF '{urdf_file}' not found; sensor transforms must come from params.")

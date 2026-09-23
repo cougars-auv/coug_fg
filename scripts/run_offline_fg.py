@@ -50,12 +50,12 @@ def _config_paths(config_dir: Path, namespace: str) -> list[str]:
 def _save_config(config_dir: Path, dest_dir: Path) -> None:
     dest = dest_dir / "config"
     shutil.copytree(config_dir, dest, dirs_exist_ok=True)
-    logger.info(f"Config saved: {dest}")
+    logger.info(f"Config saved: '{dest}'.")
 
 
 def _save_plot(fig: Figure, dest: Path) -> None:
     fig.savefig(dest, dpi=150)
-    logger.info(f"State plot saved: {dest}")
+    logger.info(f"State plot saved: '{dest}'.")
 
 
 def main() -> None:
@@ -74,7 +74,7 @@ def main() -> None:
 
     with logging_redirect_tqdm():
         for bag in args.bags:
-            logger.info(f"Processing bag: {bag}")
+            logger.info(f"Processing bag: '{bag}'.")
             pose_gt, gt_path = evo_cli.load_ground_truth(bag, args.namespace)
             results = pipeline.process_bag_offline(bag, cfg_paths, args.namespace)
             if not results:

@@ -35,7 +35,7 @@ def _replay_messages(
         logger.error("No sensor topics in the bag match the configuration.")
         return False
 
-    conn_str = "\n".join(f"  - {c.topic} ({topic_to_sensors[c.topic]})" for c in matched_conns)
+    conn_str = "\n".join(f"  - '{c.topic}' ({topic_to_sensors[c.topic]})" for c in matched_conns)
     logger.info(f"Matched {len(matched_conns)} sensor topic(s):\n{conn_str}")
 
     for conn, _, rawdata in tqdm(
@@ -60,7 +60,7 @@ def process_bag_offline(
 ) -> dict[str, Any] | None:
     urdf_path = resolve_urdf_path(namespace, config_paths)
 
-    cfg_str = "\n".join(f"  - {p}" for p in config_paths)
+    cfg_str = "\n".join(f"  - '{p}'" for p in config_paths)
     logger.info(f"Loaded {len(config_paths)} config file(s):\n{cfg_str}")
 
     urdf = UrdfTree(urdf_path) if urdf_path else None

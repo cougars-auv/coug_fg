@@ -136,7 +136,7 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstShar
   }
 
   if (msg->position_covariance_type == sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_UNKNOWN) {
-    RCLCPP_ERROR(get_logger(), "Rejected GPS fix: position covariance type is unknown.");
+    RCLCPP_WARN(get_logger(), "Rejected GPS fix: position covariance type is unknown.");
     return;
   }
 

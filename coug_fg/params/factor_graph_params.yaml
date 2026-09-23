@@ -48,14 +48,14 @@ factor_graph_node:
       one_of<>: [["IncrementalFixedLagSmoother", "ISAM2", "LevenbergMarquardt"]]
   max_update_rate_hz:
     type: double
-    default_value: -1.0
+    default_value: 0.0
     validation:
-      gt_eq<>: [-1.0]
+      gt_eq<>: [0.0]
   max_opt_rate_hz:
     type: double
-    default_value: -1.0
+    default_value: 0.0
     validation:
-      gt_eq<>: [-1.0]
+      gt_eq<>: [0.0]
   smoother_lag_sec:
     type: double
     default_value: 20.0

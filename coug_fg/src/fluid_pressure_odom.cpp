@@ -22,7 +22,6 @@
 #include <rclcpp_components/register_node_macro.hpp>
 #include <string>
 #include <tf2/LinearMath/Quaternion.hpp>
-#include <tf2/convert.hpp>
 #include <tf2/exceptions.hpp>
 #include <tf2/time.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>

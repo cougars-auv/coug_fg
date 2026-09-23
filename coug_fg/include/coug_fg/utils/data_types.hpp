@@ -77,20 +77,20 @@ struct WrenchData {
 };
 
 struct AgentStatusData {
+  gtsam::Matrix66 pose_covariance;
   double timestamp{0.0};
   gtsam::Pose3 pose;
-  gtsam::Matrix66 pose_covariance;
-  bool includes_depth{false};
   double pressure_depth{0.0};
-  bool includes_ahrs{false};
   gtsam::Rot3 ahrs_orientation;
-  bool includes_range{false};
   double range_dist{0.0};
-  bool includes_usbl{false};
   double usbl_azimuth{0.0};
   double usbl_elevation{0.0};
-  bool includes_position{false};
   double position_depth{0.0};
+  bool includes_depth{false};
+  bool includes_ahrs{false};
+  bool includes_range{false};
+  bool includes_usbl{false};
+  bool includes_position{false};
 };
 
 struct QueueBundle {

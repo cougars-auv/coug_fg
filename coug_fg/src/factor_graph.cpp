@@ -430,7 +430,8 @@ FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
   };
   if (!source_enabled(keyframe_source_) || !source_enabled(backup_keyframe_source_)) {
     RCLCPP_FATAL(get_logger(),
-                 "Keyframe source '%s' or backup '%s' references a disabled sensor. Shutting down.",
+                 "Invalid keyframe configuration: source '%s' or backup '%s' uses a disabled "
+                 "sensor. Shutting down.",
                  params_.keyframe_source.c_str(), params_.backup_keyframe_source.c_str());
     throw std::runtime_error("Invalid keyframe source configuration.");
   }
@@ -525,8 +526,9 @@ auto FactorGraphNode::loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_ou
         tf_out = tf_buffer_->lookupTransform(params_.target_frame, child_frame, tf2::TimePointZero);
       }
     } catch (const tf2::TransformException& ex) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
-                           params_.target_frame.c_str(), child_frame.c_str(), ex.what());
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                           "Failed to look up transform from '%s' to '%s': %s", child_frame.c_str(),
+                           params_.target_frame.c_str(), ex.what());
     }
   }
 
@@ -674,8 +676,9 @@ void FactorGraphNode::broadcastGlobalTf(const gtsam::Pose3& curr_pose,
     tf_msg.transform.rotation = toQuatMsg(map_T_odom.rotation());
     tf_broadcaster_->sendTransform(tf_msg);
   } catch (const tf2::TransformException& ex) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
-                         params_.odom_frame.c_str(), params_.base_frame.c_str(), ex.what());
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                         "Failed to look up transform from '%s' to '%s': %s",
+                         params_.base_frame.c_str(), params_.odom_frame.c_str(), ex.what());
   }
 }
 
@@ -795,7 +798,7 @@ void FactorGraphNode::initializeGraph() {
   }
 
   is_initialized_.store(true);
-  RCLCPP_INFO(get_logger(), "Graph initialized successfully.");
+  RCLCPP_INFO(get_logger(), "Graph initialized.");
 }
 
 void FactorGraphNode::updateGraph() {
@@ -811,13 +814,14 @@ void FactorGraphNode::updateGraph() {
          (*newest_stamp - *last_received) > params_.keyframe_timeout_sec)) {
       if (backup_keyframe_source_ != KeyframeSource::kNone) {
         active_source = backup_keyframe_source_;
-        RCLCPP_WARN(get_logger(), "Primary keyframe source '%s' timed out. Using backup '%s'.",
-                    params_.keyframe_source.c_str(), params_.backup_keyframe_source.c_str());
+        RCLCPP_WARN(get_logger(), "Keyframe source '%s' timed out after %.1f s; using backup '%s'.",
+                    params_.keyframe_source.c_str(), params_.keyframe_timeout_sec,
+                    params_.backup_keyframe_source.c_str());
       } else {
         RCLCPP_ERROR(get_logger(),
-                     "Primary keyframe source '%s' timed out and no backup is configured. "
-                     "No new keyframes will be created.",
-                     params_.keyframe_source.c_str());
+                     "Keyframe source '%s' timed out after %.1f s and no backup is configured; "
+                     "no new keyframes will be created.",
+                     params_.keyframe_source.c_str(), params_.keyframe_timeout_sec);
       }
     }
   }
@@ -839,7 +843,7 @@ void FactorGraphNode::updateGraph() {
   if (last_target_time_.has_value() &&
       (*target_time - *last_target_time_) < params_.min_keyframe_interval_sec) {
     RCLCPP_WARN(get_logger(),
-                "Keyframe rejected: only %.4f s since the last keyframe (minimum %.4f s).",
+                "Rejected keyframe: %.3f s since the last keyframe is below the %.3f s minimum.",
                 *target_time - *last_target_time_, params_.min_keyframe_interval_sec);
     return;
   }
@@ -895,7 +899,8 @@ void FactorGraphNode::optimizeGraph() {
     processing_overflow_.store(result->processing_overflow);
 
     if (result->processing_overflow) {
-      RCLCPP_WARN(get_logger(), "Processing overflow. Batching %zu keyframes.",
+      RCLCPP_WARN(get_logger(),
+                  "Processing overflow: batching %zu keyframes into one optimization.",
                   result->new_keyframes);
     }
 
@@ -1053,7 +1058,7 @@ void FactorGraphNode::checkGraphStatus(diagnostic_updater::DiagnosticStatusWrapp
 void FactorGraphNode::resetGraph(
     const std_srvs::srv::Trigger::Request::SharedPtr& /*request*/,
     const std::shared_ptr<std_srvs::srv::Trigger::Response>& response) {
-  RCLCPP_WARN(get_logger(), "Reset requested.");
+  RCLCPP_WARN(get_logger(), "Graph reset requested; discarding the current estimate.");
 
   const std::unique_lock reset_lock(reset_mutex_);
 
@@ -1092,9 +1097,9 @@ void FactorGraphNode::resetGraph(
   total_factors_.store(0);
   total_variables_.store(0);
 
-  RCLCPP_INFO(get_logger(), "Graph reset successfully.");
+  RCLCPP_INFO(get_logger(), "Graph reset.");
   response->success = true;
-  response->message = "Graph reset successfully.";
+  response->message = "Graph reset.";
 }
 
 }  // namespace coug_fg

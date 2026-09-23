@@ -32,11 +32,11 @@ def _replay_messages(
 ) -> bool:
     matched_conns = [c for c in reader.connections if c.topic in topic_to_sensors]
     if not matched_conns:
-        logger.error("No matching sensor topics found in the bag.")
+        logger.error("No sensor topics in the bag match the configuration.")
         return False
 
     conn_str = "\n".join(f"  - {c.topic} ({topic_to_sensors[c.topic]})" for c in matched_conns)
-    logger.info(f"Matched sensor topics:\n{conn_str}")
+    logger.info(f"Matched {len(matched_conns)} sensor topic(s):\n{conn_str}")
 
     for conn, _, rawdata in tqdm(
         reader.messages(connections=matched_conns),
@@ -50,7 +50,7 @@ def _replay_messages(
                 frame_id, measurement = EXTRACTORS[key](msg)
                 graph.add_message(sensor, frame_id, measurement)
         except Exception as e:  # noqa: BLE001
-            logger.error(f"Failed replaying {conn.topic}: {e}")
+            logger.error(f"Failed to replay '{conn.topic}': {e}")
             return False
     return True
 
@@ -61,7 +61,7 @@ def process_bag_offline(
     urdf_path = resolve_urdf_path(namespace, config_paths)
 
     cfg_str = "\n".join(f"  - {p}" for p in config_paths)
-    logger.info(f"Loaded config files:\n{cfg_str}")
+    logger.info(f"Loaded {len(config_paths)} config file(s):\n{cfg_str}")
 
     urdf = UrdfTree(urdf_path) if urdf_path else None
     graph = OfflineFactorGraph(config_paths, namespace, urdf)
@@ -73,14 +73,14 @@ def process_bag_offline(
         try:
             graph.finalize()
         except Exception as e:  # noqa: BLE001
-            logger.error(f"Final optimization failed: {e}")
+            logger.error(f"Failed to run the final optimization: {e}")
 
     results = graph.get_results()
     if results is None:
         logger.error(
             "Graph initialized but produced no results."
             if graph.is_initialized
-            else "Graph never initialized."
+            else "Graph never initialized; check that the bag has the required sensor data."
         )
 
     return results

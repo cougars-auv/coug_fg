@@ -75,7 +75,7 @@ def _read_urdf_param(yaml_path: Path, top_keys: list[str]) -> str | None:
     except OSError:
         return None
     except yaml.YAMLError as e:
-        logger.error(f"Could not parse params file {yaml_path}: {e}")
+        logger.error(f"Failed to parse params file '{yaml_path}': {e}")
         return None
 
     for top_key in top_keys:
@@ -110,14 +110,14 @@ def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
 
     urdf_file = urdf_file or _read_fleet_urdf_param(config_paths)
     if urdf_file is None:
-        logger.warning("No urdf_file in any config; sensor TFs must come from params.")
+        logger.warning("No 'urdf_file' set in any config; sensor transforms must come from params.")
         return None
 
     for urdf_dir in _urdf_search_dirs():
         candidate = urdf_dir / urdf_file
         if candidate.is_file():
-            logger.info(f"Loaded URDF: {candidate}")
+            logger.info(f"URDF loaded: {candidate}")
             return str(candidate)
 
-    logger.warning(f"URDF '{urdf_file}' not found; sensor TFs must come from params.")
+    logger.warning(f"URDF '{urdf_file}' not found; sensor transforms must come from params.")
     return None

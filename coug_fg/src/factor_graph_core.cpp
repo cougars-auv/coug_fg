@@ -1386,7 +1386,7 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
 
   if (queues.imu.empty() || queues.imu.front()->timestamp > target_time) {
     logger_.log(LogLevel::kWarn,
-                "Keyframe rejected: no IMU measurements at or before the keyframe time.");
+                "Rejected keyframe: no IMU measurements at or before the keyframe time.");
     return std::nullopt;
   }
 

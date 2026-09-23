@@ -81,11 +81,13 @@ void FluidPressureOdomNode::pressureCallback(
       std::abs(pressure - last_pressure_) > params_.max_pressure_delta) {
     rejected_count_++;
     if (rejected_count_ <= params_.max_consecutive_rejections) {
-      RCLCPP_WARN(get_logger(), "Rejected pressure spike.");
+      RCLCPP_WARN(get_logger(), "Rejected pressure spike: %.1f Pa change exceeds %.1f Pa (%d/%ld).",
+                  std::abs(pressure - last_pressure_), params_.max_pressure_delta, rejected_count_,
+                  params_.max_consecutive_rejections);
       return;
     }
-    RCLCPP_WARN(get_logger(), "Accepting pressure step after %d consecutive rejections.",
-                rejected_count_);
+    RCLCPP_WARN(get_logger(), "Accepted %.1f Pa pressure step after %d consecutive rejections.",
+                std::abs(pressure - last_pressure_), rejected_count_);
   }
   rejected_count_ = 0;
   last_pressure_ = pressure;
@@ -111,7 +113,8 @@ void FluidPressureOdomNode::calibrateCallback(
 
   if (last_pressure_ < 0.0) {
     response->success = false;
-    response->message = "No pressure data.";
+    response->message = "Failed to calibrate depth: no pressure data received.";
+    RCLCPP_WARN(get_logger(), "%s", response->message.c_str());
     return;
   }
 
@@ -120,9 +123,9 @@ void FluidPressureOdomNode::calibrateCallback(
   rejected_count_ = 0;
 
   response->success = true;
-  response->message = "Depth calibrated.";
-  RCLCPP_INFO(get_logger(), "Depth calibrated: zero reference set to %.1f Pa.",
-              calibrated_pressure_);
+  response->message = "Depth calibrated: zero reference set to " +
+                      std::to_string(std::lround(calibrated_pressure_)) + " Pa.";
+  RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
 }
 
 void FluidPressureOdomNode::ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
@@ -145,8 +148,9 @@ auto FluidPressureOdomNode::resolveOrientation(const std::string& depth_frame)
     ahrs_T_depth_tf =
         tf_buffer_->lookupTransform(last_ahrs_->header.frame_id, depth_frame, tf2::TimePointZero);
   } catch (const tf2::TransformException& ex) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
-                         last_ahrs_->header.frame_id.c_str(), depth_frame.c_str(), ex.what());
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                         "Failed to look up transform from '%s' to '%s': %s", depth_frame.c_str(),
+                         last_ahrs_->header.frame_id.c_str(), ex.what());
     return map_R_depth;
   }
 

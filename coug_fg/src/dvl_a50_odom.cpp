@@ -66,8 +66,9 @@ void DvlA50OdomNode::dvlCallback(const dvl_msgs::msg::DVLDR::ConstSharedPtr& msg
   try {
     dvl_T_base_tf = tf_buffer_->lookupTransform(dvl_frame, params_.base_frame, tf2::TimePointZero);
   } catch (const tf2::TransformException& ex) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
-                         dvl_frame.c_str(), params_.base_frame.c_str(), ex.what());
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                         "Failed to look up transform from '%s' to '%s': %s",
+                         params_.base_frame.c_str(), dvl_frame.c_str(), ex.what());
     return;
   }
 

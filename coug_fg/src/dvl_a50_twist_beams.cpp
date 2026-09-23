@@ -84,7 +84,8 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
     const bool should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
     if (should_drop) {
       if (!is_simulating_dropout_) {
-        RCLCPP_WARN(get_logger(), "Simulating DVL dropout.");
+        RCLCPP_WARN(get_logger(), "Simulated DVL dropout started (%.1f s every %.1f s).",
+                    params_.dropout_duration_sec, cycle_period);
         is_simulating_dropout_ = true;
       }
       return;
@@ -96,7 +97,9 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
     twist_pub_->publish(convertToTwist(msg, false));
     twist_fom_pub_->publish(convertToTwist(msg, true));
   } else {
-    RCLCPP_WARN(get_logger(), "Received invalid DVL velocity.");
+    RCLCPP_WARN(get_logger(),
+                "Rejected DVL velocity: flagged invalid and FOM %.3f m/s exceeds %.3f m/s.",
+                msg->fom, params_.fom_valid_threshold);
   }
 
   if (!msg->beams.empty()) {
@@ -151,7 +154,8 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
     const double var_vel = msg->fom * params_.fom_covariance_scale;
     cov_out.topLeftCorner<3, 3>() = Eigen::Vector3d::Constant(var_vel).asDiagonal();
   } else if (msg->covariance.size() < kDvlCovarianceSize) {
-    RCLCPP_WARN(get_logger(), "Received DVL covariance with %zu elements, expected %zu.",
+    RCLCPP_WARN(get_logger(),
+                "Received DVL covariance with %zu elements (expected %zu); marking it unknown.",
                 msg->covariance.size(), kDvlCovarianceSize);
     cov_out(0, 0) = kUnknownCovariance;
   } else {
@@ -182,7 +186,7 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
   beams_msg.beams.reserve(msg->beams.size());
   for (const auto& in : msg->beams) {
     if (in.id < 0 || static_cast<size_t>(in.id) >= beam_frames_.size()) {
-      RCLCPP_WARN(get_logger(), "Received unexpected DVL beam id %ld.", in.id);
+      RCLCPP_WARN(get_logger(), "Rejected DVL beam: unexpected beam ID %ld.", in.id);
       continue;
     }
 

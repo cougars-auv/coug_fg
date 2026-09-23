@@ -92,7 +92,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
     origin.longitude = params_.origin_longitude;
     origin.altitude = params_.origin_altitude;
     setOrigin(origin);
-    RCLCPP_INFO(get_logger(), "Parameter origin set: Lat %.6f, Lon %.6f, Alt %.2f",
+    RCLCPP_INFO(get_logger(), "Origin set from parameters: lat %.6f, lon %.6f, alt %.2f m.",
                 origin_navsat_.latitude, origin_navsat_.longitude, origin_navsat_.altitude);
   }
 
@@ -115,14 +115,14 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
 void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
   if (!origin_set_ && msg->status.status >= sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
     setOrigin(*msg);
-    RCLCPP_INFO(get_logger(), "GPS origin received: Lat %.6f, Lon %.6f, Alt %.2f",
+    RCLCPP_INFO(get_logger(), "Origin set from origin topic: lat %.6f, lon %.6f, alt %.2f m.",
                 origin_navsat_.latitude, origin_navsat_.longitude, origin_navsat_.altitude);
   }
 }
 
 void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
   if (msg->status.status == sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX) {
-    RCLCPP_WARN(get_logger(), "Received NavSatFix with no fix.");
+    RCLCPP_WARN(get_logger(), "Rejected GPS fix: no fix.");
     return;
   }
 
@@ -131,13 +131,13 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstShar
       return;
     }
     setOrigin(*msg);
-    RCLCPP_INFO(get_logger(), "GPS origin set: Lat %.6f, Lon %.6f, Alt %.2f",
+    RCLCPP_INFO(get_logger(), "Origin set from first GPS fix: lat %.6f, lon %.6f, alt %.2f m.",
                 origin_navsat_.latitude, origin_navsat_.longitude, origin_navsat_.altitude);
     return;
   }
 
   if (msg->position_covariance_type == sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_UNKNOWN) {
-    RCLCPP_ERROR(get_logger(), "Unknown covariance type.");
+    RCLCPP_ERROR(get_logger(), "Rejected GPS fix: position covariance type is unknown.");
     return;
   }
 
@@ -145,7 +145,9 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstShar
   if (params_.position_covariance_threshold > 0.0 &&
       std::max(msg->position_covariance[0], msg->position_covariance[4]) >
           params_.position_covariance_threshold) {
-    RCLCPP_WARN(get_logger(), "Rejected high-covariance fix.");
+    RCLCPP_WARN(get_logger(), "Rejected GPS fix: horizontal variance %.2f m^2 exceeds %.2f m^2.",
+                std::max(msg->position_covariance[0], msg->position_covariance[4]),
+                params_.position_covariance_threshold);
     return;
   }
 
@@ -189,8 +191,9 @@ auto NavsatOdomNode::resolveOrientation(const std::string& gps_frame)
     ahrs_T_gps_tf =
         tf_buffer_->lookupTransform(last_ahrs_->header.frame_id, gps_frame, tf2::TimePointZero);
   } catch (const tf2::TransformException& ex) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not transform %s to %s: %s",
-                         last_ahrs_->header.frame_id.c_str(), gps_frame.c_str(), ex.what());
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                         "Failed to look up transform from '%s' to '%s': %s", gps_frame.c_str(),
+                         last_ahrs_->header.frame_id.c_str(), ex.what());
     return map_R_gps;
   }
 

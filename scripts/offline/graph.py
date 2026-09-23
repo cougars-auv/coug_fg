@@ -268,7 +268,7 @@ class OfflineFactorGraph:
 
         if self._core.initialize(self._stream_time, queues, self._tfs):
             self._is_initialized = True
-            logger.info("Graph initialized successfully.")
+            logger.info("Graph initialized.")
         else:
             self._restore_all_queues(queues)
 
@@ -289,14 +289,16 @@ class OfflineFactorGraph:
 
         if self._backup_keyframe_source == KeyframeSource.NONE:
             logger.error(
-                f"Primary keyframe source '{self._keyframe_source}' timed out and no "
-                "backup is configured. No new keyframes will be created."
+                f"Keyframe source '{self._keyframe_source.name.lower()}' timed out after "
+                f"{self._params['keyframe_timeout_sec']:.1f} s and no backup is configured; "
+                "no new keyframes will be created."
             )
             return self._keyframe_source
 
         logger.warning(
-            f"Primary keyframe source '{self._keyframe_source}' timed out. "
-            f"Using backup '{self._backup_keyframe_source}'."
+            f"Keyframe source '{self._keyframe_source.name.lower()}' timed out after "
+            f"{self._params['keyframe_timeout_sec']:.1f} s; using backup "
+            f"'{self._backup_keyframe_source.name.lower()}'."
         )
         return self._backup_keyframe_source
 
@@ -314,8 +316,8 @@ class OfflineFactorGraph:
             and target_time - self._last_target_time < min_interval
         ):
             logger.warning(
-                f"Keyframe rejected: only {target_time - self._last_target_time:.4f} s "
-                f"since the last keyframe (minimum {min_interval:.4f} s)."
+                f"Rejected keyframe: {target_time - self._last_target_time:.3f} s since the "
+                f"last keyframe is below the {min_interval:.3f} s minimum."
             )
             return
         self._last_target_time = target_time
@@ -343,7 +345,9 @@ class OfflineFactorGraph:
         if result := self._core.optimize():
             new_keyframes = result.pop("new_keyframes")
             if result.pop("processing_overflow"):
-                logger.warning(f"Processing overflow. Batching {new_keyframes} keyframes.")
+                logger.warning(
+                    f"Processing overflow: batching {new_keyframes} keyframes into one optimization."
+                )
             self._results.append(result)
 
     def _notify_backend(self) -> None:

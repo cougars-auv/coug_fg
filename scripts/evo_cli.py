@@ -74,7 +74,7 @@ def _latest_tum(directory: Path) -> Path | None:
 
 def save_tum(path: Path, pose: dict[str, Any]) -> None:
     np.savetxt(path, np.column_stack([pose[k] for k in TUM_KEYS]), fmt="%.9f")
-    logger.info(f"Saved TUM trajectory: {path}")
+    logger.info(f"TUM trajectory saved: {path}")
 
 
 def _load_tum(path: Path) -> dict[str, Any]:

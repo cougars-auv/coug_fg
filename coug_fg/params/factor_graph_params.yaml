@@ -173,7 +173,7 @@ factor_graph_node:
       not_empty<>: []
   multiagent_namespaces:
     type: string_array
-    default_value: ["coug2sim", "coug3sim"]
+    default_value: ["coug2holo", "coug3holo"]
   multiagent_status_topic:
     type: string
     default_value: "base/agent/status"

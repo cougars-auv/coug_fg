@@ -416,7 +416,7 @@ auto FactorGraphPy::get_params() const -> pybind11::dict {
   params["keyframe_source"] = params_.keyframe_source;
   params["backup_keyframe_source"] = params_.backup_keyframe_source;
   params["keyframe_timeout_sec"] = params_.keyframe_timeout_sec;
-  params["keyframe_timer_hz"] = params_.keyframe_timer_hz;
+  params["keyframe_timer_rate_hz"] = params_.keyframe_timer_rate_hz;
   params["min_keyframe_interval_sec"] = params_.min_keyframe_interval_sec;
 
   // --- ROS Topics and Frames ---

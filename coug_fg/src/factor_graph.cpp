@@ -230,7 +230,7 @@ void FactorGraphNode::setupRosInterfaces() {
 
   if (keyframe_source_ == KeyframeSource::kTimer ||
       backup_keyframe_source_ == KeyframeSource::kTimer) {
-    const double period = 1.0 / params_.keyframe_timer_hz;
+    const double period = 1.0 / params_.keyframe_timer_rate_hz;
     keyframe_timer_ =
         create_wall_timer(std::chrono::duration<double>(period), [this]() { notifyFrontend(); });
   }

@@ -79,8 +79,8 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
   const auto now = this->get_clock()->now();
   last_dvl_time_ = now.seconds();
 
-  if (params_.simulate_dropout && params_.dropout_frequency_hz > 0.0) {
-    const double cycle_period = 1.0 / params_.dropout_frequency_hz;
+  if (params_.simulate_dropout && params_.dropout_rate_hz > 0.0) {
+    const double cycle_period = 1.0 / params_.dropout_rate_hz;
     const bool should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
     if (should_drop) {
       if (!is_simulating_dropout_) {

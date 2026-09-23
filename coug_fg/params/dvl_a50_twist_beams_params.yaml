@@ -15,7 +15,7 @@ dvl_a50_twist_beams_node:
   simulate_dropout:
     type: bool
     default_value: false
-  dropout_frequency_hz:
+  dropout_rate_hz:
     type: double
     default_value: 0.033
     validation:

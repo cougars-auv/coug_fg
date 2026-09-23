@@ -334,7 +334,7 @@ class OfflineFactorGraph:
             self._notify_backend()
 
     def _tick_keyframe_timer(self) -> None:
-        period = 1.0 / self._params["keyframe_timer_hz"]
+        period = 1.0 / self._params["keyframe_timer_rate_hz"]
         if self._last_timer_time is None:
             self._last_timer_time = self._stream_time
         elif self._stream_time - self._last_timer_time >= period:

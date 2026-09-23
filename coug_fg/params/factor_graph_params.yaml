@@ -86,7 +86,7 @@ factor_graph_node:
     default_value: 0.5
     validation:
       gt<>: [0.0]
-  keyframe_timer_hz:
+  keyframe_timer_rate_hz:
     type: double
     default_value: 10.0
     validation:

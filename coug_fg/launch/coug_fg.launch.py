@@ -47,8 +47,8 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     position = json.loads(initial_position_str) if initial_position_str else None
     orientation = json.loads(initial_orientation_str) if initial_orientation_str else None
 
-    initial_prior_params = []
-    initial_state_params = []
+    initial_prior_params: list[dict[str, Any]] = []
+    initial_state_params: list[dict[str, Any]] = []
     if position is not None and orientation is not None:
         initial_prior_params = [
             {

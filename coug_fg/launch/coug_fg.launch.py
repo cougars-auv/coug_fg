@@ -43,8 +43,10 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     agent_ns = LaunchConfiguration("agent_ns")
     loc_comparison = LaunchConfiguration("loc_comparison")
     lead_agent = LaunchConfiguration("lead_agent")
+
     initial_position_str = LaunchConfiguration("initial_position").perform(context)
     initial_orientation_str = LaunchConfiguration("initial_orientation").perform(context)
+    scenario_param_path = LaunchConfiguration("scenario_param_file").perform(context)
 
     is_lead_agent = EqualsSubstitution(agent_ns, lead_agent)
 
@@ -68,9 +70,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     agent_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), [agent_ns, "_params.yaml"]]
     )
-    scenario_param_file = (
-        LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file
-    )
+    scenario_param_file = scenario_param_path or agent_param_file
 
     odom_frame = agent_frame(agent_ns, "odom")
     base_link_frame = agent_frame(agent_ns, "base_link")

@@ -28,7 +28,9 @@ from launch_ros.actions import Node
 
 def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Action]:
     use_sim_time = LaunchConfiguration("use_sim_time")
+
     agent_list_str = LaunchConfiguration("agent_list").perform(context)
+    scenario_param_path = LaunchConfiguration("scenario_param_file").perform(context)
 
     agent_list = yaml.safe_load(agent_list_str)
     agent_ns = agent_list[0]
@@ -36,9 +38,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     fleet_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]
     )
-    scenario_param_file = (
-        LaunchConfiguration("scenario_param_file").perform(context) or fleet_param_file
-    )
+    scenario_param_file = scenario_param_path or fleet_param_file
 
     return [
         Node(

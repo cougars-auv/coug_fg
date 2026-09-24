@@ -35,8 +35,10 @@ def agent_frame(agent_ns: str | Substitution, frame: str) -> PythonExpression:
 def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Action]:
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_ns = LaunchConfiguration("agent_ns")
+
     initial_position_str = LaunchConfiguration("initial_position").perform(context)
     initial_orientation_str = LaunchConfiguration("initial_orientation").perform(context)
+    scenario_param_path = LaunchConfiguration("scenario_param_file").perform(context)
 
     position = json.loads(initial_position_str) if initial_position_str else None
     orientation = json.loads(initial_orientation_str) if initial_orientation_str else None
@@ -51,9 +53,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     agent_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), [agent_ns, "_params.yaml"]]
     )
-    scenario_param_file = (
-        LaunchConfiguration("scenario_param_file").perform(context) or agent_param_file
-    )
+    scenario_param_file = scenario_param_path or agent_param_file
 
     odom_frame = agent_frame(agent_ns, "odom")
     base_link_frame = agent_frame(agent_ns, "base_link")

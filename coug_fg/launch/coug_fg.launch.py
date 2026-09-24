@@ -34,6 +34,10 @@ def agent_frame(agent_ns: str | Substitution, frame: str) -> PythonExpression:
     return PythonExpression(["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"])
 
 
+def is_agent(agent_ns: LaunchConfiguration, *names: str) -> PythonExpression:
+    return PythonExpression(["'", agent_ns, "' in ", str(names)])
+
+
 def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Action]:
     use_sim_time = LaunchConfiguration("use_sim_time")
     agent_ns = LaunchConfiguration("agent_ns")
@@ -318,7 +322,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             package="topic_tools",
             executable="relay",
             name="rtk_gps_truth_relay_node",
-            condition=IfCondition(EqualsSubstitution(agent_ns, "bluerov2")),
+            condition=IfCondition(is_agent(agent_ns, "bluerov2")),
             parameters=[
                 fleet_param_file,
                 agent_param_file,

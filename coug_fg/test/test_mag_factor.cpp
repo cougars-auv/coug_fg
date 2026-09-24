@@ -40,7 +40,7 @@ TEST(MagFactorArmTest, Jacobians) {
   const gtsam::Key pose_key = X(1);
   const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
-  const gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  const gtsam::Point3 reference_field(3.9166e-06, 2.08288e-05, -4.5602e-05);
   const gtsam::Point3 measured_field(4.1000e-06, 2.00000e-05, -4.50000e-05);
 
   const MagFactorArm factor(pose_key, measured_field, reference_field, target_T_sensor, model);
@@ -58,7 +58,7 @@ TEST(MagFactorArmTest, Residual) {
   const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
   const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1), gtsam::Point3::Zero());
   const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
-  const gtsam::Point3 reference_field(3.9634e-06, 2.08423e-05, -4.57678e-05);
+  const gtsam::Point3 reference_field(3.9166e-06, 2.08288e-05, -4.5602e-05);
 
   // Field the sensor would report if the state were exact
   const gtsam::Rot3 map_R_sensor = pose.rotation() * target_T_sensor.rotation();

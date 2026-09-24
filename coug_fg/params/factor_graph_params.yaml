@@ -468,7 +468,7 @@ factor_graph_node:
           lower_element_bounds<>: [0.0]
     reference_field:
       type: double_array
-      default_value: [3.9634e-06, 2.08423e-05, -4.57678e-05]
+      default_value: [3.9166e-06, 2.08288e-05, -4.5602e-05]
       validation:
         fixed_size<>: [3]
     diagnostic_timeout_sec:

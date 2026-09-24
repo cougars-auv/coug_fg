@@ -57,7 +57,7 @@ class UrdfTree:
         return pos, rot.as_quat(canonical=False)
 
     def _root_tf(self, frame: str) -> tuple[npt.NDArray[np.float64], Rotation]:
-        link = frame.split("/")[-1]  # Strip robot_state_publisher frame_prefix
+        link = frame.split("/")[-1]  # Strip the agent namespace prefix
         if link not in self._links:
             raise KeyError(f"Frame '{frame}' not found in the URDF.")
 

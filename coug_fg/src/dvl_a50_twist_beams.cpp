@@ -76,8 +76,7 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
 }
 
 void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
-  const auto now = this->get_clock()->now();
-  last_dvl_time_ = now.seconds();
+  last_dvl_time_ = now().seconds();
 
   if (params_.simulate_dropout && params_.dropout_rate_hz > 0.0) {
     const double cycle_period = 1.0 / params_.dropout_rate_hz;

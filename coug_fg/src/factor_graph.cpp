@@ -108,7 +108,7 @@ auto toCovMatrix(const Array& arr) -> Eigen::Matrix<double, N, N> {
 }  // namespace
 
 void FactorGraphNode::setupRosInterfaces() {
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
@@ -232,7 +232,7 @@ void FactorGraphNode::setupRosInterfaces() {
       backup_keyframe_source_ == KeyframeSource::kTimer) {
     const double period = 1.0 / params_.keyframe_timer_rate_hz;
     keyframe_timer_ =
-        create_wall_timer(std::chrono::duration<double>(period), [this]() { notifyFrontend(); });
+        create_timer(std::chrono::duration<double>(period), [this]() { notifyFrontend(); });
   }
 
   if (params_.publish_diagnostics) {
@@ -492,11 +492,11 @@ auto FactorGraphNode::checkAndUpdateRateLimit(rclcpp::Time& last_time, double ma
   if (max_rate_hz <= 0.0) {
     return true;
   }
-  const rclcpp::Time now = get_clock()->now();
-  if (now - last_time < rclcpp::Duration::from_seconds(1.0 / max_rate_hz)) {
+  const rclcpp::Time curr_time = now();
+  if (curr_time - last_time < rclcpp::Duration::from_seconds(1.0 / max_rate_hz)) {
     return false;
   }
-  last_time = now;
+  last_time = curr_time;
   return true;
 }
 
@@ -510,7 +510,7 @@ auto FactorGraphNode::loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_ou
   }
 
   if (use_parameter_tf) {
-    tf_out.header.stamp = get_clock()->now();
+    tf_out.header.stamp = now();
     tf_out.header.frame_id = params_.target_frame;
     tf_out.child_frame_id = child_frame;
     tf_out.transform.translation.x = position[0];
@@ -792,7 +792,7 @@ void FactorGraphNode::initializeGraph() {
 
   const QueueBundle init_queues = drainAllQueues();
 
-  if (!core_->initialize(get_clock()->now().seconds(), init_queues, buildCurrentTfBundle())) {
+  if (!core_->initialize(now().seconds(), init_queues, buildCurrentTfBundle())) {
     restoreAllQueues(init_queues);
     return;
   }

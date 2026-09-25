@@ -71,7 +71,7 @@ NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
   if (params_.set_origin) {
     origin_pub_ = create_publisher<sensor_msgs::msg::NavSatFix>(params_.origin_topic,
                                                                 rclcpp::SystemDefaultsQoS());
-    origin_timer_ = create_wall_timer(
+    origin_timer_ = create_timer(
         std::chrono::milliseconds(static_cast<int>(1000.0 / params_.origin_pub_rate_hz)), [this]() {
           if (origin_set_) {
             origin_pub_->publish(origin_navsat_);

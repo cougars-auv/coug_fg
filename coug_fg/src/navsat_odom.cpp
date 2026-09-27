@@ -120,18 +120,12 @@ void NavsatOdomNode::originCallback(const sensor_msgs::msg::NavSatFix::ConstShar
 }
 
 void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg) {
-  if (msg->status.status == sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX) {
-    RCLCPP_WARN(get_logger(), "Rejected GPS fix: no fix.");
+  if (msg->status.status < sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
+    RCLCPP_WARN(get_logger(), "Rejected GPS fix: no fix (status %d).", msg->status.status);
     return;
   }
 
-  if (!origin_set_) {
-    if (!params_.set_origin) {
-      return;
-    }
-    setOrigin(*msg);
-    RCLCPP_INFO(get_logger(), "Origin set from first GPS fix: lat %.6f, lon %.6f, alt %.2f m.",
-                origin_navsat_.latitude, origin_navsat_.longitude, origin_navsat_.altitude);
+  if (!origin_set_ && !params_.set_origin) {
     return;
   }
 
@@ -147,6 +141,13 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstShar
     RCLCPP_WARN(get_logger(), "Rejected GPS fix: horizontal variance %.2f m^2 exceeds %.2f m^2.",
                 std::max(msg->position_covariance[0], msg->position_covariance[4]),
                 params_.position_covariance_threshold);
+    return;
+  }
+
+  if (!origin_set_) {
+    setOrigin(*msg);
+    RCLCPP_INFO(get_logger(), "Origin set from first GPS fix: lat %.6f, lon %.6f, alt %.2f m.",
+                origin_navsat_.latitude, origin_navsat_.longitude, origin_navsat_.altitude);
     return;
   }
 

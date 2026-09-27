@@ -14,9 +14,6 @@
 
 #pragma once
 
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
-
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
@@ -25,6 +22,8 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
 
 #include "coug_fg/fluid_pressure_odom_parameters.hpp"
 

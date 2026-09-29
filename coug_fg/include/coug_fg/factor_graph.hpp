@@ -63,7 +63,7 @@ class FactorGraphNode : public rclcpp::Node {
   auto operator=(FactorGraphNode&&) -> FactorGraphNode& = delete;
 
  private:
-  // --- Sensor Callbacks ---
+  // --- Callbacks ---
   void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
 
   void gpsCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);

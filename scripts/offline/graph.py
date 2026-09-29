@@ -191,9 +191,9 @@ class OfflineFactorGraph:
 
         map_R_target = Rotation.from_quat(target_quats)
         map_R_base = map_R_target * base_rot
-        map_t_base = map_R_target.apply(base_pos) + target_positions
+        map_p_base = map_R_target.apply(base_pos) + target_positions
 
-        results["x"], results["y"], results["z"] = map_t_base.T
+        results["x"], results["y"], results["z"] = map_p_base.T
         results["qx"], results["qy"], results["qz"], results["qw"] = map_R_base.as_quat(
             canonical=False
         ).T

@@ -63,19 +63,6 @@ class FactorGraphNode : public rclcpp::Node {
   auto operator=(FactorGraphNode&&) -> FactorGraphNode& = delete;
 
  private:
-  // --- Initialization ---
-  void setupRosInterfaces();
-
-  // --- Main Logic ---
-  void initializeGraph();
-
-  void updateGraph();
-
-  void optimizeGraph();
-
-  void resetGraph(const std_srvs::srv::Trigger::Request::SharedPtr& request,
-                  const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
-
   // --- Sensor Callbacks ---
   void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
 
@@ -97,6 +84,16 @@ class FactorGraphNode : public rclcpp::Node {
   void frontendThreadLoop();
 
   void backendThreadLoop();
+
+  // --- Main Logic ---
+  void initializeGraph();
+
+  void updateGraph();
+
+  void optimizeGraph();
+
+  void resetGraph(const std_srvs::srv::Trigger::Request::SharedPtr& request,
+                  const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
 
   // --- Helpers ---
   void notifyFrontend();

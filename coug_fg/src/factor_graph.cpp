@@ -107,7 +107,33 @@ auto toCovMatrix(const Array& arr) -> Eigen::Matrix<double, N, N> {
 
 }  // namespace
 
-void FactorGraphNode::setupRosInterfaces() {
+FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
+    : Node("factor_graph_node", options),
+      diagnostic_updater_(this),
+      param_listener_(
+          std::make_shared<factor_graph_node::ParamListener>(get_node_parameters_interface())),
+      params_(param_listener_->get_params()),
+      keyframe_source_(parseKeyframeSource(params_.keyframe_source)),
+      backup_keyframe_source_(parseKeyframeSource(params_.backup_keyframe_source)) {
+  // Ensure the keyframe sources are valid
+  auto source_enabled = [this](KeyframeSource source) {
+    switch (source) {
+      case KeyframeSource::kDvl:
+        return params_.dvl.enable_dvl;
+      case KeyframeSource::kDepth:
+        return params_.depth.enable_depth;
+      default:
+        return true;
+    }
+  };
+  if (!source_enabled(keyframe_source_) || !source_enabled(backup_keyframe_source_)) {
+    RCLCPP_FATAL(get_logger(),
+                 "Invalid keyframe configuration: source '%s' or backup '%s' uses a disabled "
+                 "sensor. Shutting down.",
+                 params_.keyframe_source.c_str(), params_.backup_keyframe_source.c_str());
+    throw std::runtime_error("Invalid keyframe source configuration.");
+  }
+
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
@@ -259,6 +285,40 @@ void FactorGraphNode::setupRosInterfaces() {
     const std::string status_task = prefix + "Graph Status" + suffix;
     diagnostic_updater_.add(status_task, this, &FactorGraphNode::checkGraphStatus);
   }
+
+  core_ = std::make_unique<FactorGraphCore>(params_);
+  core_->setLogCallback([this](LogLevel level, const std::string& msg) {
+    switch (level) {
+      case LogLevel::kDebug:
+        RCLCPP_DEBUG(get_logger(), "%s", msg.c_str());
+        break;
+      case LogLevel::kInfo:
+        RCLCPP_INFO(get_logger(), "%s", msg.c_str());
+        break;
+      case LogLevel::kWarn:
+        RCLCPP_WARN(get_logger(), "%s", msg.c_str());
+        break;
+      case LogLevel::kError:
+        RCLCPP_ERROR(get_logger(), "%s", msg.c_str());
+        break;
+    }
+  });
+  frontend_thread_ = std::thread(&FactorGraphNode::frontendThreadLoop, this);
+  backend_thread_ = std::thread(&FactorGraphNode::backendThreadLoop, this);
+
+  RCLCPP_INFO(get_logger(), "Initialization complete.");
+}
+
+FactorGraphNode::~FactorGraphNode() {
+  is_running_.store(false);
+  notifyFrontend();
+  notifyBackend();
+  if (frontend_thread_.joinable()) {
+    frontend_thread_.join();
+  }
+  if (backend_thread_.joinable()) {
+    backend_thread_.join();
+  }
 }
 
 void FactorGraphNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg) {
@@ -409,34 +469,204 @@ void FactorGraphNode::multiAgentCallback(const AgentStatus::ConstSharedPtr& msg,
   multiagent_queues_[agent_queue_idx]->push(status_msg);
 }
 
-FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
-    : Node("factor_graph_node", options),
-      diagnostic_updater_(this),
-      param_listener_(
-          std::make_shared<factor_graph_node::ParamListener>(get_node_parameters_interface())),
-      params_(param_listener_->get_params()),
-      keyframe_source_(parseKeyframeSource(params_.keyframe_source)),
-      backup_keyframe_source_(parseKeyframeSource(params_.backup_keyframe_source)) {
-  // Ensure the keyframe sources are valid
-  auto source_enabled = [this](KeyframeSource source) {
-    switch (source) {
-      case KeyframeSource::kDvl:
-        return params_.dvl.enable_dvl;
-      case KeyframeSource::kDepth:
-        return params_.depth.enable_depth;
-      default:
-        return true;
+void FactorGraphNode::frontendThreadLoop() {
+  while (is_running_.load()) {
+    std::unique_lock<std::mutex> lock(frontend_trigger_mutex_);
+    frontend_cv_.wait(lock, [this] { return frontend_trigger_ || !is_running_.load(); });
+    frontend_trigger_ = false;
+
+    if (!is_running_.load()) {
+      break;
     }
-  };
-  if (!source_enabled(keyframe_source_) || !source_enabled(backup_keyframe_source_)) {
-    RCLCPP_FATAL(get_logger(),
-                 "Invalid keyframe configuration: source '%s' or backup '%s' uses a disabled "
-                 "sensor. Shutting down.",
-                 params_.keyframe_source.c_str(), params_.backup_keyframe_source.c_str());
-    throw std::runtime_error("Invalid keyframe source configuration.");
+
+    lock.unlock();
+    {
+      const std::shared_lock reset_lock(reset_mutex_);
+
+      if (has_crashed_.load()) {
+        drainAllQueues();
+        continue;
+      }
+
+      if (!is_initialized_.load()) {
+        initializeGraph();
+      } else if (checkAndUpdateRateLimit(last_update_time_, params_.max_update_rate_hz)) {
+        updateGraph();
+        notifyBackend();
+      }
+    }
+  }
+}
+
+void FactorGraphNode::backendThreadLoop() {
+  while (is_running_.load()) {
+    std::unique_lock<std::mutex> lock(backend_trigger_mutex_);
+    backend_cv_.wait(lock, [this] { return backend_trigger_ || !is_running_.load(); });
+    backend_trigger_ = false;
+
+    if (!is_running_.load()) {
+      break;
+    }
+
+    if (is_initialized_.load() && !has_crashed_.load()) {
+      lock.unlock();
+
+      const std::shared_lock reset_lock(reset_mutex_);
+      if (!is_initialized_.load() || has_crashed_.load()) {
+        continue;
+      }
+
+      if (checkAndUpdateRateLimit(last_opt_time_, params_.max_opt_rate_hz)) {
+        optimizeGraph();
+      }
+    }
+  }
+}
+
+void FactorGraphNode::initializeGraph() {
+  if (!loadOrLookupTf(target_T_base_tf_, params_.base_frame, params_.base.use_parameter_tf,
+                      params_.base.parameter_tf.position, params_.base.parameter_tf.orientation)) {
+    return;
   }
 
-  setupRosInterfaces();
+  const QueueBundle init_queues = drainAllQueues();
+
+  if (!core_->initialize(now().seconds(), init_queues, buildCurrentTfBundle())) {
+    restoreAllQueues(init_queues);
+    return;
+  }
+
+  is_initialized_.store(true);
+  RCLCPP_INFO(get_logger(), "Graph initialized.");
+}
+
+void FactorGraphNode::updateGraph() {
+  KeyframeSource active_source = keyframe_source_;
+  if (active_source != KeyframeSource::kTimer) {
+    std::optional<double> last_received = (active_source == KeyframeSource::kDvl)
+                                              ? dvl_queue_.getLastTime()
+                                              : depth_queue_.getLastTime();
+
+    std::optional<double> newest_stamp = imu_queue_.getLastTime();
+    if (!last_received.has_value() ||
+        (newest_stamp.has_value() &&
+         (*newest_stamp - *last_received) > params_.keyframe_timeout_sec)) {
+      if (backup_keyframe_source_ != KeyframeSource::kNone) {
+        active_source = backup_keyframe_source_;
+        RCLCPP_WARN(get_logger(), "Keyframe source '%s' timed out after %.1f s; using backup '%s'.",
+                    params_.keyframe_source.c_str(), params_.keyframe_timeout_sec,
+                    params_.backup_keyframe_source.c_str());
+      } else {
+        RCLCPP_ERROR(get_logger(),
+                     "Keyframe source '%s' timed out after %.1f s and no backup is configured; "
+                     "no new keyframes will be created.",
+                     params_.keyframe_source.c_str(), params_.keyframe_timeout_sec);
+      }
+    }
+  }
+
+  std::optional<double> target_time;
+  if (active_source == KeyframeSource::kDvl && !dvl_queue_.empty()) {
+    target_time = dvl_queue_.getLastTime();
+  } else if (active_source == KeyframeSource::kDepth && !depth_queue_.empty()) {
+    target_time = depth_queue_.getLastTime();
+  } else if (active_source == KeyframeSource::kTimer && !imu_queue_.empty()) {
+    target_time = imu_queue_.getLastTime();
+  }
+
+  if (!target_time.has_value() ||
+      (last_target_time_.has_value() && *target_time <= *last_target_time_)) {
+    return;
+  }
+
+  if (last_target_time_.has_value() &&
+      (*target_time - *last_target_time_) < params_.min_keyframe_interval_sec) {
+    RCLCPP_WARN(get_logger(),
+                "Rejected keyframe: %.3f s since the last keyframe is below the %.3f s minimum.",
+                *target_time - *last_target_time_, params_.min_keyframe_interval_sec);
+    return;
+  }
+  last_target_time_ = target_time;
+
+  QueueBundle queues = drainAllQueues();
+  auto leftover = core_->update(*target_time, queues, buildCurrentTfBundle());
+  restoreAllQueues(leftover ? *leftover : queues);
+}
+
+void FactorGraphNode::optimizeGraph() {
+  try {
+    auto result = core_->optimize();
+    if (!result) {
+      return;
+    }
+
+    last_total_duration_.store(result->total_duration);
+    last_smoother_duration_.store(result->smoother_duration);
+    last_cov_duration_.store(result->cov_duration);
+    new_factors_.store(result->new_factors);
+    total_factors_.store(result->total_factors);
+    total_variables_.store(result->total_variables);
+    processing_overflow_.store(result->processing_overflow);
+
+    if (result->processing_overflow) {
+      RCLCPP_WARN(get_logger(),
+                  "Processing overflow: batching %zu keyframes into one optimization.",
+                  result->new_keyframes);
+    }
+
+    static constexpr double kSecondsToNanoseconds = 1e9;
+    const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * kSecondsToNanoseconds));
+    publishGlobalOdom(result->pose, result->pose_cov, stamp);
+    for (const auto& neighbor : result->neighbors) {
+      const rclcpp::Time neighbor_stamp(
+          static_cast<int64_t>(neighbor.timestamp * kSecondsToNanoseconds));
+      publishNeighborGlobalOdom(neighbor.agent_queue_idx, neighbor.pose, neighbor.pose_cov,
+                                neighbor_stamp);
+
+      if (params_.publish_neighbor_global_tf) {
+        broadcastNeighborGlobalTf(neighbor.agent_queue_idx, neighbor.pose, stamp);
+      }
+    }
+
+    if (params_.publish_global_tf) {
+      broadcastGlobalTf(result->pose, stamp);
+    }
+
+    if (params_.publish_smoothed_path) {
+      publishSmoothedPath(result->smoothed_path, stamp);
+    }
+
+    if (params_.publish_velocity) {
+      publishVelocity(result->velocity, result->velocity_cov, stamp);
+    }
+
+    if (params_.publish_imu_bias) {
+      publishImuBias(result->imu_bias, result->imu_bias_cov, stamp);
+    }
+
+    if (params_.publish_mag_bias) {
+      publishMagBias(result->mag_bias, result->mag_bias_cov, stamp);
+    }
+
+    if (params_.publish_graph_metrics) {
+      publishGraphMetrics(stamp);
+    }
+  } catch (const std::exception& e) {
+    RCLCPP_FATAL(get_logger(), "%s", e.what());
+    has_crashed_.store(true);
+  }
+}
+
+void FactorGraphNode::resetGraph(
+    const std_srvs::srv::Trigger::Request::SharedPtr& /*request*/,
+    const std::shared_ptr<std_srvs::srv::Trigger::Response>& response) {
+  RCLCPP_WARN(get_logger(), "Graph reset requested; discarding the current estimate.");
+
+  const std::unique_lock reset_lock(reset_mutex_);
+
+  // Discard data and reset estimator state
+  drainAllQueues();
+
   core_ = std::make_unique<FactorGraphCore>(params_);
   core_->setLogCallback([this](LogLevel level, const std::string& msg) {
     switch (level) {
@@ -454,22 +684,24 @@ FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
         break;
     }
   });
-  frontend_thread_ = std::thread(&FactorGraphNode::frontendThreadLoop, this);
-  backend_thread_ = std::thread(&FactorGraphNode::backendThreadLoop, this);
 
-  RCLCPP_INFO(get_logger(), "Initialization complete.");
-}
+  is_initialized_.store(false);
+  has_crashed_.store(false);
+  last_target_time_.reset();
+  last_update_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
+  last_opt_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
-FactorGraphNode::~FactorGraphNode() {
-  is_running_.store(false);
-  notifyFrontend();
-  notifyBackend();
-  if (frontend_thread_.joinable()) {
-    frontend_thread_.join();
-  }
-  if (backend_thread_.joinable()) {
-    backend_thread_.join();
-  }
+  last_total_duration_.store(0.0);
+  last_smoother_duration_.store(0.0);
+  last_cov_duration_.store(0.0);
+  processing_overflow_.store(false);
+  new_factors_.store(0);
+  total_factors_.store(0);
+  total_variables_.store(0);
+
+  RCLCPP_INFO(get_logger(), "Graph reset.");
+  response->success = true;
+  response->message = "Graph reset.";
 }
 
 void FactorGraphNode::notifyFrontend() {
@@ -784,194 +1016,6 @@ void FactorGraphNode::publishGraphMetrics(const rclcpp::Time& timestamp) {
   graph_metrics_pub_->publish(metrics_msg);
 }
 
-void FactorGraphNode::initializeGraph() {
-  if (!loadOrLookupTf(target_T_base_tf_, params_.base_frame, params_.base.use_parameter_tf,
-                      params_.base.parameter_tf.position, params_.base.parameter_tf.orientation)) {
-    return;
-  }
-
-  const QueueBundle init_queues = drainAllQueues();
-
-  if (!core_->initialize(now().seconds(), init_queues, buildCurrentTfBundle())) {
-    restoreAllQueues(init_queues);
-    return;
-  }
-
-  is_initialized_.store(true);
-  RCLCPP_INFO(get_logger(), "Graph initialized.");
-}
-
-void FactorGraphNode::updateGraph() {
-  KeyframeSource active_source = keyframe_source_;
-  if (active_source != KeyframeSource::kTimer) {
-    std::optional<double> last_received = (active_source == KeyframeSource::kDvl)
-                                              ? dvl_queue_.getLastTime()
-                                              : depth_queue_.getLastTime();
-
-    std::optional<double> newest_stamp = imu_queue_.getLastTime();
-    if (!last_received.has_value() ||
-        (newest_stamp.has_value() &&
-         (*newest_stamp - *last_received) > params_.keyframe_timeout_sec)) {
-      if (backup_keyframe_source_ != KeyframeSource::kNone) {
-        active_source = backup_keyframe_source_;
-        RCLCPP_WARN(get_logger(), "Keyframe source '%s' timed out after %.1f s; using backup '%s'.",
-                    params_.keyframe_source.c_str(), params_.keyframe_timeout_sec,
-                    params_.backup_keyframe_source.c_str());
-      } else {
-        RCLCPP_ERROR(get_logger(),
-                     "Keyframe source '%s' timed out after %.1f s and no backup is configured; "
-                     "no new keyframes will be created.",
-                     params_.keyframe_source.c_str(), params_.keyframe_timeout_sec);
-      }
-    }
-  }
-
-  std::optional<double> target_time;
-  if (active_source == KeyframeSource::kDvl && !dvl_queue_.empty()) {
-    target_time = dvl_queue_.getLastTime();
-  } else if (active_source == KeyframeSource::kDepth && !depth_queue_.empty()) {
-    target_time = depth_queue_.getLastTime();
-  } else if (active_source == KeyframeSource::kTimer && !imu_queue_.empty()) {
-    target_time = imu_queue_.getLastTime();
-  }
-
-  if (!target_time.has_value() ||
-      (last_target_time_.has_value() && *target_time <= *last_target_time_)) {
-    return;
-  }
-
-  if (last_target_time_.has_value() &&
-      (*target_time - *last_target_time_) < params_.min_keyframe_interval_sec) {
-    RCLCPP_WARN(get_logger(),
-                "Rejected keyframe: %.3f s since the last keyframe is below the %.3f s minimum.",
-                *target_time - *last_target_time_, params_.min_keyframe_interval_sec);
-    return;
-  }
-  last_target_time_ = target_time;
-
-  QueueBundle queues = drainAllQueues();
-  auto leftover = core_->update(*target_time, queues, buildCurrentTfBundle());
-  restoreAllQueues(leftover ? *leftover : queues);
-}
-
-void FactorGraphNode::frontendThreadLoop() {
-  while (is_running_.load()) {
-    std::unique_lock<std::mutex> lock(frontend_trigger_mutex_);
-    frontend_cv_.wait(lock, [this] { return frontend_trigger_ || !is_running_.load(); });
-    frontend_trigger_ = false;
-
-    if (!is_running_.load()) {
-      break;
-    }
-
-    lock.unlock();
-    {
-      const std::shared_lock reset_lock(reset_mutex_);
-
-      if (has_crashed_.load()) {
-        drainAllQueues();
-        continue;
-      }
-
-      if (!is_initialized_.load()) {
-        initializeGraph();
-      } else if (checkAndUpdateRateLimit(last_update_time_, params_.max_update_rate_hz)) {
-        updateGraph();
-        notifyBackend();
-      }
-    }
-  }
-}
-
-void FactorGraphNode::optimizeGraph() {
-  try {
-    auto result = core_->optimize();
-    if (!result) {
-      return;
-    }
-
-    last_total_duration_.store(result->total_duration);
-    last_smoother_duration_.store(result->smoother_duration);
-    last_cov_duration_.store(result->cov_duration);
-    new_factors_.store(result->new_factors);
-    total_factors_.store(result->total_factors);
-    total_variables_.store(result->total_variables);
-    processing_overflow_.store(result->processing_overflow);
-
-    if (result->processing_overflow) {
-      RCLCPP_WARN(get_logger(),
-                  "Processing overflow: batching %zu keyframes into one optimization.",
-                  result->new_keyframes);
-    }
-
-    static constexpr double kSecondsToNanoseconds = 1e9;
-    const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * kSecondsToNanoseconds));
-    publishGlobalOdom(result->pose, result->pose_cov, stamp);
-    for (const auto& neighbor : result->neighbors) {
-      const rclcpp::Time neighbor_stamp(
-          static_cast<int64_t>(neighbor.timestamp * kSecondsToNanoseconds));
-      publishNeighborGlobalOdom(neighbor.agent_queue_idx, neighbor.pose, neighbor.pose_cov,
-                                neighbor_stamp);
-
-      if (params_.publish_neighbor_global_tf) {
-        broadcastNeighborGlobalTf(neighbor.agent_queue_idx, neighbor.pose, stamp);
-      }
-    }
-
-    if (params_.publish_global_tf) {
-      broadcastGlobalTf(result->pose, stamp);
-    }
-
-    if (params_.publish_smoothed_path) {
-      publishSmoothedPath(result->smoothed_path, stamp);
-    }
-
-    if (params_.publish_velocity) {
-      publishVelocity(result->velocity, result->velocity_cov, stamp);
-    }
-
-    if (params_.publish_imu_bias) {
-      publishImuBias(result->imu_bias, result->imu_bias_cov, stamp);
-    }
-
-    if (params_.publish_mag_bias) {
-      publishMagBias(result->mag_bias, result->mag_bias_cov, stamp);
-    }
-
-    if (params_.publish_graph_metrics) {
-      publishGraphMetrics(stamp);
-    }
-  } catch (const std::exception& e) {
-    RCLCPP_FATAL(get_logger(), "%s", e.what());
-    has_crashed_.store(true);
-  }
-}
-
-void FactorGraphNode::backendThreadLoop() {
-  while (is_running_.load()) {
-    std::unique_lock<std::mutex> lock(backend_trigger_mutex_);
-    backend_cv_.wait(lock, [this] { return backend_trigger_ || !is_running_.load(); });
-    backend_trigger_ = false;
-
-    if (!is_running_.load()) {
-      break;
-    }
-
-    if (is_initialized_.load() && !has_crashed_.load()) {
-      lock.unlock();
-
-      const std::shared_lock reset_lock(reset_mutex_);
-      if (!is_initialized_.load() || has_crashed_.load()) {
-        continue;
-      }
-
-      if (checkAndUpdateRateLimit(last_opt_time_, params_.max_opt_rate_hz)) {
-        optimizeGraph();
-      }
-    }
-  }
-}
-
 void FactorGraphNode::checkSensorStatus(diagnostic_updater::DiagnosticStatusWrapper& stat) {
   bool any_critical_offline = false;
   std::vector<std::string> offline_sensors;
@@ -1053,53 +1097,6 @@ void FactorGraphNode::checkGraphStatus(diagnostic_updater::DiagnosticStatusWrapp
   stat.add("New Factors", new_factors_.load());
   stat.add("Total Factors", total_factors_.load());
   stat.add("Total Variables", total_variables_.load());
-}
-
-void FactorGraphNode::resetGraph(
-    const std_srvs::srv::Trigger::Request::SharedPtr& /*request*/,
-    const std::shared_ptr<std_srvs::srv::Trigger::Response>& response) {
-  RCLCPP_WARN(get_logger(), "Graph reset requested; discarding the current estimate.");
-
-  const std::unique_lock reset_lock(reset_mutex_);
-
-  // Discard data and reset estimator state
-  drainAllQueues();
-
-  core_ = std::make_unique<FactorGraphCore>(params_);
-  core_->setLogCallback([this](LogLevel level, const std::string& msg) {
-    switch (level) {
-      case LogLevel::kDebug:
-        RCLCPP_DEBUG(get_logger(), "%s", msg.c_str());
-        break;
-      case LogLevel::kInfo:
-        RCLCPP_INFO(get_logger(), "%s", msg.c_str());
-        break;
-      case LogLevel::kWarn:
-        RCLCPP_WARN(get_logger(), "%s", msg.c_str());
-        break;
-      case LogLevel::kError:
-        RCLCPP_ERROR(get_logger(), "%s", msg.c_str());
-        break;
-    }
-  });
-
-  is_initialized_.store(false);
-  has_crashed_.store(false);
-  last_target_time_.reset();
-  last_update_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
-  last_opt_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
-
-  last_total_duration_.store(0.0);
-  last_smoother_duration_.store(0.0);
-  last_cov_duration_.store(0.0);
-  processing_overflow_.store(false);
-  new_factors_.store(0);
-  total_factors_.store(0);
-  total_variables_.store(0);
-
-  RCLCPP_INFO(get_logger(), "Graph reset.");
-  response->success = true;
-  response->message = "Graph reset.";
 }
 
 }  // namespace coug_fg

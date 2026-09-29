@@ -250,6 +250,605 @@ void FactorGraphCore::setLogCallback(LogCallback callback) {
   logger_.setCallback(std::move(callback));
 }
 
+auto FactorGraphCore::initialize(double init_time, const QueueBundle& queues, const TfBundle& tfs)
+    -> bool {
+  tfs_ = tfs;
+
+  // --- Compute Initial State ---
+  std::optional<InitialState> maybe_state = computeInitialState(init_time, queues);
+  if (!maybe_state) {
+    return false;
+  }
+  const InitialState& init_state = *maybe_state;
+
+  prev_pose_ = init_state.pose;
+  prev_vel_ = init_state.velocity;
+  prev_imu_bias_ = init_state.imu_bias;
+  prev_mag_bias_ = init_state.mag_bias;
+  prev_time_ = init_state.timestamp;
+
+  last_imu_accel_ = init_state.imu->linear_acceleration;
+  last_imu_gyro_ = init_state.imu->angular_velocity;
+
+  // --- Build Initial Graph ---
+  gtsam::NonlinearFactorGraph initial_graph;
+  gtsam::Values initial_values;
+  addPriorFactors(init_state, initial_graph, initial_values);
+
+  if (params_.publish_smoothed_path || params_.multiagent.enable_multiagent) {
+    time_to_key_[static_cast<int64_t>(prev_time_ * kSecondsToNanoseconds)] = X(0);
+  }
+
+  // --- Initialize Preintegrators ---
+  imu_preintegrator_ = std::make_unique<gtsam::PreintegratedCombinedMeasurements>(
+      configureImuPreintegration(init_state), prev_imu_bias_);
+
+  if (params_.comparison.enable_loose_dvl_preintegration) {
+    dvl_loose_preintegrator_ = std::make_unique<DvlLoosePreintegrator>();
+    dvl_loose_preintegrator_->reset(prev_pose_.rotation());
+  } else if (params_.comparison.enable_tight_dvl_preintegration) {
+    dvl_tight_preintegrator_ = std::make_unique<DvlTightPreintegrator>();
+    dvl_tight_preintegrator_->reset();
+  }
+
+  if (dvl_loose_preintegrator_ || dvl_tight_preintegrator_) {
+    if (params_.dvl.enable_dvl) {
+      last_dvl_vel_ = init_state.dvl->linear_velocity;
+      last_dvl_cov_ = resolveCov<3>(
+          params_.dvl.use_parameter_sigmas, params_.dvl.parameter_sigmas.velocity_noise_sigmas,
+          params_.dvl.covariance_scalar,
+          init_state.dvl->velocity_covariance.bottomRightCorner<3, 3>(), "DVL", logger_);
+    } else {
+      last_dvl_vel_ = gtsam::Vector3::Zero();
+      last_dvl_cov_ = sigmasSquaredDiag(params_.dvl.parameter_sigmas.velocity_noise_sigmas) *
+                      params_.dvl.covariance_scalar;
+    }
+  }
+
+  // --- Initialize Smoother ---
+  gtsam::IncrementalFixedLagSmoother::KeyTimestampMap initial_timestamps;
+  initial_timestamps[X(0)] = prev_time_;
+  initial_timestamps[V(0)] = prev_time_;
+  initial_timestamps[B(0)] = prev_time_;
+  if (params_.mag.estimate_hard_iron_bias) {
+    initial_timestamps[M(0)] = prev_time_;
+  }
+
+  gtsam::ISAM2Params isam2_params;
+  isam2_params.relinearizeThreshold = params_.relinearize_threshold;
+  isam2_params.relinearizeSkip = static_cast<int>(params_.relinearize_skip);
+
+  switch (parseSolverType(params_.solver_type)) {
+    case SolverType::kIsam2:
+      isam_ = std::make_unique<gtsam::ISAM2>(isam2_params);
+      isam_->update(initial_graph, initial_values);
+      break;
+    case SolverType::kLevenbergMarquardt:
+      lm_graph_ = initial_graph;
+      lm_values_ = initial_values;
+      break;
+    case SolverType::kIncrementalFixedLagSmoother:
+      inc_smoother_ = std::make_unique<gtsam::IncrementalFixedLagSmoother>(params_.smoother_lag_sec,
+                                                                           isam2_params);
+      inc_smoother_->update(initial_graph, initial_values, initial_timestamps);
+      break;
+  }
+
+  return true;
+}
+
+auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBundle& tfs)
+    -> std::optional<QueueBundle> {
+  if (target_time <= prev_time_ + kMinIntegrationDt) {
+    return std::nullopt;
+  }
+
+  // Sort sensor messages by timestamp
+  auto by_time = [](const auto& a, const auto& b) { return a->timestamp < b->timestamp; };
+  std::sort(queues.imu.begin(), queues.imu.end(), by_time);
+  std::sort(queues.gps.begin(), queues.gps.end(), by_time);
+  std::sort(queues.depth.begin(), queues.depth.end(), by_time);
+  std::sort(queues.mag.begin(), queues.mag.end(), by_time);
+  std::sort(queues.ahrs.begin(), queues.ahrs.end(), by_time);
+  std::sort(queues.dvl.begin(), queues.dvl.end(), by_time);
+  std::sort(queues.wrench.begin(), queues.wrench.end(), by_time);
+  for (auto& agent : queues.multiagent) {
+    std::sort(agent.begin(), agent.end(), by_time);
+  }
+
+  if (queues.imu.empty() || queues.imu.front()->timestamp > target_time) {
+    logger_.log(LogLevel::kWarn,
+                "Rejected keyframe: no IMU measurements at or before the keyframe time.");
+    return std::nullopt;
+  }
+
+  // --- Build Factor Graph ---
+  gtsam::NonlinearFactorGraph new_graph;
+  gtsam::Values new_values;
+  gtsam::IncrementalFixedLagSmoother::KeyTimestampMap new_timestamps;
+
+  QueueBundle leftover;
+
+  const std::scoped_lock state_lock(state_mutex_);
+
+  // Update lazily-resolved transforms
+  tfs_ = tfs;
+
+  const gtsam::Vector3 held_imu_accel = last_imu_accel_;
+  const gtsam::Vector3 held_imu_gyro = last_imu_gyro_;
+
+  // Re-queue messages newer than the keyframe for the next update
+  auto split_after_target = [target_time](auto& msgs, auto& split) {
+    while (!msgs.empty() && msgs.back()->timestamp > target_time) {
+      split.push_front(msgs.back());
+      msgs.pop_back();
+    }
+  };
+  split_after_target(queues.imu, leftover.imu);
+  split_after_target(queues.gps, leftover.gps);
+  split_after_target(queues.depth, leftover.depth);
+  split_after_target(queues.mag, leftover.mag);
+  split_after_target(queues.ahrs, leftover.ahrs);
+  split_after_target(queues.dvl, leftover.dvl);
+  split_after_target(queues.wrench, leftover.wrench);
+  leftover.multiagent.resize(queues.multiagent.size());
+  for (size_t agent_queue_idx = 0; agent_queue_idx < queues.multiagent.size(); ++agent_queue_idx) {
+    split_after_target(queues.multiagent[agent_queue_idx], leftover.multiagent[agent_queue_idx]);
+  }
+
+  if (params_.comparison.enable_loose_dvl_preintegration && !queues.ahrs.empty()) {
+    leftover.ahrs.push_front(queues.ahrs.back());
+  }
+
+  addImuPreintFactor(new_graph, queues.imu, target_time);
+  if (params_.gps.enable_gps) {
+    addGpsFactor(new_graph, queues.gps);
+  }
+  if (params_.depth.enable_depth) {
+    addDepthFactor(new_graph, queues.depth);
+  }
+  if (params_.mag.enable_mag) {
+    addMagFactor(new_graph, queues.mag);
+  }
+  if (params_.ahrs.enable_ahrs) {
+    addAhrsFactor(new_graph, queues.ahrs);
+  }
+
+  // Handle DVL dropouts
+  auto add_dropout_factors = [&](gtsam::NonlinearFactorGraph& g) {
+    const bool use_wrench =
+        params_.wrench.enable_wrench || params_.wrench.enable_wrench_dropout_only;
+    const bool use_const_vel =
+        params_.const_vel.enable_const_vel || params_.const_vel.enable_const_vel_dropout_only;
+
+    if (use_wrench) {
+      addWrenchDynamicsFactor(g, queues.wrench, target_time);
+    } else if (use_const_vel) {
+      addConstVelFactor(g, target_time);
+    }
+  };
+
+  if (queues.dvl.empty() || !params_.dvl.enable_dvl) {
+    add_dropout_factors(new_graph);
+  } else {
+    if (params_.comparison.enable_loose_dvl_preintegration) {
+      if (queues.ahrs.empty()) {
+        add_dropout_factors(new_graph);
+        last_dvl_vel_ = queues.dvl.back()->linear_velocity;
+      } else {
+        addDvlLoosePreintFactor(new_graph, queues.dvl, queues.ahrs, target_time);
+      }
+    } else if (params_.comparison.enable_tight_dvl_preintegration) {
+      addDvlTightPreintFactor(new_graph, queues.dvl, queues.imu, target_time, held_imu_accel,
+                              held_imu_gyro);
+    } else {
+      addDvlFactor(new_graph, queues.dvl, last_imu_gyro_);
+
+      if (params_.wrench.enable_wrench) {
+        addWrenchDynamicsFactor(new_graph, queues.wrench, target_time);
+      } else if (params_.const_vel.enable_const_vel) {
+        addConstVelFactor(new_graph, target_time);
+      }
+    }
+  }
+
+  if (params_.multiagent.enable_multiagent) {
+    addMultiAgentFactors(new_graph, new_values, new_timestamps, queues, target_time);
+  }
+
+  // --- Add State Predictions ---
+  auto pred = imu_preintegrator_->predict(gtsam::NavState(prev_pose_, prev_vel_), prev_imu_bias_);
+  new_values.insert(X(curr_step_), pred.pose());
+  new_values.insert(V(curr_step_), pred.velocity());
+  new_values.insert(B(curr_step_), prev_imu_bias_);
+  new_timestamps[X(curr_step_)] = target_time;
+  new_timestamps[V(curr_step_)] = target_time;
+  new_timestamps[B(curr_step_)] = target_time;
+
+  if (params_.mag.estimate_hard_iron_bias) {
+    new_timestamps[M(0)] = target_time;
+  }
+
+  for (const auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+    new_timestamps[O(agent_queue_idx)] = target_time;
+  }
+
+  if (!inc_smoother_ && !isam_) {
+    prev_pose_ = pred.pose();
+    prev_vel_ = pred.velocity();
+  }
+
+  // --- Reset Preintegrators ---
+  imu_preintegrator_->resetIntegrationAndSetBias(prev_imu_bias_);
+
+  if (params_.publish_smoothed_path || params_.multiagent.enable_multiagent) {
+    time_to_key_[static_cast<int64_t>(target_time * kSecondsToNanoseconds)] = X(curr_step_);
+    if (inc_smoother_) {
+      const auto lag_start_ns =
+          static_cast<int64_t>((target_time - params_.smoother_lag_sec) * kSecondsToNanoseconds);
+      time_to_key_.erase(time_to_key_.begin(), time_to_key_.lower_bound(lag_start_ns));
+      for (auto& [agent_queue_idx, neighbor_time_to_key] : neighbor_time_to_key_) {
+        neighbor_time_to_key.erase(neighbor_time_to_key.begin(),
+                                   neighbor_time_to_key.lower_bound(lag_start_ns));
+      }
+    }
+  }
+
+  prev_time_ = target_time;
+  prev_step_ = curr_step_;
+  curr_step_++;
+
+  // --- Add Graph to Buffer ---
+  buffer_graph_ += new_graph;
+  buffer_values_.insert(new_values);
+  for (const auto& [key, stamp] : new_timestamps) {
+    buffer_timestamps_.insert_or_assign(key, stamp);
+  }
+  buffer_target_time_ = target_time;
+  buffer_prev_step_ = prev_step_;
+  buffer_keyframes_++;
+  has_buffer_ = true;
+
+  return leftover;
+}
+
+auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
+  // --- Load Graph from Buffer ---
+  gtsam::NonlinearFactorGraph batch_graph;
+  gtsam::Values batch_values;
+  gtsam::IncrementalFixedLagSmoother::KeyTimestampMap batch_timestamps;
+  double batch_target_time{0.0};
+  size_t batch_prev_step = 0;
+  size_t batch_keyframes = 0;
+
+  {
+    const std::scoped_lock state_lock(state_mutex_);
+    if (!has_buffer_) {
+      return std::nullopt;
+    }
+
+    batch_graph = std::move(buffer_graph_);
+    batch_values = buffer_values_;
+    batch_timestamps = std::move(buffer_timestamps_);
+    batch_target_time = buffer_target_time_;
+    batch_prev_step = buffer_prev_step_;
+    batch_keyframes = buffer_keyframes_;
+
+    buffer_graph_ = gtsam::NonlinearFactorGraph();
+    buffer_values_ = gtsam::Values();
+    buffer_timestamps_.clear();
+    buffer_keyframes_ = 0;
+    has_buffer_ = false;
+  }
+
+  OptimizeResult result;
+  result.timestamp = batch_target_time;
+
+  // --- Detect Processing Overflow ---
+  result.new_keyframes = batch_keyframes;
+  if (result.new_keyframes > 1) {
+    result.processing_overflow = true;
+  }
+
+  // --- Smoother Optimization ---
+  auto total_start = std::chrono::steady_clock::now();
+  result.new_factors = batch_graph.size();
+
+  if (inc_smoother_) {
+    auto smoother_start = std::chrono::steady_clock::now();
+    inc_smoother_->update(batch_graph, batch_values, batch_timestamps);
+    auto smoother_end = std::chrono::steady_clock::now();
+    result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
+
+    {
+      const std::scoped_lock state_lock(state_mutex_);
+      prev_pose_ = inc_smoother_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
+      prev_vel_ = inc_smoother_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
+      prev_imu_bias_ =
+          inc_smoother_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
+      if (params_.mag.estimate_hard_iron_bias) {
+        prev_mag_bias_ = inc_smoother_->calculateEstimate<gtsam::Point3>(M(0));
+      }
+      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+        delta = inc_smoother_->calculateEstimate<gtsam::Pose3>(O(agent_queue_idx));
+      }
+    }
+
+    if (params_.publish_diagnostics || params_.publish_graph_metrics) {
+      result.total_factors = inc_smoother_->getFactors().nrFactors();
+      result.total_variables = inc_smoother_->getLinearizationPoint().size();
+    }
+
+  } else if (isam_) {
+    auto smoother_start = std::chrono::steady_clock::now();
+    isam_->update(batch_graph, batch_values);
+    auto smoother_end = std::chrono::steady_clock::now();
+    result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
+
+    {
+      const std::scoped_lock state_lock(state_mutex_);
+      prev_pose_ = isam_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
+      prev_vel_ = isam_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
+      prev_imu_bias_ = isam_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
+      if (params_.mag.estimate_hard_iron_bias) {
+        prev_mag_bias_ = isam_->calculateEstimate<gtsam::Point3>(M(0));
+      }
+      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+        delta = isam_->calculateEstimate<gtsam::Pose3>(O(agent_queue_idx));
+      }
+    }
+
+    if (params_.publish_diagnostics || params_.publish_graph_metrics) {
+      result.total_factors = isam_->getFactorsUnsafe().nrFactors();
+      result.total_variables = isam_->getLinearizationPoint().size();
+    }
+  } else {
+    lm_graph_.push_back(batch_graph.begin(), batch_graph.end());
+    lm_values_.insert(batch_values);
+
+    auto smoother_start = std::chrono::steady_clock::now();
+    const gtsam::LevenbergMarquardtParams lm_params;
+    gtsam::LevenbergMarquardtOptimizer optimizer(lm_graph_, lm_values_, lm_params);
+    lm_values_ = optimizer.optimize();
+    auto smoother_end = std::chrono::steady_clock::now();
+    result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
+
+    {
+      const std::scoped_lock state_lock(state_mutex_);
+      prev_pose_ = lm_values_.at<gtsam::Pose3>(X(batch_prev_step));
+      prev_vel_ = lm_values_.at<gtsam::Vector3>(V(batch_prev_step));
+      prev_imu_bias_ = lm_values_.at<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
+      if (params_.mag.estimate_hard_iron_bias) {
+        prev_mag_bias_ = lm_values_.at<gtsam::Point3>(M(0));
+      }
+      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
+        delta = lm_values_.at<gtsam::Pose3>(O(agent_queue_idx));
+      }
+    }
+
+    if (params_.publish_diagnostics || params_.publish_graph_metrics) {
+      result.total_factors = lm_graph_.nrFactors();
+      result.total_variables = lm_values_.size();
+    }
+  }
+
+  {
+    const std::scoped_lock state_lock(state_mutex_);
+
+    result.pose = prev_pose_;
+    result.velocity = prev_vel_;
+    result.imu_bias = prev_imu_bias_;
+    result.mag_bias = prev_mag_bias_;
+
+    result.neighbors.reserve(neighbors_.size());
+    for (const auto& [agent_queue_idx, neighbor] : neighbors_) {
+      NeighborResult estimate;
+      estimate.agent_queue_idx = agent_queue_idx;
+      estimate.timestamp = neighbor.curr_time;
+      estimate.pose_key = N(neighbor.curr_step);
+
+      if (inc_smoother_ && inc_smoother_->getLinearizationPoint().exists(estimate.pose_key)) {
+        estimate.pose = inc_smoother_->calculateEstimate<gtsam::Pose3>(estimate.pose_key);
+      } else if (isam_ && isam_->getLinearizationPoint().exists(estimate.pose_key)) {
+        estimate.pose = isam_->calculateEstimate<gtsam::Pose3>(estimate.pose_key);
+      } else if (lm_values_.exists(estimate.pose_key)) {
+        estimate.pose = lm_values_.at<gtsam::Pose3>(estimate.pose_key);
+      } else {
+        // Key was marginalized out of the smoother lag
+        continue;
+      }
+
+      // Transform the neighbor's pose into the map frame with the origin delta
+      if (params_.multiagent.estimate_origin_delta) {
+        estimate.origin_delta = prev_origin_deltas_.at(agent_queue_idx);
+        estimate.pose = *estimate.origin_delta * estimate.pose;
+      }
+
+      result.neighbors.push_back(std::move(estimate));
+    }
+  }
+
+  // --- Calculate Covariances ---
+  auto cov_start = std::chrono::steady_clock::now();
+
+  auto marginal_cov = [&](bool enabled, gtsam::Key key, int dim) -> gtsam::Matrix {
+    if (enabled) {
+      if (inc_smoother_) {
+        return inc_smoother_->marginalCovariance(key);
+      }
+      if (isam_) {
+        return isam_->marginalCovariance(key);
+      }
+    }
+    static constexpr double kUnknownCovariance = -1.0;
+    return gtsam::Matrix::Identity(dim, dim) * kUnknownCovariance;
+  };
+
+  result.pose_cov = marginal_cov(params_.publish_pose_cov, X(batch_prev_step), 6);
+  result.velocity_cov =
+      marginal_cov(params_.publish_velocity && params_.publish_velocity_cov, V(batch_prev_step), 3);
+  result.imu_bias_cov =
+      marginal_cov(params_.publish_imu_bias && params_.publish_imu_bias_cov, B(batch_prev_step), 6);
+  result.mag_bias_cov = marginal_cov(params_.mag.estimate_hard_iron_bias &&
+                                         params_.publish_mag_bias && params_.publish_mag_bias_cov,
+                                     M(0), 3);
+
+  // Neighbor poses are published as (origin delta * neighbor), so use the joint over both keys
+  const gtsam::Values* cov_values = nullptr;
+  std::optional<gtsam::Marginals> cov_marginals;
+  if (params_.publish_neighbor_pose_cov && params_.multiagent.estimate_origin_delta &&
+      !result.neighbors.empty()) {
+    if (inc_smoother_) {
+      cov_values = &inc_smoother_->getLinearizationPoint();
+      cov_marginals.emplace(inc_smoother_->getFactors(), *cov_values);
+    } else if (isam_) {
+      cov_values = &isam_->getLinearizationPoint();
+      cov_marginals.emplace(isam_->getFactorsUnsafe(), *cov_values);
+    }
+  }
+
+  auto neighbor_cov = [&](gtsam::Key pose_key, size_t agent_queue_idx) -> gtsam::Matrix {
+    const gtsam::Key delta_key = O(agent_queue_idx);
+
+    if (!cov_marginals || !cov_values->exists(delta_key) || !cov_values->exists(pose_key)) {
+      return marginal_cov(params_.publish_neighbor_pose_cov, pose_key, 6);
+    }
+
+    gtsam::Matrix66 H_delta;
+    gtsam::Matrix66 H_neighbor;
+    cov_values->at<gtsam::Pose3>(delta_key).compose(cov_values->at<gtsam::Pose3>(pose_key), H_delta,
+                                                    H_neighbor);
+
+    const gtsam::JointMarginal joint =
+        cov_marginals->jointMarginalCovariance(gtsam::KeyVector{delta_key, pose_key});
+
+    // Propagate the joint through the composition, keeping the cross-correlation
+    const gtsam::Matrix66 cross = H_delta * joint.at(delta_key, pose_key) * H_neighbor.transpose();
+    return H_delta * joint.at(delta_key, delta_key) * H_delta.transpose() +
+           H_neighbor * joint.at(pose_key, pose_key) * H_neighbor.transpose() + cross +
+           cross.transpose();
+  };
+
+  for (auto& neighbor : result.neighbors) {
+    neighbor.pose_cov = neighbor_cov(neighbor.pose_key, neighbor.agent_queue_idx);
+  }
+
+  auto cov_end = std::chrono::steady_clock::now();
+  result.cov_duration = std::chrono::duration<double>(cov_end - cov_start).count();
+
+  // --- Export Smoothed Path ---
+  if (params_.publish_smoothed_path) {
+    if (inc_smoother_) {
+      result.smoothed_path = inc_smoother_->calculateEstimate();
+    } else if (isam_) {
+      result.smoothed_path = isam_->calculateEstimate();
+    } else {
+      result.smoothed_path = lm_values_;
+    }
+  }
+
+  auto total_end = std::chrono::steady_clock::now();
+  result.total_duration = std::chrono::duration<double>(total_end - total_start).count();
+
+  return result;
+}
+
+auto FactorGraphCore::snapshotTimeKeys() const -> std::map<int64_t, gtsam::Key> {
+  const std::scoped_lock lock(state_mutex_);
+  return time_to_key_;
+}
+
+auto FactorGraphCore::snapshotNeighborTimeKeys() const
+    -> std::unordered_map<size_t, std::map<int64_t, gtsam::Key>> {
+  const std::scoped_lock lock(state_mutex_);
+  return neighbor_time_to_key_;
+}
+
+auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& queues) const
+    -> std::optional<FactorGraphCore::InitialState> {
+  const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
+  const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
+
+  const bool use_param_priors = params_.priors.use_parameter_priors;
+  auto use_init_prior = [use_param_priors](bool enabled) { return enabled && !use_param_priors; };
+  const bool use_gps = use_init_prior(params_.gps.enable_gps_init_priors);
+  const bool use_depth = use_init_prior(params_.depth.enable_depth_init_priors);
+  const bool use_ahrs = use_init_prior(params_.ahrs.enable_ahrs_init_priors);
+  const bool use_dvl = use_init_prior(params_.dvl.enable_dvl_init_priors);
+
+  // Additional sensor data needed for init
+  const bool need_ahrs = params_.comparison.enable_loose_dvl_preintegration;
+  const bool need_dvl =
+      params_.dvl.enable_dvl && (params_.comparison.enable_loose_dvl_preintegration ||
+                                 params_.comparison.enable_tight_dvl_preintegration);
+
+  auto keyframed_by = [kf, backup_kf](KeyframeSource src) { return kf == src || backup_kf == src; };
+  const bool start_depth = params_.depth.enable_depth && keyframed_by(KeyframeSource::kDepth);
+  const bool start_dvl = params_.dvl.enable_dvl && keyframed_by(KeyframeSource::kDvl);
+
+  const std::array<std::pair<bool, const char*>, 5> requirements = {{
+      {queues.imu.empty(), "IMU"},
+      {use_gps && queues.gps.empty(), "GPS"},
+      {use_depth && queues.depth.empty(), "depth"},
+      {(use_ahrs || need_ahrs) && queues.ahrs.empty(), "AHRS"},
+      {(use_dvl || need_dvl) && queues.dvl.empty(), "DVL"},
+  }};
+  std::string missing;
+  for (const auto& [is_missing, name] : requirements) {
+    if (is_missing) {
+      missing += missing.empty() ? name : std::string(", ") + name;
+    }
+  }
+
+  if (!missing.empty()) {
+    logger_.logThrottled(LogLevel::kWarn, "init_wait:" + missing, kInitWaitThrottleSeconds,
+                         init_time, "Waiting for initialization data: " + missing + ".");
+    return std::nullopt;
+  }
+
+  auto newest_if = [](bool take, const auto& msgs) {
+    return (take && !msgs.empty()) ? msgs.back() : std::decay_t<decltype(msgs.back())>{};
+  };
+  auto gps = newest_if(use_gps, queues.gps);
+  auto depth = newest_if(use_depth, queues.depth);
+  auto ahrs = newest_if(use_ahrs, queues.ahrs);
+  auto dvl = newest_if(use_dvl, queues.dvl);
+  auto depth_at_start = newest_if(start_depth, queues.depth);
+  auto dvl_at_start = newest_if(start_dvl || need_dvl, queues.dvl);
+  auto imu = queues.imu.back();
+
+  InitialState state;
+  const gtsam::Rot3 map_R_target = computeInitialOrientation(ahrs);
+  state.pose = gtsam::Pose3(map_R_target, computeInitialPosition(map_R_target, gps, depth));
+  state.velocity = computeInitialVelocity(map_R_target, dvl);
+  state.imu_bias = gtsam::imuBias::ConstantBias(
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_accel_bias.data()),
+      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_gyro_bias.data()));
+  state.mag_bias = Eigen::Map<const Eigen::Vector3d>(params_.priors.hard_iron_bias.data());
+
+  state.pose_cov = computeInitialPoseCovariance(map_R_target, gps, depth, ahrs);
+  state.velocity_cov =
+      computeInitialVelocityCovariance(map_R_target, dvl, state.pose_cov.topLeftCorner<3, 3>());
+  state.imu_bias_cov = gtsam::Matrix6::Zero();
+  state.imu_bias_cov.topLeftCorner<3, 3>() =
+      sigmasSquaredDiag(params_.priors.initial_accel_bias_sigmas);
+  state.imu_bias_cov.bottomRightCorner<3, 3>() =
+      sigmasSquaredDiag(params_.priors.initial_gyro_bias_sigmas);
+  state.mag_bias_cov = sigmasSquaredDiag(params_.priors.hard_iron_bias_sigmas);
+
+  if (kf == KeyframeSource::kDvl && dvl_at_start) {
+    state.timestamp = dvl_at_start->timestamp;
+  } else if (kf == KeyframeSource::kDepth && depth_at_start) {
+    state.timestamp = depth_at_start->timestamp;
+  } else {
+    state.timestamp = imu->timestamp;
+  }
+
+  state.imu = imu;
+  state.dvl = dvl_at_start;
+  return state;
+}
+
 auto FactorGraphCore::computeInitialOrientation(const std::shared_ptr<AhrsData>& ahrs) const
     -> gtsam::Rot3 {
   if (ahrs) {
@@ -390,91 +989,6 @@ auto FactorGraphCore::computeInitialVelocityCovariance(
   return map_velocity_cov + J_vel_rot * target_orientation_cov * J_vel_rot.transpose();
 }
 
-auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& queues) const
-    -> std::optional<FactorGraphCore::InitialState> {
-  const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
-  const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
-
-  const bool use_param_priors = params_.priors.use_parameter_priors;
-  auto use_init_prior = [use_param_priors](bool enabled) { return enabled && !use_param_priors; };
-  const bool use_gps = use_init_prior(params_.gps.enable_gps_init_priors);
-  const bool use_depth = use_init_prior(params_.depth.enable_depth_init_priors);
-  const bool use_ahrs = use_init_prior(params_.ahrs.enable_ahrs_init_priors);
-  const bool use_dvl = use_init_prior(params_.dvl.enable_dvl_init_priors);
-
-  // Additional sensor data needed for init
-  const bool need_ahrs = params_.comparison.enable_loose_dvl_preintegration;
-  const bool need_dvl =
-      params_.dvl.enable_dvl && (params_.comparison.enable_loose_dvl_preintegration ||
-                                 params_.comparison.enable_tight_dvl_preintegration);
-
-  auto keyframed_by = [kf, backup_kf](KeyframeSource src) { return kf == src || backup_kf == src; };
-  const bool start_depth = params_.depth.enable_depth && keyframed_by(KeyframeSource::kDepth);
-  const bool start_dvl = params_.dvl.enable_dvl && keyframed_by(KeyframeSource::kDvl);
-
-  const std::array<std::pair<bool, const char*>, 5> requirements = {{
-      {queues.imu.empty(), "IMU"},
-      {use_gps && queues.gps.empty(), "GPS"},
-      {use_depth && queues.depth.empty(), "depth"},
-      {(use_ahrs || need_ahrs) && queues.ahrs.empty(), "AHRS"},
-      {(use_dvl || need_dvl) && queues.dvl.empty(), "DVL"},
-  }};
-  std::string missing;
-  for (const auto& [is_missing, name] : requirements) {
-    if (is_missing) {
-      missing += missing.empty() ? name : std::string(", ") + name;
-    }
-  }
-
-  if (!missing.empty()) {
-    logger_.logThrottled(LogLevel::kWarn, "init_wait:" + missing, kInitWaitThrottleSeconds,
-                         init_time, "Waiting for initialization data: " + missing + ".");
-    return std::nullopt;
-  }
-
-  auto newest_if = [](bool take, const auto& msgs) {
-    return (take && !msgs.empty()) ? msgs.back() : std::decay_t<decltype(msgs.back())>{};
-  };
-  auto gps = newest_if(use_gps, queues.gps);
-  auto depth = newest_if(use_depth, queues.depth);
-  auto ahrs = newest_if(use_ahrs, queues.ahrs);
-  auto dvl = newest_if(use_dvl, queues.dvl);
-  auto depth_at_start = newest_if(start_depth, queues.depth);
-  auto dvl_at_start = newest_if(start_dvl || need_dvl, queues.dvl);
-  auto imu = queues.imu.back();
-
-  InitialState state;
-  const gtsam::Rot3 map_R_target = computeInitialOrientation(ahrs);
-  state.pose = gtsam::Pose3(map_R_target, computeInitialPosition(map_R_target, gps, depth));
-  state.velocity = computeInitialVelocity(map_R_target, dvl);
-  state.imu_bias = gtsam::imuBias::ConstantBias(
-      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_accel_bias.data()),
-      Eigen::Map<const Eigen::Vector3d>(params_.priors.initial_gyro_bias.data()));
-  state.mag_bias = Eigen::Map<const Eigen::Vector3d>(params_.priors.hard_iron_bias.data());
-
-  state.pose_cov = computeInitialPoseCovariance(map_R_target, gps, depth, ahrs);
-  state.velocity_cov =
-      computeInitialVelocityCovariance(map_R_target, dvl, state.pose_cov.topLeftCorner<3, 3>());
-  state.imu_bias_cov = gtsam::Matrix6::Zero();
-  state.imu_bias_cov.topLeftCorner<3, 3>() =
-      sigmasSquaredDiag(params_.priors.initial_accel_bias_sigmas);
-  state.imu_bias_cov.bottomRightCorner<3, 3>() =
-      sigmasSquaredDiag(params_.priors.initial_gyro_bias_sigmas);
-  state.mag_bias_cov = sigmasSquaredDiag(params_.priors.hard_iron_bias_sigmas);
-
-  if (kf == KeyframeSource::kDvl && dvl_at_start) {
-    state.timestamp = dvl_at_start->timestamp;
-  } else if (kf == KeyframeSource::kDepth && depth_at_start) {
-    state.timestamp = depth_at_start->timestamp;
-  } else {
-    state.timestamp = imu->timestamp;
-  }
-
-  state.imu = imu;
-  state.dvl = dvl_at_start;
-  return state;
-}
-
 auto FactorGraphCore::configureImuPreintegration(const InitialState& init_state) const
     -> std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params> {
   auto imu_params = gtsam::PreintegratedCombinedMeasurements::Params::MakeSharedU();
@@ -546,93 +1060,6 @@ void FactorGraphCore::addPriorFactors(const InitialState& init_state,
       << "  Gyro bias [rad/s]   : " << prior_imu_bias_sigmas.tail<3>().transpose() << "\n"
       << "  Mag bias [T]        : " << prior_mag_bias_sigmas.transpose();
   logger_.log(LogLevel::kInfo, oss.str());
-}
-
-auto FactorGraphCore::initialize(double init_time, const QueueBundle& queues, const TfBundle& tfs)
-    -> bool {
-  tfs_ = tfs;
-
-  // --- Compute Initial State ---
-  std::optional<InitialState> maybe_state = computeInitialState(init_time, queues);
-  if (!maybe_state) {
-    return false;
-  }
-  const InitialState& init_state = *maybe_state;
-
-  prev_pose_ = init_state.pose;
-  prev_vel_ = init_state.velocity;
-  prev_imu_bias_ = init_state.imu_bias;
-  prev_mag_bias_ = init_state.mag_bias;
-  prev_time_ = init_state.timestamp;
-
-  last_imu_accel_ = init_state.imu->linear_acceleration;
-  last_imu_gyro_ = init_state.imu->angular_velocity;
-
-  // --- Build Initial Graph ---
-  gtsam::NonlinearFactorGraph initial_graph;
-  gtsam::Values initial_values;
-  addPriorFactors(init_state, initial_graph, initial_values);
-
-  if (params_.publish_smoothed_path || params_.multiagent.enable_multiagent) {
-    time_to_key_[static_cast<int64_t>(prev_time_ * kSecondsToNanoseconds)] = X(0);
-  }
-
-  // --- Initialize Preintegrators ---
-  imu_preintegrator_ = std::make_unique<gtsam::PreintegratedCombinedMeasurements>(
-      configureImuPreintegration(init_state), prev_imu_bias_);
-
-  if (params_.comparison.enable_loose_dvl_preintegration) {
-    dvl_loose_preintegrator_ = std::make_unique<DvlLoosePreintegrator>();
-    dvl_loose_preintegrator_->reset(prev_pose_.rotation());
-  } else if (params_.comparison.enable_tight_dvl_preintegration) {
-    dvl_tight_preintegrator_ = std::make_unique<DvlTightPreintegrator>();
-    dvl_tight_preintegrator_->reset();
-  }
-
-  if (dvl_loose_preintegrator_ || dvl_tight_preintegrator_) {
-    if (params_.dvl.enable_dvl) {
-      last_dvl_vel_ = init_state.dvl->linear_velocity;
-      last_dvl_cov_ = resolveCov<3>(
-          params_.dvl.use_parameter_sigmas, params_.dvl.parameter_sigmas.velocity_noise_sigmas,
-          params_.dvl.covariance_scalar,
-          init_state.dvl->velocity_covariance.bottomRightCorner<3, 3>(), "DVL", logger_);
-    } else {
-      last_dvl_vel_ = gtsam::Vector3::Zero();
-      last_dvl_cov_ = sigmasSquaredDiag(params_.dvl.parameter_sigmas.velocity_noise_sigmas) *
-                      params_.dvl.covariance_scalar;
-    }
-  }
-
-  // --- Initialize Smoother ---
-  gtsam::IncrementalFixedLagSmoother::KeyTimestampMap initial_timestamps;
-  initial_timestamps[X(0)] = prev_time_;
-  initial_timestamps[V(0)] = prev_time_;
-  initial_timestamps[B(0)] = prev_time_;
-  if (params_.mag.estimate_hard_iron_bias) {
-    initial_timestamps[M(0)] = prev_time_;
-  }
-
-  gtsam::ISAM2Params isam2_params;
-  isam2_params.relinearizeThreshold = params_.relinearize_threshold;
-  isam2_params.relinearizeSkip = static_cast<int>(params_.relinearize_skip);
-
-  switch (parseSolverType(params_.solver_type)) {
-    case SolverType::kIsam2:
-      isam_ = std::make_unique<gtsam::ISAM2>(isam2_params);
-      isam_->update(initial_graph, initial_values);
-      break;
-    case SolverType::kLevenbergMarquardt:
-      lm_graph_ = initial_graph;
-      lm_values_ = initial_values;
-      break;
-    case SolverType::kIncrementalFixedLagSmoother:
-      inc_smoother_ = std::make_unique<gtsam::IncrementalFixedLagSmoother>(params_.smoother_lag_sec,
-                                                                           isam2_params);
-      inc_smoother_->update(initial_graph, initial_values, initial_timestamps);
-      break;
-  }
-
-  return true;
 }
 
 void FactorGraphCore::addGpsFactor(gtsam::NonlinearFactorGraph& graph,
@@ -1363,433 +1790,6 @@ void FactorGraphCore::addMultiAgentFactors(
       addInterAgentBearingFactor(graph, *msg, neighbor, pose_key, agent_queue_idx);
     }
   }
-}
-
-auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBundle& tfs)
-    -> std::optional<QueueBundle> {
-  if (target_time <= prev_time_ + kMinIntegrationDt) {
-    return std::nullopt;
-  }
-
-  // Sort sensor messages by timestamp
-  auto by_time = [](const auto& a, const auto& b) { return a->timestamp < b->timestamp; };
-  std::sort(queues.imu.begin(), queues.imu.end(), by_time);
-  std::sort(queues.gps.begin(), queues.gps.end(), by_time);
-  std::sort(queues.depth.begin(), queues.depth.end(), by_time);
-  std::sort(queues.mag.begin(), queues.mag.end(), by_time);
-  std::sort(queues.ahrs.begin(), queues.ahrs.end(), by_time);
-  std::sort(queues.dvl.begin(), queues.dvl.end(), by_time);
-  std::sort(queues.wrench.begin(), queues.wrench.end(), by_time);
-  for (auto& agent : queues.multiagent) {
-    std::sort(agent.begin(), agent.end(), by_time);
-  }
-
-  if (queues.imu.empty() || queues.imu.front()->timestamp > target_time) {
-    logger_.log(LogLevel::kWarn,
-                "Rejected keyframe: no IMU measurements at or before the keyframe time.");
-    return std::nullopt;
-  }
-
-  // --- Build Factor Graph ---
-  gtsam::NonlinearFactorGraph new_graph;
-  gtsam::Values new_values;
-  gtsam::IncrementalFixedLagSmoother::KeyTimestampMap new_timestamps;
-
-  QueueBundle leftover;
-
-  const std::scoped_lock state_lock(state_mutex_);
-
-  // Update lazily-resolved transforms
-  tfs_ = tfs;
-
-  const gtsam::Vector3 held_imu_accel = last_imu_accel_;
-  const gtsam::Vector3 held_imu_gyro = last_imu_gyro_;
-
-  // Re-queue messages newer than the keyframe for the next update
-  auto split_after_target = [target_time](auto& msgs, auto& split) {
-    while (!msgs.empty() && msgs.back()->timestamp > target_time) {
-      split.push_front(msgs.back());
-      msgs.pop_back();
-    }
-  };
-  split_after_target(queues.imu, leftover.imu);
-  split_after_target(queues.gps, leftover.gps);
-  split_after_target(queues.depth, leftover.depth);
-  split_after_target(queues.mag, leftover.mag);
-  split_after_target(queues.ahrs, leftover.ahrs);
-  split_after_target(queues.dvl, leftover.dvl);
-  split_after_target(queues.wrench, leftover.wrench);
-  leftover.multiagent.resize(queues.multiagent.size());
-  for (size_t agent_queue_idx = 0; agent_queue_idx < queues.multiagent.size(); ++agent_queue_idx) {
-    split_after_target(queues.multiagent[agent_queue_idx], leftover.multiagent[agent_queue_idx]);
-  }
-
-  if (params_.comparison.enable_loose_dvl_preintegration && !queues.ahrs.empty()) {
-    leftover.ahrs.push_front(queues.ahrs.back());
-  }
-
-  addImuPreintFactor(new_graph, queues.imu, target_time);
-  if (params_.gps.enable_gps) {
-    addGpsFactor(new_graph, queues.gps);
-  }
-  if (params_.depth.enable_depth) {
-    addDepthFactor(new_graph, queues.depth);
-  }
-  if (params_.mag.enable_mag) {
-    addMagFactor(new_graph, queues.mag);
-  }
-  if (params_.ahrs.enable_ahrs) {
-    addAhrsFactor(new_graph, queues.ahrs);
-  }
-
-  // Handle DVL dropouts
-  auto add_dropout_factors = [&](gtsam::NonlinearFactorGraph& g) {
-    const bool use_wrench =
-        params_.wrench.enable_wrench || params_.wrench.enable_wrench_dropout_only;
-    const bool use_const_vel =
-        params_.const_vel.enable_const_vel || params_.const_vel.enable_const_vel_dropout_only;
-
-    if (use_wrench) {
-      addWrenchDynamicsFactor(g, queues.wrench, target_time);
-    } else if (use_const_vel) {
-      addConstVelFactor(g, target_time);
-    }
-  };
-
-  if (queues.dvl.empty() || !params_.dvl.enable_dvl) {
-    add_dropout_factors(new_graph);
-  } else {
-    if (params_.comparison.enable_loose_dvl_preintegration) {
-      if (queues.ahrs.empty()) {
-        add_dropout_factors(new_graph);
-        last_dvl_vel_ = queues.dvl.back()->linear_velocity;
-      } else {
-        addDvlLoosePreintFactor(new_graph, queues.dvl, queues.ahrs, target_time);
-      }
-    } else if (params_.comparison.enable_tight_dvl_preintegration) {
-      addDvlTightPreintFactor(new_graph, queues.dvl, queues.imu, target_time, held_imu_accel,
-                              held_imu_gyro);
-    } else {
-      addDvlFactor(new_graph, queues.dvl, last_imu_gyro_);
-
-      if (params_.wrench.enable_wrench) {
-        addWrenchDynamicsFactor(new_graph, queues.wrench, target_time);
-      } else if (params_.const_vel.enable_const_vel) {
-        addConstVelFactor(new_graph, target_time);
-      }
-    }
-  }
-
-  if (params_.multiagent.enable_multiagent) {
-    addMultiAgentFactors(new_graph, new_values, new_timestamps, queues, target_time);
-  }
-
-  // --- Add State Predictions ---
-  auto pred = imu_preintegrator_->predict(gtsam::NavState(prev_pose_, prev_vel_), prev_imu_bias_);
-  new_values.insert(X(curr_step_), pred.pose());
-  new_values.insert(V(curr_step_), pred.velocity());
-  new_values.insert(B(curr_step_), prev_imu_bias_);
-  new_timestamps[X(curr_step_)] = target_time;
-  new_timestamps[V(curr_step_)] = target_time;
-  new_timestamps[B(curr_step_)] = target_time;
-
-  if (params_.mag.estimate_hard_iron_bias) {
-    new_timestamps[M(0)] = target_time;
-  }
-
-  for (const auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
-    new_timestamps[O(agent_queue_idx)] = target_time;
-  }
-
-  if (!inc_smoother_ && !isam_) {
-    prev_pose_ = pred.pose();
-    prev_vel_ = pred.velocity();
-  }
-
-  // --- Reset Preintegrators ---
-  imu_preintegrator_->resetIntegrationAndSetBias(prev_imu_bias_);
-
-  if (params_.publish_smoothed_path || params_.multiagent.enable_multiagent) {
-    time_to_key_[static_cast<int64_t>(target_time * kSecondsToNanoseconds)] = X(curr_step_);
-    if (inc_smoother_) {
-      const auto lag_start_ns =
-          static_cast<int64_t>((target_time - params_.smoother_lag_sec) * kSecondsToNanoseconds);
-      time_to_key_.erase(time_to_key_.begin(), time_to_key_.lower_bound(lag_start_ns));
-      for (auto& [agent_queue_idx, neighbor_time_to_key] : neighbor_time_to_key_) {
-        neighbor_time_to_key.erase(neighbor_time_to_key.begin(),
-                                   neighbor_time_to_key.lower_bound(lag_start_ns));
-      }
-    }
-  }
-
-  prev_time_ = target_time;
-  prev_step_ = curr_step_;
-  curr_step_++;
-
-  // --- Add Graph to Buffer ---
-  buffer_graph_ += new_graph;
-  buffer_values_.insert(new_values);
-  for (const auto& [key, stamp] : new_timestamps) {
-    buffer_timestamps_.insert_or_assign(key, stamp);
-  }
-  buffer_target_time_ = target_time;
-  buffer_prev_step_ = prev_step_;
-  buffer_keyframes_++;
-  has_buffer_ = true;
-
-  return leftover;
-}
-
-auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
-  // --- Load Graph from Buffer ---
-  gtsam::NonlinearFactorGraph batch_graph;
-  gtsam::Values batch_values;
-  gtsam::IncrementalFixedLagSmoother::KeyTimestampMap batch_timestamps;
-  double batch_target_time{0.0};
-  size_t batch_prev_step = 0;
-  size_t batch_keyframes = 0;
-
-  {
-    const std::scoped_lock state_lock(state_mutex_);
-    if (!has_buffer_) {
-      return std::nullopt;
-    }
-
-    batch_graph = std::move(buffer_graph_);
-    batch_values = buffer_values_;
-    batch_timestamps = std::move(buffer_timestamps_);
-    batch_target_time = buffer_target_time_;
-    batch_prev_step = buffer_prev_step_;
-    batch_keyframes = buffer_keyframes_;
-
-    buffer_graph_ = gtsam::NonlinearFactorGraph();
-    buffer_values_ = gtsam::Values();
-    buffer_timestamps_.clear();
-    buffer_keyframes_ = 0;
-    has_buffer_ = false;
-  }
-
-  OptimizeResult result;
-  result.timestamp = batch_target_time;
-
-  // --- Detect Processing Overflow ---
-  result.new_keyframes = batch_keyframes;
-  if (result.new_keyframes > 1) {
-    result.processing_overflow = true;
-  }
-
-  // --- Smoother Optimization ---
-  auto total_start = std::chrono::steady_clock::now();
-  result.new_factors = batch_graph.size();
-
-  if (inc_smoother_) {
-    auto smoother_start = std::chrono::steady_clock::now();
-    inc_smoother_->update(batch_graph, batch_values, batch_timestamps);
-    auto smoother_end = std::chrono::steady_clock::now();
-    result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
-
-    {
-      const std::scoped_lock state_lock(state_mutex_);
-      prev_pose_ = inc_smoother_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
-      prev_vel_ = inc_smoother_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
-      prev_imu_bias_ =
-          inc_smoother_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
-      if (params_.mag.estimate_hard_iron_bias) {
-        prev_mag_bias_ = inc_smoother_->calculateEstimate<gtsam::Point3>(M(0));
-      }
-      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
-        delta = inc_smoother_->calculateEstimate<gtsam::Pose3>(O(agent_queue_idx));
-      }
-    }
-
-    if (params_.publish_diagnostics || params_.publish_graph_metrics) {
-      result.total_factors = inc_smoother_->getFactors().nrFactors();
-      result.total_variables = inc_smoother_->getLinearizationPoint().size();
-    }
-
-  } else if (isam_) {
-    auto smoother_start = std::chrono::steady_clock::now();
-    isam_->update(batch_graph, batch_values);
-    auto smoother_end = std::chrono::steady_clock::now();
-    result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
-
-    {
-      const std::scoped_lock state_lock(state_mutex_);
-      prev_pose_ = isam_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
-      prev_vel_ = isam_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
-      prev_imu_bias_ = isam_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
-      if (params_.mag.estimate_hard_iron_bias) {
-        prev_mag_bias_ = isam_->calculateEstimate<gtsam::Point3>(M(0));
-      }
-      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
-        delta = isam_->calculateEstimate<gtsam::Pose3>(O(agent_queue_idx));
-      }
-    }
-
-    if (params_.publish_diagnostics || params_.publish_graph_metrics) {
-      result.total_factors = isam_->getFactorsUnsafe().nrFactors();
-      result.total_variables = isam_->getLinearizationPoint().size();
-    }
-  } else {
-    lm_graph_.push_back(batch_graph.begin(), batch_graph.end());
-    lm_values_.insert(batch_values);
-
-    auto smoother_start = std::chrono::steady_clock::now();
-    const gtsam::LevenbergMarquardtParams lm_params;
-    gtsam::LevenbergMarquardtOptimizer optimizer(lm_graph_, lm_values_, lm_params);
-    lm_values_ = optimizer.optimize();
-    auto smoother_end = std::chrono::steady_clock::now();
-    result.smoother_duration = std::chrono::duration<double>(smoother_end - smoother_start).count();
-
-    {
-      const std::scoped_lock state_lock(state_mutex_);
-      prev_pose_ = lm_values_.at<gtsam::Pose3>(X(batch_prev_step));
-      prev_vel_ = lm_values_.at<gtsam::Vector3>(V(batch_prev_step));
-      prev_imu_bias_ = lm_values_.at<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
-      if (params_.mag.estimate_hard_iron_bias) {
-        prev_mag_bias_ = lm_values_.at<gtsam::Point3>(M(0));
-      }
-      for (auto& [agent_queue_idx, delta] : prev_origin_deltas_) {
-        delta = lm_values_.at<gtsam::Pose3>(O(agent_queue_idx));
-      }
-    }
-
-    if (params_.publish_diagnostics || params_.publish_graph_metrics) {
-      result.total_factors = lm_graph_.nrFactors();
-      result.total_variables = lm_values_.size();
-    }
-  }
-
-  {
-    const std::scoped_lock state_lock(state_mutex_);
-
-    result.pose = prev_pose_;
-    result.velocity = prev_vel_;
-    result.imu_bias = prev_imu_bias_;
-    result.mag_bias = prev_mag_bias_;
-
-    result.neighbors.reserve(neighbors_.size());
-    for (const auto& [agent_queue_idx, neighbor] : neighbors_) {
-      NeighborResult estimate;
-      estimate.agent_queue_idx = agent_queue_idx;
-      estimate.timestamp = neighbor.curr_time;
-      estimate.pose_key = N(neighbor.curr_step);
-
-      if (inc_smoother_ && inc_smoother_->getLinearizationPoint().exists(estimate.pose_key)) {
-        estimate.pose = inc_smoother_->calculateEstimate<gtsam::Pose3>(estimate.pose_key);
-      } else if (isam_ && isam_->getLinearizationPoint().exists(estimate.pose_key)) {
-        estimate.pose = isam_->calculateEstimate<gtsam::Pose3>(estimate.pose_key);
-      } else if (lm_values_.exists(estimate.pose_key)) {
-        estimate.pose = lm_values_.at<gtsam::Pose3>(estimate.pose_key);
-      } else {
-        // Key was marginalized out of the smoother lag
-        continue;
-      }
-
-      // Transform the neighbor's pose into the map frame with the origin delta
-      if (params_.multiagent.estimate_origin_delta) {
-        estimate.origin_delta = prev_origin_deltas_.at(agent_queue_idx);
-        estimate.pose = *estimate.origin_delta * estimate.pose;
-      }
-
-      result.neighbors.push_back(std::move(estimate));
-    }
-  }
-
-  // --- Calculate Covariances ---
-  auto cov_start = std::chrono::steady_clock::now();
-
-  auto marginal_cov = [&](bool enabled, gtsam::Key key, int dim) -> gtsam::Matrix {
-    if (enabled) {
-      if (inc_smoother_) {
-        return inc_smoother_->marginalCovariance(key);
-      }
-      if (isam_) {
-        return isam_->marginalCovariance(key);
-      }
-    }
-    static constexpr double kUnknownCovariance = -1.0;
-    return gtsam::Matrix::Identity(dim, dim) * kUnknownCovariance;
-  };
-
-  result.pose_cov = marginal_cov(params_.publish_pose_cov, X(batch_prev_step), 6);
-  result.velocity_cov =
-      marginal_cov(params_.publish_velocity && params_.publish_velocity_cov, V(batch_prev_step), 3);
-  result.imu_bias_cov =
-      marginal_cov(params_.publish_imu_bias && params_.publish_imu_bias_cov, B(batch_prev_step), 6);
-  result.mag_bias_cov = marginal_cov(params_.mag.estimate_hard_iron_bias &&
-                                         params_.publish_mag_bias && params_.publish_mag_bias_cov,
-                                     M(0), 3);
-
-  // Neighbor poses are published as (origin delta * neighbor), so use the joint over both keys
-  const gtsam::Values* cov_values = nullptr;
-  std::optional<gtsam::Marginals> cov_marginals;
-  if (params_.publish_neighbor_pose_cov && params_.multiagent.estimate_origin_delta &&
-      !result.neighbors.empty()) {
-    if (inc_smoother_) {
-      cov_values = &inc_smoother_->getLinearizationPoint();
-      cov_marginals.emplace(inc_smoother_->getFactors(), *cov_values);
-    } else if (isam_) {
-      cov_values = &isam_->getLinearizationPoint();
-      cov_marginals.emplace(isam_->getFactorsUnsafe(), *cov_values);
-    }
-  }
-
-  auto neighbor_cov = [&](gtsam::Key pose_key, size_t agent_queue_idx) -> gtsam::Matrix {
-    const gtsam::Key delta_key = O(agent_queue_idx);
-
-    if (!cov_marginals || !cov_values->exists(delta_key) || !cov_values->exists(pose_key)) {
-      return marginal_cov(params_.publish_neighbor_pose_cov, pose_key, 6);
-    }
-
-    gtsam::Matrix66 H_delta;
-    gtsam::Matrix66 H_neighbor;
-    cov_values->at<gtsam::Pose3>(delta_key).compose(cov_values->at<gtsam::Pose3>(pose_key), H_delta,
-                                                    H_neighbor);
-
-    const gtsam::JointMarginal joint =
-        cov_marginals->jointMarginalCovariance(gtsam::KeyVector{delta_key, pose_key});
-
-    // Propagate the joint through the composition, keeping the cross-correlation
-    const gtsam::Matrix66 cross = H_delta * joint.at(delta_key, pose_key) * H_neighbor.transpose();
-    return H_delta * joint.at(delta_key, delta_key) * H_delta.transpose() +
-           H_neighbor * joint.at(pose_key, pose_key) * H_neighbor.transpose() + cross +
-           cross.transpose();
-  };
-
-  for (auto& neighbor : result.neighbors) {
-    neighbor.pose_cov = neighbor_cov(neighbor.pose_key, neighbor.agent_queue_idx);
-  }
-
-  auto cov_end = std::chrono::steady_clock::now();
-  result.cov_duration = std::chrono::duration<double>(cov_end - cov_start).count();
-
-  // --- Export Smoothed Path ---
-  if (params_.publish_smoothed_path) {
-    if (inc_smoother_) {
-      result.smoothed_path = inc_smoother_->calculateEstimate();
-    } else if (isam_) {
-      result.smoothed_path = isam_->calculateEstimate();
-    } else {
-      result.smoothed_path = lm_values_;
-    }
-  }
-
-  auto total_end = std::chrono::steady_clock::now();
-  result.total_duration = std::chrono::duration<double>(total_end - total_start).count();
-
-  return result;
-}
-
-auto FactorGraphCore::snapshotTimeKeys() const -> std::map<int64_t, gtsam::Key> {
-  const std::scoped_lock lock(state_mutex_);
-  return time_to_key_;
-}
-
-auto FactorGraphCore::snapshotNeighborTimeKeys() const
-    -> std::unordered_map<size_t, std::map<int64_t, gtsam::Key>> {
-  const std::scoped_lock lock(state_mutex_);
-  return neighbor_time_to_key_;
 }
 
 }  // namespace coug_fg

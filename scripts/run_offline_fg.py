@@ -40,13 +40,6 @@ def _snapshot_config() -> Path:
     return snapshot
 
 
-def _config_paths(config_dir: Path, namespace: str) -> list[str]:
-    return [
-        str(config_dir / "fleet" / "coug_fg_params.yaml"),
-        str(config_dir / f"{namespace}_params.yaml"),
-    ]
-
-
 def _save_config(config_dir: Path, dest_dir: Path) -> None:
     dest = dest_dir / "config"
     shutil.copytree(config_dir, dest, dirs_exist_ok=True)
@@ -70,7 +63,10 @@ def main() -> None:
     setup_logging()
     evo_flags = args.evo_flags.split()
     config_snapshot = _snapshot_config()
-    cfg_paths = _config_paths(config_snapshot, args.namespace)
+    cfg_paths = [
+        str(config_snapshot / "fleet" / "coug_fg_params.yaml"),
+        str(config_snapshot / f"{args.namespace}_params.yaml"),
+    ]
 
     with logging_redirect_tqdm():
         for bag in args.bags:

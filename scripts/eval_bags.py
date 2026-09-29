@@ -31,12 +31,6 @@ AGENTS = sorted(
 EVO_FLAGS = ["--align"]  # , "--project_to_plane", "xy"]
 
 
-def _recorded_topics(bag: str) -> set[str]:
-    meta = yaml.safe_load((Path(bag) / "metadata.yaml").read_text())
-    topics = meta["rosbag2_bagfile_information"]["topics_with_message_count"]
-    return {t["topic_metadata"]["name"] for t in topics if t["message_count"]}
-
-
 def _evaluate_agent(bag: str, agent: str, recorded: set[str], evo_flags: list[str]) -> None:
     agent_dir = evo_cli.evo_agent_dir(bag, agent)
     truth_topic = f"/{agent}/{evo_cli.TRUTH_TOPIC}"
@@ -69,7 +63,9 @@ def main() -> None:
     evo_flags = args.evo_flags.split()
     for bag in args.bags:
         logger.info(f"Evaluating bag: '{bag}'.")
-        recorded = _recorded_topics(bag)
+        meta = yaml.safe_load((Path(bag) / "metadata.yaml").read_text())
+        topics = meta["rosbag2_bagfile_information"]["topics_with_message_count"]
+        recorded = {t["topic_metadata"]["name"] for t in topics if t["message_count"]}
         for agent in args.agents:
             _evaluate_agent(bag, agent, recorded, evo_flags)
 

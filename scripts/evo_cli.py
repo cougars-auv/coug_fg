@@ -77,23 +77,6 @@ def save_tum(path: Path, pose: dict[str, Any]) -> None:
     logger.info(f"TUM trajectory saved: '{path}'.")
 
 
-def _load_tum(path: Path) -> dict[str, Any]:
-    data = np.loadtxt(path, ndmin=2)
-    pose = {k: data[:, i] for i, k in enumerate(TUM_KEYS)}
-    pose["roll"], pose["pitch"], pose["yaw"] = Rotation.from_quat(data[:, 4:8]).as_euler("xyz").T
-    return pose
-
-
-def _export_bag_tum(bag_path: str | Path, out_dir: Path, topic: str) -> Path | None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    args = ["evo_traj", "bag2", str(Path(bag_path).resolve()), topic, "--save_as_tum"]
-    code = subprocess.run(args, cwd=out_dir, check=False).returncode
-    if code != 0:
-        return None
-
-    return _latest_tum(out_dir)
-
-
 def resolve_tum(
     bag_path: str | Path,
     out_dir: Path,
@@ -105,7 +88,14 @@ def resolve_tum(
         return tum
     if not topic or (recorded is not None and topic not in recorded):
         return None
-    return _export_bag_tum(bag_path, out_dir, topic)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    args = ["evo_traj", "bag2", str(Path(bag_path).resolve()), topic, "--save_as_tum"]
+    code = subprocess.run(args, cwd=out_dir, check=False).returncode
+    if code != 0:
+        return None
+
+    return _latest_tum(out_dir)
 
 
 def load_ground_truth(bag_path: str | Path, namespace: str) -> tuple[dict[str, Any], Path | None]:
@@ -115,7 +105,10 @@ def load_ground_truth(bag_path: str | Path, namespace: str) -> tuple[dict[str, A
     if tum_path is None:
         return {}, None
 
-    return _load_tum(tum_path), tum_path
+    data = np.loadtxt(tum_path, ndmin=2)
+    pose = {k: data[:, i] for i, k in enumerate(TUM_KEYS)}
+    pose["roll"], pose["pitch"], pose["yaw"] = Rotation.from_quat(data[:, 4:8]).as_euler("xyz").T
+    return pose, tum_path
 
 
 def load_sim_ground_truth(bag_path: str | Path, namespace: str) -> list[dict[str, Any]]:

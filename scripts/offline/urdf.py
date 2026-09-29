@@ -95,14 +95,6 @@ def _read_fleet_urdf_param(config_paths: list[str]) -> str | None:
     return None
 
 
-def _urdf_search_dirs() -> list[Path]:
-    workspace = Path(os.environ["OVERLAY_WS"])
-    return [
-        workspace / "install/coug_description/share/coug_description/urdf",
-        workspace / "src/coug_description/coug_description/urdf",
-    ]
-
-
 def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
     urdf_file = None
     for path in map(Path, config_paths):
@@ -113,7 +105,11 @@ def resolve_urdf_path(namespace: str, config_paths: list[str]) -> str | None:
         logger.warning("No 'urdf_file' set in any config; sensor transforms must come from params.")
         return None
 
-    for urdf_dir in _urdf_search_dirs():
+    workspace = Path(os.environ["OVERLAY_WS"])
+    for urdf_dir in (
+        workspace / "install/coug_description/share/coug_description/urdf",
+        workspace / "src/coug_description/coug_description/urdf",
+    ):
         candidate = urdf_dir / urdf_file
         if candidate.is_file():
             logger.info(f"URDF loaded: '{candidate}'.")

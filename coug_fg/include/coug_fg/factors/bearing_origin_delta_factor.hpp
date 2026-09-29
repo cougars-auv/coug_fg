@@ -44,33 +44,6 @@ class BearingOriginDeltaFactorArm
                                       std::sin(elevation)));
   }
 
-  static auto unit3TangentCovariance(const gtsam::Matrix22& azi_el_covariance,
-                                     const gtsam::Point2& azi_el) -> gtsam::Matrix22 {
-    const double azimuth = azi_el(0);
-    const double elevation = azi_el(1);
-
-    // Columns of d(direction)/d(azimuth, elevation), tangent to the unit sphere
-    gtsam::Matrix32 J_direction_azi_el = gtsam::Matrix32::Zero();
-    J_direction_azi_el.col(0) << -std::cos(elevation) * std::sin(azimuth),
-        std::cos(elevation) * std::cos(azimuth), 0.0;
-    J_direction_azi_el.col(1) << -std::sin(elevation) * std::cos(azimuth),
-        -std::sin(elevation) * std::sin(azimuth), std::cos(elevation);
-
-    const gtsam::Unit3 measured_direction = losDirection(azi_el);
-    const gtsam::Matrix22 J_basis_azi_el =
-        measured_direction.basis().transpose() * J_direction_azi_el;
-
-    // Conjugate azimuth/elevation covariance into the Unit3 tangent space
-    gtsam::Matrix22 tangent_covariance =
-        J_basis_azi_el * azi_el_covariance * J_basis_azi_el.transpose();
-
-    // Isotropic floor, azimuth carries no direction information at the poles
-    constexpr double kMinSigma = 1.0e-3;  // [rad]
-    tangent_covariance += (kMinSigma * kMinSigma) * gtsam::Matrix22::Identity();
-
-    return tangent_covariance;
-  }
-
   BearingOriginDeltaFactorArm(gtsam::Key pose_key_l, gtsam::Key delta_key_n, gtsam::Key pose_key_n,
                               const gtsam::Point2& measured_azi_el,
                               const gtsam::Pose3& target_T_sensor_l,

@@ -69,6 +69,22 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     return [
         Node(
             package="coug_fg",
+            executable="dvl_a50_odom",
+            name="dvl_a50_odom_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "odom_frame": odom_frame,
+                    "base_frame": base_link_frame,
+                    "parameter_frame": dvl_link_frame,
+                },
+            ],
+        ),
+        Node(
+            package="coug_fg",
             executable="dvl_a50_twist_beams",
             name="dvl_a50_twist_beams_node",
             parameters=[
@@ -81,22 +97,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                     "beam1_frame": beam1_link_frame,
                     "beam2_frame": beam2_link_frame,
                     "beam3_frame": beam3_link_frame,
-                    "parameter_frame": dvl_link_frame,
-                },
-            ],
-        ),
-        Node(
-            package="coug_fg",
-            executable="dvl_a50_odom",
-            name="dvl_a50_odom_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                    "odom_frame": odom_frame,
-                    "base_frame": base_link_frame,
                     "parameter_frame": dvl_link_frame,
                 },
             ],
@@ -133,17 +133,24 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         ),
         Node(
             package="coug_fg",
-            executable="seatrac_x150_imu_depth",
-            name="seatrac_x150_imu_depth_node",
+            executable="odom_ned_to_enu",
+            name="odom_ned_to_enu_node",
             parameters=[
                 fleet_param_file,
                 agent_param_file,
                 scenario_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                    "map_frame": "map",
-                    "parameter_frame": modem_link_frame,
-                },
+                {"use_sim_time": use_sim_time},
+            ],
+        ),
+        Node(
+            package="coug_fg",
+            executable="odom_to_tf",
+            name="odom_to_tf_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
             ],
         ),
         Node(
@@ -170,35 +177,17 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         ),
         Node(
             package="coug_fg",
-            executable="odom_ned_to_enu",
-            name="odom_ned_to_enu_node",
+            executable="seatrac_x150_imu_depth",
+            name="seatrac_x150_imu_depth_node",
             parameters=[
                 fleet_param_file,
                 agent_param_file,
                 scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        Node(
-            package="coug_fg",
-            executable="odom_to_tf",
-            name="odom_to_tf_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        Node(
-            package="topic_tools",
-            executable="relay",
-            name="rtk_gps_truth_relay_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
+                {
+                    "use_sim_time": use_sim_time,
+                    "map_frame": "map",
+                    "parameter_frame": modem_link_frame,
+                },
             ],
         ),
         Node(
@@ -219,6 +208,17 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 },
             ],
             remappings=[("odometry/filtered", "odometry/global")],
+        ),
+        Node(
+            package="topic_tools",
+            executable="relay",
+            name="rtk_gps_truth_relay_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
+            ],
         ),
     ]
 

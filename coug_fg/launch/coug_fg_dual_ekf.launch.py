@@ -76,20 +76,23 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             ],
         ),
         Node(
-            package="imu_filter_madgwick",
-            executable="imu_filter_madgwick_node",
-            name="imu_filter_madgwick",
+            package="robot_localization",
+            executable="ekf_node",
+            name="ekf_filter_node_map",
             parameters=[
                 fleet_param_file,
+                *initial_state_params,
                 agent_param_file,
                 scenario_param_file,
-                {"use_sim_time": use_sim_time},
+                {
+                    "use_sim_time": use_sim_time,
+                    "map_frame": "map",
+                    "odom_frame": odom_frame,
+                    "base_link_frame": base_link_frame,
+                    "world_frame": "map",
+                },
             ],
-            remappings=[
-                ("imu/data_raw", "camera/imu/data_raw"),
-                ("imu/mag", "camera/imu/mag"),
-                ("imu/data", "camera/imu/data"),
-            ],
+            remappings=[("odometry/filtered", "odometry/global")],
         ),
         Node(
             package="robot_localization",
@@ -110,23 +113,20 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             remappings=[("odometry/filtered", "odometry/local")],
         ),
         Node(
-            package="robot_localization",
-            executable="ekf_node",
-            name="ekf_filter_node_map",
+            package="imu_filter_madgwick",
+            executable="imu_filter_madgwick_node",
+            name="imu_filter_madgwick",
             parameters=[
                 fleet_param_file,
-                *initial_state_params,
                 agent_param_file,
                 scenario_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                    "map_frame": "map",
-                    "odom_frame": odom_frame,
-                    "base_link_frame": base_link_frame,
-                    "world_frame": "map",
-                },
+                {"use_sim_time": use_sim_time},
             ],
-            remappings=[("odometry/filtered", "odometry/global")],
+            remappings=[
+                ("imu/data_raw", "camera/imu/data_raw"),
+                ("imu/mag", "camera/imu/mag"),
+                ("imu/data", "camera/imu/data"),
+            ],
         ),
     ]
 

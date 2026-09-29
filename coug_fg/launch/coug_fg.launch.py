@@ -110,6 +110,40 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     return [
         Node(
             package="coug_fg",
+            executable="dvl_a50_odom",
+            name="dvl_a50_odom_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "odom_frame": "map",
+                    "base_frame": base_link_frame,
+                    "parameter_frame": dvl_link_frame,
+                },
+            ],
+        ),
+        Node(
+            package="coug_fg",
+            executable="dvl_a50_twist_beams",
+            name="dvl_a50_twist_beams_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "beam0_frame": beam0_link_frame,
+                    "beam1_frame": beam1_link_frame,
+                    "beam2_frame": beam2_link_frame,
+                    "beam3_frame": beam3_link_frame,
+                    "parameter_frame": dvl_link_frame,
+                },
+            ],
+        ),
+        Node(
+            package="coug_fg",
             executable="factor_graph",
             name="factor_graph_node",
             parameters=[
@@ -183,40 +217,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         ),
         Node(
             package="coug_fg",
-            executable="dvl_a50_twist_beams",
-            name="dvl_a50_twist_beams_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                    "beam0_frame": beam0_link_frame,
-                    "beam1_frame": beam1_link_frame,
-                    "beam2_frame": beam2_link_frame,
-                    "beam3_frame": beam3_link_frame,
-                    "parameter_frame": dvl_link_frame,
-                },
-            ],
-        ),
-        Node(
-            package="coug_fg",
-            executable="dvl_a50_odom",
-            name="dvl_a50_odom_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                    "odom_frame": "map",
-                    "base_frame": base_link_frame,
-                    "parameter_frame": dvl_link_frame,
-                },
-            ],
-        ),
-        Node(
-            package="coug_fg",
             executable="fluid_pressure_odom",
             name="fluid_pressure_odom_node",
             parameters=[
@@ -228,6 +228,17 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                     "map_frame": "map",
                     "parameter_child_frame": depth_link_frame,
                 },
+            ],
+        ),
+        Node(
+            package="coug_fg",
+            executable="imu_ned_to_enu",
+            name="imu_ned_to_enu_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
             ],
         ),
         Node(
@@ -247,6 +258,17 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         ),
         Node(
             package="coug_fg",
+            executable="odom_ned_to_enu",
+            name="odom_ned_to_enu_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
+            ],
+        ),
+        Node(
+            package="coug_fg",
             executable="sbg_imu_mag",
             name="sbg_imu_mag_node",
             parameters=[
@@ -256,21 +278,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 {
                     "use_sim_time": use_sim_time,
                     "parameter_frame": imu_link_frame,
-                },
-            ],
-        ),
-        Node(
-            package="coug_fg",
-            executable="seatrac_x150_imu_depth",
-            name="seatrac_x150_imu_depth_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {
-                    "use_sim_time": use_sim_time,
-                    "map_frame": "map",
-                    "parameter_frame": modem_link_frame,
                 },
             ],
         ),
@@ -298,55 +305,18 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         ),
         Node(
             package="coug_fg",
-            executable="imu_ned_to_enu",
-            name="imu_ned_to_enu_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        Node(
-            package="coug_fg",
-            executable="odom_ned_to_enu",
-            name="odom_ned_to_enu_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        Node(
-            package="topic_tools",
-            executable="relay",
-            name="rtk_gps_truth_relay_node",
-            condition=IfCondition(is_agent(agent_ns, "bluerov2")),
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        # --- Robot Localization Pipeline ---
-        Node(
-            package="robot_localization",
-            executable="ekf_node",
-            name="ekf_filter_node_odom",
+            executable="seatrac_x150_imu_depth",
+            name="seatrac_x150_imu_depth_node",
             parameters=[
                 fleet_param_file,
                 agent_param_file,
                 scenario_param_file,
                 {
                     "use_sim_time": use_sim_time,
-                    "odom_frame": odom_frame,
-                    "base_link_frame": base_link_frame,
-                    "world_frame": odom_frame,
+                    "map_frame": "map",
+                    "parameter_frame": modem_link_frame,
                 },
             ],
-            remappings=[("odometry/filtered", "odometry/local")],
         ),
         Node(
             package="robot_localization",
@@ -367,6 +337,35 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 },
             ],
             remappings=[("odometry/filtered", "odometry/global_ekf")],
+        ),
+        Node(
+            package="robot_localization",
+            executable="ekf_node",
+            name="ekf_filter_node_odom",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "odom_frame": odom_frame,
+                    "base_link_frame": base_link_frame,
+                    "world_frame": odom_frame,
+                },
+            ],
+            remappings=[("odometry/filtered", "odometry/local")],
+        ),
+        Node(
+            package="topic_tools",
+            executable="relay",
+            name="rtk_gps_truth_relay_node",
+            condition=IfCondition(is_agent(agent_ns, "bluerov2")),
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
+            ],
         ),
         Node(
             package="robot_localization",

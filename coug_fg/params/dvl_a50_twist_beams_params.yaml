@@ -70,22 +70,22 @@ dvl_a50_twist_beams_node:
     default_value: "dvl/beams"
     validation:
       not_empty<>: []
-  beam0_range_topic:
+  beam0_range_output_topic:
     type: string
     default_value: "dvl/beam0/range"
     validation:
       not_empty<>: []
-  beam1_range_topic:
+  beam1_range_output_topic:
     type: string
     default_value: "dvl/beam1/range"
     validation:
       not_empty<>: []
-  beam2_range_topic:
+  beam2_range_output_topic:
     type: string
     default_value: "dvl/beam2/range"
     validation:
       not_empty<>: []
-  beam3_range_topic:
+  beam3_range_output_topic:
     type: string
     default_value: "dvl/beam3/range"
     validation:

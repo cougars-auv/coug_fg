@@ -64,8 +64,8 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
                   params_.beam3_frame};
 
   const std::array<std::string, 4> range_topics = {
-      params_.beam0_range_topic, params_.beam1_range_topic, params_.beam2_range_topic,
-      params_.beam3_range_topic};
+      params_.beam0_range_output_topic, params_.beam1_range_output_topic,
+      params_.beam2_range_output_topic, params_.beam3_range_output_topic};
 
   for (size_t i = 0; i < range_pubs_.size(); ++i) {
     range_pubs_[i] =

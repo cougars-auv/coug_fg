@@ -895,9 +895,11 @@ void FactorGraphNode::broadcastGlobalTf(const gtsam::Pose3& curr_pose,
     }
     const gtsam::Pose3 map_T_base = curr_pose * target_T_base;
 
-    const gtsam::Pose3 odom_T_base = toGtsam(
-        tf_buffer_->lookupTransform(params_.odom_frame, params_.base_frame, tf2::TimePointZero)
-            .transform);
+    const gtsam::Pose3 odom_T_base =
+        toGtsam(tf_buffer_
+                    ->lookupTransform(params_.odom_frame, params_.base_frame, timestamp,
+                                      rclcpp::Duration::from_seconds(params_.transform_timeout_sec))
+                    .transform);
     const gtsam::Pose3 map_T_odom = map_T_base * odom_T_base.inverse();
 
     geometry_msgs::msg::TransformStamped tf_msg;

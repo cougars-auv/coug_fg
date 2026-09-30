@@ -8,6 +8,11 @@ factor_graph_node:
   transform_time_offset:
     type: double
     default_value: 0.0
+  transform_timeout_sec:
+    type: double
+    default_value: 0.1
+    validation:
+      gt_eq<>: [0.0]
   publish_smoothed_path:
     type: bool
     default_value: false

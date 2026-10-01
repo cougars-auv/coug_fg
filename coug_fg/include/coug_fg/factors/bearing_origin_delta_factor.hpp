@@ -22,7 +22,7 @@
 #include <gtsam/geometry/Unit3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 
-#include <cmath>
+#include "coug_fg/factors/bearing_factor.hpp"
 
 namespace coug_fg::factors {
 
@@ -35,15 +35,6 @@ class BearingOriginDeltaFactorArm
   gtsam::Pose3 target_T_sensor_n_;
 
  public:
-  static auto losDirection(const gtsam::Point2& azi_el) -> gtsam::Unit3 {
-    const double azimuth = azi_el(0);
-    const double elevation = azi_el(1);
-
-    return gtsam::Unit3(gtsam::Point3(std::cos(elevation) * std::cos(azimuth),
-                                      std::cos(elevation) * std::sin(azimuth),
-                                      std::sin(elevation)));
-  }
-
   BearingOriginDeltaFactorArm(gtsam::Key pose_key_l, gtsam::Key delta_key_n, gtsam::Key pose_key_n,
                               const gtsam::Point2& measured_azi_el,
                               const gtsam::Pose3& target_T_sensor_l,
@@ -82,7 +73,7 @@ class BearingOriginDeltaFactorArm
         ((H_delta_n != nullptr) || (H_pose_n != nullptr)) ? &H_bearing_n : nullptr);
 
     // 2D bearing residual, anchored at the measured direction to match the noise model basis
-    const gtsam::Unit3 measured_direction = losDirection(measured_azi_el_);
+    const gtsam::Unit3 measured_direction = BearingFactorArm::losDirection(measured_azi_el_);
     gtsam::Matrix22 H_error = gtsam::Matrix22::Zero();
     const gtsam::Vector2 error = measured_direction.errorVector(
         predicted_direction, nullptr,

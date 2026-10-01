@@ -20,6 +20,8 @@
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 
+#include "coug_fg/factors/ahrs_factor.hpp"
+
 namespace coug_fg::factors {
 
 class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
@@ -27,24 +29,13 @@ class AhrsOriginDeltaFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, g
   gtsam::Rot3 target_R_sensor_;
 
  public:
-  static auto trueNorthOrientation(const gtsam::Rot3& measured_orientation, double mag_declination)
-      -> gtsam::Rot3 {
-    return gtsam::Rot3::Yaw(-mag_declination) * measured_orientation;
-  }
-
-  static auto sensorTangentCovariance(const gtsam::Matrix3& map_covariance,
-                                      const gtsam::Rot3& measured_orientation) -> gtsam::Matrix3 {
-    const gtsam::Matrix3 map_R_sensor = measured_orientation.matrix();
-
-    return map_R_sensor.transpose() * map_covariance * map_R_sensor;
-  }
-
   AhrsOriginDeltaFactorArm(gtsam::Key delta_key, gtsam::Key pose_key,
                            const gtsam::Rot3& measured_orientation,
                            const gtsam::Pose3& target_T_sensor, double mag_declination,
                            const gtsam::SharedNoiseModel& noise_model)
       : NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(noise_model, delta_key, pose_key),
-        measured_orientation_(trueNorthOrientation(measured_orientation, mag_declination)),
+        measured_orientation_(
+            AhrsFactorArm::trueNorthOrientation(measured_orientation, mag_declination)),
         target_R_sensor_(target_T_sensor.rotation()) {}
 
   auto evaluateError(const gtsam::Pose3& delta, const gtsam::Pose3& pose,

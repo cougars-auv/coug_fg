@@ -20,7 +20,7 @@ seatrac_x150_imu_depth_node:
     default_value: "modem_status"
     validation:
       not_empty<>: []
-  imu_output_topic:
+  ahrs_output_topic:
     type: string
     default_value: "seatrac/imu/data_ned"
     validation:

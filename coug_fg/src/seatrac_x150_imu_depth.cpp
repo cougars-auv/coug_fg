@@ -48,8 +48,8 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
         modemStatusCallback(msg);
       });
 
-  imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(params_.imu_output_topic,
-                                                     rclcpp::SystemDefaultsQoS());
+  ahrs_pub_ = create_publisher<sensor_msgs::msg::Imu>(params_.ahrs_output_topic,
+                                                      rclcpp::SystemDefaultsQoS());
 
   depth_pub_ = create_publisher<nav_msgs::msg::Odometry>(params_.depth_output_topic,
                                                          rclcpp::SystemDefaultsQoS());
@@ -60,7 +60,7 @@ SeatracX150ImuDepthNode::SeatracX150ImuDepthNode(const rclcpp::NodeOptions& opti
 void SeatracX150ImuDepthNode::modemStatusCallback(
     const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) {
   if (msg->includes_local_attitude) {
-    imu_pub_->publish(convertToImu(msg));
+    ahrs_pub_->publish(convertToAhrs(msg));
   }
 
   if (msg->includes_env_fields) {
@@ -68,13 +68,13 @@ void SeatracX150ImuDepthNode::modemStatusCallback(
   }
 }
 
-auto SeatracX150ImuDepthNode::convertToImu(
+auto SeatracX150ImuDepthNode::convertToAhrs(
     const seatrac_interfaces::msg::ModemStatus::ConstSharedPtr& msg) const
     -> sensor_msgs::msg::Imu {
-  sensor_msgs::msg::Imu imu_msg;
-  imu_msg.header = msg->header;
+  sensor_msgs::msg::Imu ahrs_msg;
+  ahrs_msg.header = msg->header;
   if (params_.use_parameter_frame) {
-    imu_msg.header.frame_id = params_.parameter_frame;
+    ahrs_msg.header.frame_id = params_.parameter_frame;
   }
 
   static constexpr double kSeatracToRad = M_PI / 1800.0;
@@ -89,17 +89,17 @@ auto SeatracX150ImuDepthNode::convertToImu(
   static const tf2::Quaternion kFrdToFlu(1.0, 0.0, 0.0, 0.0);
   q *= kFrdToFlu;
 
-  imu_msg.orientation = tf2::toMsg(q);
+  ahrs_msg.orientation = tf2::toMsg(q);
 
   const auto& sigmas = params_.orientation_noise_sigmas;
-  imu_msg.orientation_covariance[0] = sigmas[0] * sigmas[0];
-  imu_msg.orientation_covariance[4] = sigmas[1] * sigmas[1];
-  imu_msg.orientation_covariance[8] = sigmas[2] * sigmas[2];
+  ahrs_msg.orientation_covariance[0] = sigmas[0] * sigmas[0];
+  ahrs_msg.orientation_covariance[4] = sigmas[1] * sigmas[1];
+  ahrs_msg.orientation_covariance[8] = sigmas[2] * sigmas[2];
 
-  imu_msg.linear_acceleration_covariance[0] = kUnknownCovariance;
-  imu_msg.angular_velocity_covariance[0] = kUnknownCovariance;
+  ahrs_msg.linear_acceleration_covariance[0] = kUnknownCovariance;
+  ahrs_msg.angular_velocity_covariance[0] = kUnknownCovariance;
 
-  return imu_msg;
+  return ahrs_msg;
 }
 
 auto SeatracX150ImuDepthNode::convertToOdom(

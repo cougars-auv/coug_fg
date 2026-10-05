@@ -671,7 +671,6 @@
         ]
       twist0_queue_size: 5
 
-  # --- Robot Localization Pipeline ---
   imu_filter_madgwick:
     ros__parameters:
       use_mag: true
@@ -685,6 +684,11 @@
       yaw_offset: 0.0 # [rad]
 
       orientation_stddev: 0.05 # [rad]
+
+  mavros_odom_relay_node:
+    ros__parameters:
+      input_topic: "mavros/local_position/odom"
+      output_topic: "odometry/local"
 
   rtk_gps_truth_relay_node:
     ros__parameters:

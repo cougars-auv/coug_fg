@@ -95,22 +95,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             remappings=[("odometry/filtered", "odometry/global")],
         ),
         Node(
-            package="imu_filter_madgwick",
-            executable="imu_filter_madgwick_node",
-            name="imu_filter_madgwick",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-            remappings=[
-                ("imu/data_raw", "camera/imu/data_raw"),
-                ("imu/mag", "camera/imu/mag"),
-                ("imu/data", "camera/imu/data"),
-            ],
-        ),
-        Node(
             package="topic_tools",
             executable="relay",
             name="mavros_odom_relay_node",

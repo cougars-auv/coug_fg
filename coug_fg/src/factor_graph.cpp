@@ -735,7 +735,7 @@ auto FactorGraphNode::checkAndUpdateRateLimit(rclcpp::Time& last_time, double ma
 auto FactorGraphNode::loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out,
                                      const std::string& child_frame, bool use_parameter_tf,
                                      const std::vector<double>& position,
-                                     const std::vector<double>& orientation) -> bool {
+                                     const std::vector<double>& orientation) const -> bool {
   const std::scoped_lock lock(tf_mutex_);
   if (!tf_out.header.frame_id.empty()) {
     return true;
@@ -767,7 +767,7 @@ auto FactorGraphNode::loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_ou
   return !tf_out.header.frame_id.empty();
 }
 
-auto FactorGraphNode::buildCurrentTfBundle() -> TfBundle {
+auto FactorGraphNode::buildCurrentTfBundle() const -> TfBundle {
   const std::scoped_lock lock(tf_mutex_);
   TfBundle tfs;
 

@@ -129,7 +129,7 @@ auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr
 }
 
 auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg,
-                                          bool use_fom_covariance)
+                                          bool use_fom_covariance) const
     -> geometry_msgs::msg::TwistWithCovarianceStamped {
   geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
   twist_msg.header.frame_id =
@@ -169,7 +169,7 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   return twist_msg;
 }
 
-auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
+auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
     -> DvlBeamList {
   DvlBeamList beams_msg;
   beams_msg.header.frame_id =

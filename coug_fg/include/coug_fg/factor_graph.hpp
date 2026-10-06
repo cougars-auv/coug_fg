@@ -104,9 +104,9 @@ class FactorGraphNode : public rclcpp::Node {
 
   auto loadOrLookupTf(geometry_msgs::msg::TransformStamped& tf_out, const std::string& child_frame,
                       bool use_parameter_tf, const std::vector<double>& position,
-                      const std::vector<double>& orientation) -> bool;
+                      const std::vector<double>& orientation) const -> bool;
 
-  auto buildCurrentTfBundle() -> utils::TfBundle;
+  auto buildCurrentTfBundle() const -> utils::TfBundle;
 
   auto drainAllQueues() -> utils::QueueBundle;
 

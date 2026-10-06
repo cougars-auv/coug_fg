@@ -45,10 +45,11 @@ class NavsatOdomNode : public rclcpp::Node {
   // --- Helpers ---
   void setOrigin(const sensor_msgs::msg::NavSatFix& msg);
 
-  auto resolveOrientation(const std::string& gps_frame) -> geometry_msgs::msg::Quaternion;
+  auto resolveOrientation(const std::string& gps_frame) const -> geometry_msgs::msg::Quaternion;
 
   auto convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg,
-                     const std::string& gps_frame, const geometry_msgs::msg::Quaternion& map_R_gps)
+                     const std::string& gps_frame,
+                     const geometry_msgs::msg::Quaternion& map_R_gps) const
       -> nav_msgs::msg::Odometry;
 
   // --- Diagnostics ---

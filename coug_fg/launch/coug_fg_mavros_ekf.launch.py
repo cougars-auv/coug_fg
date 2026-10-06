@@ -62,6 +62,17 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     return [
         Node(
             package="coug_fg",
+            executable="mavros_odom_covariance",
+            name="mavros_odom_covariance_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
+            ],
+        ),
+        Node(
+            package="coug_fg",
             executable="navsat_odom",
             name="navsat_odom_node",
             parameters=[
@@ -93,17 +104,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 },
             ],
             remappings=[("odometry/filtered", "odometry/global")],
-        ),
-        Node(
-            package="topic_tools",
-            executable="relay",
-            name="mavros_odom_relay_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
         ),
     ]
 

@@ -75,6 +75,7 @@ set(
   dvl_a50_twist_beams
   fluid_pressure_odom
   imu_ned_to_enu
+  mavros_odom_covariance
   navsat_odom
   odom_ned_to_enu
   odom_to_tf
@@ -113,6 +114,7 @@ rclcpp_components_register_nodes(factor_graph_component
   "coug_fg::DvlA50TwistBeamsNode"
   "coug_fg::FluidPressureOdomNode"
   "coug_fg::ImuNedToEnuNode"
+  "coug_fg::MavrosOdomCovarianceNode"
   "coug_fg::NavsatOdomNode"
   "coug_fg::OdomNedToEnuNode"
   "coug_fg::OdomToTfNode"

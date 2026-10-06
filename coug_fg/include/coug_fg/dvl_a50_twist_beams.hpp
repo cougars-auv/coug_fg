@@ -39,10 +39,10 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
   // --- Helpers ---
   auto resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const -> rclcpp::Time;
 
-  auto convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg, bool use_fom_covariance)
+  auto convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg, bool use_fom_covariance) const
       -> geometry_msgs::msg::TwistWithCovarianceStamped;
 
-  auto convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg)
+  auto convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
       -> coug_interfaces::msg::DvlBeamList;
 
   auto convertToRange(const dvl_msgs::msg::DVLBeam& beam, const std::string& frame_id,

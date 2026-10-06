@@ -43,7 +43,7 @@ class FluidPressureOdomNode : public rclcpp::Node {
   void ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  auto resolveOrientation(const std::string& depth_frame) -> geometry_msgs::msg::Quaternion;
+  auto resolveOrientation(const std::string& depth_frame) const -> geometry_msgs::msg::Quaternion;
 
   auto convertToOdom(const sensor_msgs::msg::FluidPressure::ConstSharedPtr& msg, double pressure,
                      double reference_pressure, const std::string& depth_frame,

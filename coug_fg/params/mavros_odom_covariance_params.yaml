@@ -1,0 +1,35 @@
+mavros_odom_covariance_node:
+  position_noise_sigmas:
+    type: double_array
+    default_value: [1.0, 1.0, 1.0]
+    validation:
+      fixed_size<>: [3]
+      lower_element_bounds<>: [0.0]
+  orientation_noise_sigmas:
+    type: double_array
+    default_value: [0.05, 0.05, 0.05]
+    validation:
+      fixed_size<>: [3]
+      lower_element_bounds<>: [0.0]
+  velocity_noise_sigmas:
+    type: double_array
+    default_value: [0.1, 0.1, 0.1]
+    validation:
+      fixed_size<>: [3]
+      lower_element_bounds<>: [0.0]
+  angular_velocity_noise_sigmas:
+    type: double_array
+    default_value: [0.05, 0.05, 0.05]
+    validation:
+      fixed_size<>: [3]
+      lower_element_bounds<>: [0.0]
+  input_topic:
+    type: string
+    default_value: "mavros/local_position/odom"
+    validation:
+      not_empty<>: []
+  output_topic:
+    type: string
+    default_value: "odometry/local"
+    validation:
+      not_empty<>: []

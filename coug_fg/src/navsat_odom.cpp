@@ -178,7 +178,7 @@ void NavsatOdomNode::setOrigin(const sensor_msgs::msg::NavSatFix& msg) {
   origin_set_ = true;
 }
 
-auto NavsatOdomNode::resolveOrientation(const std::string& gps_frame)
+auto NavsatOdomNode::resolveOrientation(const std::string& gps_frame) const
     -> geometry_msgs::msg::Quaternion {
   geometry_msgs::msg::Quaternion map_R_gps;
 
@@ -207,7 +207,7 @@ auto NavsatOdomNode::resolveOrientation(const std::string& gps_frame)
 
 auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg,
                                    const std::string& gps_frame,
-                                   const geometry_msgs::msg::Quaternion& map_R_gps)
+                                   const geometry_msgs::msg::Quaternion& map_R_gps) const
     -> nav_msgs::msg::Odometry {
   nav_msgs::msg::Odometry odom_msg;
   odom_msg.header.stamp = msg->header.stamp;

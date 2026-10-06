@@ -134,7 +134,7 @@ void FluidPressureOdomNode::ahrsCallback(const sensor_msgs::msg::Imu::ConstShare
   }
 }
 
-auto FluidPressureOdomNode::resolveOrientation(const std::string& depth_frame)
+auto FluidPressureOdomNode::resolveOrientation(const std::string& depth_frame) const
     -> geometry_msgs::msg::Quaternion {
   geometry_msgs::msg::Quaternion map_R_depth;
 

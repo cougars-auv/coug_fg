@@ -73,7 +73,7 @@ factor_graph_node:
       gt<>: [0.0]
   relinearize_skip:
     type: int
-    default_value: 1
+    default_value: 10
     validation:
       gt_eq<>: [1]
   keyframe_source:

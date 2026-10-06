@@ -328,6 +328,7 @@ auto FactorGraphCore::initialize(double init_time, const QueueBundle& queues, co
       lm_values_ = initial_values;
       break;
     case SolverType::kIncrementalFixedLagSmoother:
+      isam2_params.findUnusedFactorSlots = true;
       inc_smoother_ = std::make_unique<gtsam::IncrementalFixedLagSmoother>(params_.smoother_lag_sec,
                                                                            isam2_params);
       inc_smoother_->update(initial_graph, initial_values, initial_timestamps);

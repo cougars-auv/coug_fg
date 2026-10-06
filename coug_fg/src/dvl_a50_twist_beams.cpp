@@ -83,7 +83,7 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
     const bool should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
     if (should_drop) {
       if (!is_simulating_dropout_) {
-        RCLCPP_WARN(get_logger(), "Simulated DVL dropout started (%.1f s every %.1f s).",
+        RCLCPP_WARN(get_logger(), "Simulated DVL dropout started (%g s every %g s).",
                     params_.dropout_duration_sec, cycle_period);
         is_simulating_dropout_ = true;
       }
@@ -97,8 +97,8 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
     twist_fom_pub_->publish(convertToTwist(msg, true));
   } else {
     RCLCPP_WARN(get_logger(),
-                "Rejected DVL velocity: flagged invalid and FOM %.3f m/s exceeds %.3f m/s.",
-                msg->fom, params_.fom_valid_threshold);
+                "Rejected DVL velocity: flagged invalid and FOM %g m/s exceeds %g m/s.", msg->fom,
+                params_.fom_valid_threshold);
   }
 
   if (!msg->beams.empty()) {

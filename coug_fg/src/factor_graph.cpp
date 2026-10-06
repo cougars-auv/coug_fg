@@ -553,12 +553,12 @@ void FactorGraphNode::updateGraph() {
          (*newest_stamp - *last_received) > params_.keyframe_timeout_sec)) {
       if (backup_keyframe_source_ != KeyframeSource::kNone) {
         active_source = backup_keyframe_source_;
-        RCLCPP_WARN(get_logger(), "Keyframe source '%s' timed out after %.1f s; using backup '%s'.",
+        RCLCPP_WARN(get_logger(), "Keyframe source '%s' timed out after %g s; using backup '%s'.",
                     params_.keyframe_source.c_str(), params_.keyframe_timeout_sec,
                     params_.backup_keyframe_source.c_str());
       } else {
         RCLCPP_ERROR(get_logger(),
-                     "Keyframe source '%s' timed out after %.1f s and no backup is configured; "
+                     "Keyframe source '%s' timed out after %g s and no backup is configured; "
                      "no new keyframes will be created.",
                      params_.keyframe_source.c_str(), params_.keyframe_timeout_sec);
       }
@@ -582,7 +582,7 @@ void FactorGraphNode::updateGraph() {
   if (last_target_time_.has_value() &&
       (*target_time - *last_target_time_) < params_.min_keyframe_interval_sec) {
     RCLCPP_WARN(get_logger(),
-                "Rejected keyframe: %.3f s since the last keyframe is below the %.3f s minimum.",
+                "Rejected keyframe: %g s since the last keyframe is below the %g s minimum.",
                 *target_time - *last_target_time_, params_.min_keyframe_interval_sec);
     return;
   }

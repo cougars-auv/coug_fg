@@ -80,7 +80,7 @@ void FluidPressureOdomNode::pressureCallback(
       std::abs(pressure - last_pressure_) > params_.max_pressure_delta) {
     rejected_count_++;
     if (rejected_count_ <= params_.max_consecutive_rejections) {
-      RCLCPP_WARN(get_logger(), "Rejected pressure spike: %.1f Pa change exceeds %.1f Pa (%d/%ld).",
+      RCLCPP_WARN(get_logger(), "Rejected pressure spike: %g Pa change exceeds %g Pa (%d/%ld).",
                   std::abs(pressure - last_pressure_), params_.max_pressure_delta, rejected_count_,
                   params_.max_consecutive_rejections);
       return;

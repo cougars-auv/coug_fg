@@ -138,7 +138,7 @@ void NavsatOdomNode::navsatCallback(const sensor_msgs::msg::NavSatFix::ConstShar
   if (params_.position_covariance_threshold > 0.0 &&
       std::max(msg->position_covariance[0], msg->position_covariance[4]) >
           params_.position_covariance_threshold) {
-    RCLCPP_WARN(get_logger(), "Rejected GPS fix: horizontal variance %.2f m^2 exceeds %.2f m^2.",
+    RCLCPP_WARN(get_logger(), "Rejected GPS fix: horizontal variance %g m^2 exceeds %g m^2.",
                 std::max(msg->position_covariance[0], msg->position_covariance[4]),
                 params_.position_covariance_threshold);
     return;

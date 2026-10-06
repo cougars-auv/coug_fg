@@ -290,14 +290,14 @@ class OfflineFactorGraph:
         if self._backup_keyframe_source == KeyframeSource.NONE:
             logger.error(
                 f"Keyframe source '{self._keyframe_source.name.lower()}' timed out after "
-                f"{self._params['keyframe_timeout_sec']:.1f} s and no backup is configured; "
+                f"{self._params['keyframe_timeout_sec']:g} s and no backup is configured; "
                 "no new keyframes will be created."
             )
             return self._keyframe_source
 
         logger.warning(
             f"Keyframe source '{self._keyframe_source.name.lower()}' timed out after "
-            f"{self._params['keyframe_timeout_sec']:.1f} s; using backup "
+            f"{self._params['keyframe_timeout_sec']:g} s; using backup "
             f"'{self._backup_keyframe_source.name.lower()}'."
         )
         return self._backup_keyframe_source
@@ -316,8 +316,8 @@ class OfflineFactorGraph:
             and target_time - self._last_target_time < min_interval
         ):
             logger.warning(
-                f"Rejected keyframe: {target_time - self._last_target_time:.3f} s since the "
-                f"last keyframe is below the {min_interval:.3f} s minimum."
+                f"Rejected keyframe: {target_time - self._last_target_time:g} s since the "
+                f"last keyframe is below the {min_interval:g} s minimum."
             )
             return
         self._last_target_time = target_time

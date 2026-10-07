@@ -21,9 +21,11 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitution import Substitution
 from launch.substitutions import (
+    AndSubstitution,
     EnvironmentVariable,
     EqualsSubstitution,
     LaunchConfiguration,
+    NotSubstitution,
     PathJoinSubstitution,
     PythonExpression,
 )
@@ -356,9 +358,27 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             remappings=[("odometry/filtered", "odometry/local")],
         ),
         Node(
+            package="imu_filter_madgwick",
+            executable="imu_filter_madgwick_node",
+            name="imu_filter_madgwick",
+            condition=IfCondition(
+                AndSubstitution(loc_comparison, NotSubstitution(is_agent(agent_ns, "turtlmap")))
+            ),
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {"use_sim_time": use_sim_time},
+            ],
+            remappings=[
+                ("imu/data_raw", "imu/data"),
+                ("imu/data", "imu/data_madgwick"),
+            ],
+        ),
+        Node(
             package="topic_tools",
             executable="relay",
-            name="rtk_gps_truth_relay_node",
+            name="rtk_gps_truth_relay",
             condition=IfCondition(is_agent(agent_ns, "bluerov2")),
             parameters=[
                 fleet_param_file,

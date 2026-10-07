@@ -123,9 +123,9 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 {"use_sim_time": use_sim_time},
             ],
             remappings=[
-                ("imu/data_raw", "camera/imu/data_raw"),
+                ("imu/data_raw", "camera/imu/data"),
                 ("imu/mag", "camera/imu/mag"),
-                ("imu/data", "camera/imu/data"),
+                ("imu/data", "camera/imu/data_madgwick"),
             ],
         ),
     ]

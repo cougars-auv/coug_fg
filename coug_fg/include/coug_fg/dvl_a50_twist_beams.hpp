@@ -20,6 +20,7 @@
 #include <dvl_msgs/msg/dvl_beam.hpp>
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
 #include <memory>
+#include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/range.hpp>
 #include <string>
@@ -42,7 +43,7 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
   auto convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg, bool use_fom_covariance) const
       -> geometry_msgs::msg::TwistWithCovarianceStamped;
 
-  auto convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
+  auto convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg, bool use_fom_covariance) const
       -> coug_interfaces::msg::DvlBeamList;
 
   auto convertToRange(const dvl_msgs::msg::DVLBeam& beam, const std::string& frame_id,
@@ -53,12 +54,16 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_fom_pub_;
   rclcpp::Publisher<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_pub_;
+  rclcpp::Publisher<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_fom_pub_;
   std::array<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr, 4> range_pubs_;
 
   // --- Parameters ---
   std::shared_ptr<dvl_a50_twist_beams_node::ParamListener> param_listener_;
   dvl_a50_twist_beams_node::Params params_;
   std::array<std::string, 4> beam_frames_;
+
+  // --- State ---
+  std::optional<double> last_accepted_fom_;
 };
 
 }  // namespace coug_fg

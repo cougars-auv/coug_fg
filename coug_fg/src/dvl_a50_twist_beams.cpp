@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <rclcpp/duration.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>
@@ -62,6 +63,9 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
   beams_pub_ =
       create_publisher<DvlBeamList>(params_.beams_output_topic, rclcpp::SystemDefaultsQoS());
 
+  beams_fom_pub_ =
+      create_publisher<DvlBeamList>(params_.beams_fom_output_topic, rclcpp::SystemDefaultsQoS());
+
   beam_frames_ = {params_.beam0_frame, params_.beam1_frame, params_.beam2_frame,
                   params_.beam3_frame};
 
@@ -79,6 +83,7 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
 
 void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
   if (msg->velocity_valid || msg->fom <= params_.fom_valid_threshold) {
+    last_accepted_fom_ = msg->fom;
     twist_pub_->publish(convertToTwist(msg, false));
     twist_fom_pub_->publish(convertToTwist(msg, true));
   } else {
@@ -88,7 +93,8 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
   }
 
   if (!msg->beams.empty()) {
-    beams_pub_->publish(convertToBeams(msg));
+    beams_pub_->publish(convertToBeams(msg, false));
+    beams_fom_pub_->publish(convertToBeams(msg, true));
 
     const rclcpp::Time stamp = resolveStamp(msg);
     for (const auto& in : msg->beams) {
@@ -132,9 +138,9 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   static constexpr std::array<double, 3> kFrdToFlu = {1.0, -1.0, -1.0};
   static constexpr size_t kDvlCovarianceSize = 9;
 
-  twist_msg.twist.twist.linear.x = kFrdToFlu[0] * msg->velocity.x;
-  twist_msg.twist.twist.linear.y = kFrdToFlu[1] * msg->velocity.y;
-  twist_msg.twist.twist.linear.z = kFrdToFlu[2] * msg->velocity.z;
+  twist_msg.twist.twist.linear.x = kFrdToFlu[0] * params_.velocity_scale * msg->velocity.x;
+  twist_msg.twist.twist.linear.y = kFrdToFlu[1] * params_.velocity_scale * msg->velocity.y;
+  twist_msg.twist.twist.linear.z = kFrdToFlu[2] * params_.velocity_scale * msg->velocity.z;
 
   Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov_out(
       twist_msg.twist.covariance.data());
@@ -142,10 +148,9 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   static constexpr double kUnknownCovariance = -1.0;
 
   if (use_fom_covariance) {
-    const double sigma_vel = params_.fom_sigma_scale * msg->fom;
     const double var_vel = params_.use_turtlmap_fom_covariance
                                ? msg->fom * params_.turtlmap_fom_covariance_scale
-                               : sigma_vel * sigma_vel;
+                               : msg->fom * msg->fom;
     cov_out.topLeftCorner<3, 3>() = Eigen::Vector3d::Constant(var_vel).asDiagonal();
   } else if (msg->covariance.size() < kDvlCovarianceSize) {
     RCLCPP_WARN(get_logger(),
@@ -164,8 +169,8 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   return twist_msg;
 }
 
-auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
-    -> DvlBeamList {
+auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg,
+                                          bool use_fom_covariance) const -> DvlBeamList {
   DvlBeamList beams_msg;
   beams_msg.header.frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
@@ -174,7 +179,9 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
   beams_msg.altitude = msg->altitude;
   beams_msg.altitude_valid = msg->altitude > 0.0;
 
-  const double velocity_sigma = params_.beam_fom_sigma_scale * msg->fom;
+  // Reuse the last accepted FOM for rejected pings
+  const double velocity_sigma = use_fom_covariance ? last_accepted_fom_.value_or(msg->fom)
+                                                   : params_.beam_velocity_noise_sigma;
   const double distance_sigma = params_.beam_range_noise_sigma;
 
   beams_msg.beams.reserve(msg->beams.size());
@@ -187,7 +194,7 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
     DvlBeam beam;
     beam.frame_id = beam_frames_[in.id];
     beam.valid = in.valid;
-    beam.velocity = in.velocity;
+    beam.velocity = params_.velocity_scale * in.velocity;
     beam.velocity_variance = velocity_sigma * velocity_sigma;
     beam.distance = in.distance;
     beam.distance_variance = distance_sigma * distance_sigma;

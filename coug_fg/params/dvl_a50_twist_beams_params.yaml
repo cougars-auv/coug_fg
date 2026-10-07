@@ -2,19 +2,14 @@ dvl_a50_twist_beams_node:
   override_timestamp:
     type: bool
     default_value: false
+  velocity_scale:
+    type: double
+    default_value: 1.0
+    validation:
+      gt<>: [0.0]
   fom_valid_threshold:
     type: double
     default_value: 0.01
-    validation:
-      gt<>: [0.0]
-  fom_sigma_scale:
-    type: double
-    default_value: 16.0
-    validation:
-      gt<>: [0.0]
-  beam_fom_sigma_scale:
-    type: double
-    default_value: 16.0
     validation:
       gt<>: [0.0]
   use_turtlmap_fom_covariance:
@@ -40,6 +35,11 @@ dvl_a50_twist_beams_node:
     default_value: 50.0
     validation:
       gt<>: [0.0]
+  beam_velocity_noise_sigma:
+    type: double
+    default_value: 0.011
+    validation:
+      gt_eq<>: [0.0]
   beam_range_noise_sigma:
     type: double
     default_value: 0.1
@@ -63,6 +63,11 @@ dvl_a50_twist_beams_node:
   beams_output_topic:
     type: string
     default_value: "dvl/beams"
+    validation:
+      not_empty<>: []
+  beams_fom_output_topic:
+    type: string
+    default_value: "dvl/beams_fom"
     validation:
       not_empty<>: []
   beam0_range_output_topic:

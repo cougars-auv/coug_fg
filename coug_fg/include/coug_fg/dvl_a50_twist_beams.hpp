@@ -59,10 +59,6 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
   std::shared_ptr<dvl_a50_twist_beams_node::ParamListener> param_listener_;
   dvl_a50_twist_beams_node::Params params_;
   std::array<std::string, 4> beam_frames_;
-
-  // --- State ---
-  double last_dvl_time_{0.0};
-  bool is_simulating_dropout_{false};
 };
 
 }  // namespace coug_fg

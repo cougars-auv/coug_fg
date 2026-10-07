@@ -18,7 +18,6 @@
 
 #include <Eigen/Core>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -76,22 +75,6 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
 }
 
 void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
-  last_dvl_time_ = now().seconds();
-
-  if (params_.simulate_dropout && params_.dropout_rate_hz > 0.0) {
-    const double cycle_period = 1.0 / params_.dropout_rate_hz;
-    const bool should_drop = std::fmod(last_dvl_time_, cycle_period) < params_.dropout_duration_sec;
-    if (should_drop) {
-      if (!is_simulating_dropout_) {
-        RCLCPP_WARN(get_logger(), "Simulated DVL dropout started (%g s every %g s).",
-                    params_.dropout_duration_sec, cycle_period);
-        is_simulating_dropout_ = true;
-      }
-      return;
-    }
-    is_simulating_dropout_ = false;
-  }
-
   if (msg->velocity_valid || msg->fom <= params_.fom_valid_threshold) {
     twist_pub_->publish(convertToTwist(msg, false));
     twist_fom_pub_->publish(convertToTwist(msg, true));

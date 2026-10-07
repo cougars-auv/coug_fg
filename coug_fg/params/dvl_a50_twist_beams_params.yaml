@@ -12,19 +12,6 @@ dvl_a50_twist_beams_node:
     default_value: 4.0
     validation:
       gt<>: [0.0]
-  simulate_dropout:
-    type: bool
-    default_value: false
-  dropout_rate_hz:
-    type: double
-    default_value: 0.033
-    validation:
-      gt_eq<>: [0.0]
-  dropout_duration_sec:
-    type: double
-    default_value: 5.0
-    validation:
-      gt_eq<>: [0.0]
   beam_field_of_view_radians:
     type: double
     default_value: 0.0768

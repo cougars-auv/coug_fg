@@ -18,10 +18,12 @@
 
 #include <Eigen/Core>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <rclcpp/duration.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/node_options.hpp>
@@ -101,7 +103,13 @@ void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr&
 auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
     -> rclcpp::Time {
   if (params_.override_timestamp) {
-    return {msg->header.stamp};
+    // Back out the A50's ping-to-transmission latency
+    const int64_t latency_us = msg->time_of_transmission - msg->time_of_validity;
+    if (latency_us <= 0) {
+      return {msg->header.stamp};
+    }
+    return rclcpp::Time(msg->header.stamp) -
+           rclcpp::Duration(std::chrono::microseconds(latency_us));
   }
 
   static constexpr uint64_t kMicrosecondsPerSecond = 1000000;
@@ -134,7 +142,10 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   static constexpr double kUnknownCovariance = -1.0;
 
   if (use_fom_covariance) {
-    const double var_vel = msg->fom * params_.fom_covariance_scale;
+    const double sigma_vel = params_.fom_sigma_scale * msg->fom;
+    const double var_vel = params_.use_turtlmap_fom_covariance
+                               ? msg->fom * params_.turtlmap_fom_covariance_scale
+                               : sigma_vel * sigma_vel;
     cov_out.topLeftCorner<3, 3>() = Eigen::Vector3d::Constant(var_vel).asDiagonal();
   } else if (msg->covariance.size() < kDvlCovarianceSize) {
     RCLCPP_WARN(get_logger(),
@@ -163,7 +174,7 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
   beams_msg.altitude = msg->altitude;
   beams_msg.altitude_valid = msg->altitude > 0.0;
 
-  const double velocity_sigma = params_.beam_velocity_noise_sigma;
+  const double velocity_sigma = params_.beam_fom_sigma_scale * msg->fom;
   const double distance_sigma = params_.beam_range_noise_sigma;
 
   beams_msg.beams.reserve(msg->beams.size());

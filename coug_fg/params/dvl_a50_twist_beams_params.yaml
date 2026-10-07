@@ -7,7 +7,20 @@ dvl_a50_twist_beams_node:
     default_value: 0.01
     validation:
       gt<>: [0.0]
-  fom_covariance_scale:
+  fom_sigma_scale:
+    type: double
+    default_value: 16.0
+    validation:
+      gt<>: [0.0]
+  beam_fom_sigma_scale:
+    type: double
+    default_value: 16.0
+    validation:
+      gt<>: [0.0]
+  use_turtlmap_fom_covariance:
+    type: bool
+    default_value: false
+  turtlmap_fom_covariance_scale:
     type: double
     default_value: 4.0
     validation:
@@ -27,11 +40,6 @@ dvl_a50_twist_beams_node:
     default_value: 50.0
     validation:
       gt<>: [0.0]
-  beam_velocity_noise_sigma:
-    type: double
-    default_value: 0.011
-    validation:
-      gt_eq<>: [0.0]
   beam_range_noise_sigma:
     type: double
     default_value: 0.1

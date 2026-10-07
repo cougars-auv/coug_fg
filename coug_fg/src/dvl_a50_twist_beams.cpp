@@ -25,6 +25,7 @@
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/node_options.hpp>
+#include <rclcpp/time.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 
 #include "coug_fg/dvl_a50_twist_beams_parameters.hpp"

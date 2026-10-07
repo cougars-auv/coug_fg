@@ -50,13 +50,7 @@ if(NOT GTSAM_EIGEN_INCLUDE_DIR)
   )
 endif()
 
-add_library(gtsam_with_eigen INTERFACE)
-target_include_directories(
-  gtsam_with_eigen
-  SYSTEM
-  INTERFACE "${GTSAM_EIGEN_INCLUDE_DIR}"
-)
-target_link_libraries(gtsam_with_eigen INTERFACE gtsam gtsam_unstable)
+include_directories(BEFORE SYSTEM "${GTSAM_EIGEN_INCLUDE_DIR}")
 
 set(
   COUG_FG_NODES
@@ -73,8 +67,6 @@ set(
   seatrac_x150_imu_depth
 )
 
-set(COUG_FG_NODE_SOURCES "")
-set(COUG_FG_PARAM_LIBRARIES "")
 foreach(node IN LISTS COUG_FG_NODES)
   generate_parameter_library(
     ${node}_parameters
@@ -84,21 +76,20 @@ foreach(node IN LISTS COUG_FG_NODES)
   list(APPEND COUG_FG_PARAM_LIBRARIES "${node}_parameters")
 endforeach()
 
-ament_auto_add_library(factor_graph_component SHARED NO_TARGET_LINK_LIBRARIES
+ament_auto_add_library(coug_fg_component SHARED
   src/factor_graph_core.cpp
   ${COUG_FG_NODE_SOURCES}
 )
 
-target_compile_features(factor_graph_component PUBLIC cxx_std_17)
-
 target_link_libraries(
-  factor_graph_component
-  gtsam_with_eigen
+  coug_fg_component
+  gtsam
+  gtsam_unstable
   ${COUG_FG_PARAM_LIBRARIES}
   PkgConfig::GeographicLib
 )
 
-rclcpp_components_register_nodes(factor_graph_component
+rclcpp_components_register_nodes(coug_fg_component
   "coug_fg::FactorGraphNode"
   "coug_fg::DvlA50OdomNode"
   "coug_fg::DvlA50TwistBeamsNode"
@@ -113,12 +104,12 @@ rclcpp_components_register_nodes(factor_graph_component
 )
 
 foreach(node IN LISTS COUG_FG_NODES)
-  ament_auto_add_executable(${node} NO_TARGET_LINK_LIBRARIES "src/${node}_node.cpp")
-  target_link_libraries(${node} factor_graph_component)
+  ament_auto_add_executable(${node} "src/${node}_node.cpp")
 endforeach()
 
-pybind11_add_module(coug_fg_py src/factor_graph_py.cpp)
-target_link_libraries(coug_fg_py PRIVATE factor_graph_component)
+pybind11_add_module(coug_fg_py NO_EXTRAS src/factor_graph_py.cpp)
+target_link_libraries(coug_fg_py PRIVATE coug_fg_component)
+
 install(
   TARGETS coug_fg_py
   LIBRARY
@@ -156,7 +147,7 @@ if(BUILD_TESTING)
       ${test_name}
       PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include"
     )
-    target_link_libraries(${test_name} gtsam_with_eigen)
+    target_link_libraries(${test_name} gtsam gtsam_unstable)
   endforeach()
 endif()
 

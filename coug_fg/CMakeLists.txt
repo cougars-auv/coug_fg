@@ -109,6 +109,7 @@ endforeach()
 
 pybind11_add_module(coug_fg_py NO_EXTRAS src/factor_graph_py.cpp)
 target_link_libraries(coug_fg_py PRIVATE coug_fg_component)
+target_compile_options(coug_fg_py PRIVATE -Wno-maybe-uninitialized)
 
 install(
   TARGETS coug_fg_py

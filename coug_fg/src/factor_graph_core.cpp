@@ -150,7 +150,7 @@ auto sigmasSquaredDiag(const std::vector<double>& sigmas) -> Eigen::Matrix<doubl
 void warnCovFallback(const Logger& logger, const std::string& sensor) {
   logger.logOnce(LogLevel::kWarn, "cov_fallback:" + sensor,
                  sensor +
-                     " message covariance is unusable (non-finite or non-positive diagonal); "
+                     " message covariance is unusable (non-finite or not positive-definite); "
                      "falling back to the parameter covariance.");
 }
 
@@ -162,7 +162,8 @@ auto resolveCov(bool use_param, const std::vector<double>& sigmas, double scalar
   if (use_param) {
     return sigmasSquaredDiag<N>(sigmas) * scalar;
   }
-  if (!msg_cov.allFinite() || (msg_cov.diagonal().array() <= 0.0).any()) {
+  if (!msg_cov.allFinite() || !msg_cov.isApprox(msg_cov.transpose()) ||
+      msg_cov.llt().info() != Eigen::Success) {
     warnCovFallback(logger, sensor);
     return sigmasSquaredDiag<N>(sigmas) * scalar;
   }
@@ -474,9 +475,10 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
     new_timestamps[O(agent_queue_idx)] = target_time;
   }
 
-  if (!inc_smoother_ && !isam_) {
-    prev_pose_ = pred.pose();
-    prev_vel_ = pred.velocity();
+  prev_pose_ = pred.pose();
+  prev_vel_ = pred.velocity();
+  if (inc_smoother_ || isam_) {
+    pending_imu_deltas_.insert_or_assign(curr_step_, *imu_preintegrator_);
   }
 
   // --- Reset Preintegrators ---
@@ -563,9 +565,9 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
 
     {
       const std::scoped_lock state_lock(state_mutex_);
-      prev_pose_ = inc_smoother_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
-      prev_vel_ = inc_smoother_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
-      prev_imu_bias_ =
+      result.pose = inc_smoother_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
+      result.velocity = inc_smoother_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
+      result.imu_bias =
           inc_smoother_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
       if (params_.mag.estimate_hard_iron_bias) {
         prev_mag_bias_ = inc_smoother_->calculateEstimate<gtsam::Point3>(M(0));
@@ -588,9 +590,9 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
 
     {
       const std::scoped_lock state_lock(state_mutex_);
-      prev_pose_ = isam_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
-      prev_vel_ = isam_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
-      prev_imu_bias_ = isam_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
+      result.pose = isam_->calculateEstimate<gtsam::Pose3>(X(batch_prev_step));
+      result.velocity = isam_->calculateEstimate<gtsam::Vector3>(V(batch_prev_step));
+      result.imu_bias = isam_->calculateEstimate<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
       if (params_.mag.estimate_hard_iron_bias) {
         prev_mag_bias_ = isam_->calculateEstimate<gtsam::Point3>(M(0));
       }
@@ -616,9 +618,9 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
 
     {
       const std::scoped_lock state_lock(state_mutex_);
-      prev_pose_ = lm_values_.at<gtsam::Pose3>(X(batch_prev_step));
-      prev_vel_ = lm_values_.at<gtsam::Vector3>(V(batch_prev_step));
-      prev_imu_bias_ = lm_values_.at<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
+      result.pose = lm_values_.at<gtsam::Pose3>(X(batch_prev_step));
+      result.velocity = lm_values_.at<gtsam::Vector3>(V(batch_prev_step));
+      result.imu_bias = lm_values_.at<gtsam::imuBias::ConstantBias>(B(batch_prev_step));
       if (params_.mag.estimate_hard_iron_bias) {
         prev_mag_bias_ = lm_values_.at<gtsam::Point3>(M(0));
       }
@@ -636,10 +638,18 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   {
     const std::scoped_lock state_lock(state_mutex_);
 
-    result.pose = prev_pose_;
-    result.velocity = prev_vel_;
-    result.imu_bias = prev_imu_bias_;
     result.mag_bias = prev_mag_bias_;
+
+    // Replay keyframes queued from missed updates
+    pending_imu_deltas_.erase(pending_imu_deltas_.begin(),
+                              pending_imu_deltas_.upper_bound(batch_prev_step));
+    gtsam::NavState latest_state(result.pose, result.velocity);
+    for (const auto& [step, imu_delta] : pending_imu_deltas_) {
+      latest_state = imu_delta.predict(latest_state, result.imu_bias);
+    }
+    prev_pose_ = latest_state.pose();
+    prev_vel_ = latest_state.velocity();
+    prev_imu_bias_ = result.imu_bias;
 
     result.neighbors.reserve(neighbors_.size());
     for (const auto& [agent_queue_idx, neighbor] : neighbors_) {

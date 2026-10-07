@@ -290,6 +290,7 @@ class FactorGraphCore {
   size_t buffer_prev_step_{0};
   size_t buffer_keyframes_{0};
   bool has_buffer_{false};
+  std::map<size_t, gtsam::PreintegratedCombinedMeasurements> pending_imu_deltas_;
 };
 
 }  // namespace coug_fg

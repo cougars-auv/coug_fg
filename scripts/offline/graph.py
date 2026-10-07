@@ -346,7 +346,8 @@ class OfflineFactorGraph:
             new_keyframes = result.pop("new_keyframes")
             if result.pop("processing_overflow"):
                 logger.warning(
-                    f"Processing overflow: batching {new_keyframes} keyframes into one optimization."
+                    f"Processing overflow: batching {new_keyframes} keyframes "
+                    "into one optimization."
                 )
             self._results.append(result)
 

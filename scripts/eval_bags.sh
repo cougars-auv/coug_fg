@@ -38,7 +38,7 @@ done
 mapfile -t selected_agents <<<"${selected_agents}"
 
 # --- Options ---
-evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
+evo_options=$(gum choose --no-limit --selected=--align --header "Select evo flags:" -- \
   "--align" \
   "--project_to_plane xy") || exit 0
 

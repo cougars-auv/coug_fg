@@ -37,7 +37,7 @@ agent_ns=$(basename -s _params.yaml -a "${CONFIG_DIR}"/*_params.yaml |
 prefix=$(gum input --placeholder "Set output prefix..." || true)
 prefix=${prefix//[^A-Za-z0-9_-]/_}
 
-evo_options=$(gum choose --no-limit --header "Select evo flags:" -- \
+evo_options=$(gum choose --no-limit --selected=--align --header "Select evo flags:" -- \
   "--align" \
   "--project_to_plane xy") || exit 0
 

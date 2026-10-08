@@ -600,7 +600,7 @@ factor_graph_node:
     parameter_sigmas:
       velocity_noise_sigmas:
         type: double_array
-        default_value: [0.02, 0.02, 0.02]
+        default_value: [0.0203, 0.0203, 0.00595]
         validation:
           fixed_size<>: [3]
           lower_element_bounds<>: [0.0]

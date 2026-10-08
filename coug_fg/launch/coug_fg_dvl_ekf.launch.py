@@ -133,6 +133,20 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         ),
         Node(
             package="coug_fg",
+            executable="odom_child_to_base",
+            name="odom_child_to_base_node",
+            parameters=[
+                fleet_param_file,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    "use_sim_time": use_sim_time,
+                    "base_frame": base_link_frame,
+                },
+            ],
+        ),
+        Node(
+            package="coug_fg",
             executable="odom_ned_to_enu",
             name="odom_ned_to_enu_node",
             parameters=[
@@ -208,17 +222,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 },
             ],
             remappings=[("odometry/filtered", "odometry/global")],
-        ),
-        Node(
-            package="topic_tools",
-            executable="relay",
-            name="rtk_gps_truth_relay",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
         ),
     ]
 

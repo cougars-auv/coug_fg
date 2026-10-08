@@ -1,0 +1,16 @@
+odom_child_to_base_node:
+  input_topic:
+    type: string
+    default_value: "gps/odometry"
+    validation:
+      not_empty<>: []
+  output_topic:
+    type: string
+    default_value: "odometry/truth"
+    validation:
+      not_empty<>: []
+  base_frame:
+    type: string
+    default_value: "base_link"
+    validation:
+      not_empty<>: []

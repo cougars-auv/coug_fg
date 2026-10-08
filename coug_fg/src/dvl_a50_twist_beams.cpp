@@ -32,6 +32,7 @@
 #include <rclcpp_components/register_node_macro.hpp>
 
 #include "coug_fg/dvl_a50_twist_beams_parameters.hpp"
+#include "coug_fg/utils/data_types.hpp"
 #include "coug_interfaces/msg/dvl_beam.hpp"
 #include "coug_interfaces/msg/dvl_beam_list.hpp"
 #include "dvl_msgs/msg/dvl.hpp"

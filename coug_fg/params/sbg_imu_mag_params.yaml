@@ -9,12 +9,12 @@ sbg_imu_mag_node:
       gt<>: [0.0]
   input_topic:
     type: string
-    default_value: "imu/mag_au"
+    default_value: "imu/mag"
     validation:
       not_empty<>: []
   output_topic:
     type: string
-    default_value: "imu/mag"
+    default_value: "imu/mag_tesla"
     validation:
       not_empty<>: []
   use_parameter_frame:

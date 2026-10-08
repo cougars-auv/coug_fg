@@ -364,6 +364,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             ],
             remappings=[
                 ("imu/data_raw", "imu/data"),
+                ("imu/mag", "imu/mag_tesla"),
                 ("imu/data", "imu/data_madgwick"),
             ],
         ),

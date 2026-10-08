@@ -118,7 +118,7 @@ factor_graph_node:
       not_empty<>: []
   mag_topic:
     type: string
-    default_value: "imu/mag"
+    default_value: "imu/mag_tesla"
     validation:
       not_empty<>: []
   ahrs_topic:

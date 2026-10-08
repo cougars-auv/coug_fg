@@ -700,12 +700,11 @@ factor_graph_node:
       type: bool
       default_value: false
     parameter_sigmas:
-      sigmas:
-        type: double_array
-        default_value: [0.02, 0.02, 0.02, 0.02]
+      beam_velocity_noise_sigma:
+        type: double
+        default_value: 0.0101
         validation:
-          fixed_size<>: [4]
-          lower_element_bounds<>: [0.0]
+          gt<>: [0.0]
     diagnostic_timeout_sec:
       type: double
       default_value: 0.25

@@ -184,21 +184,24 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
                                                    : params_.beam_velocity_noise_sigma;
   const double distance_sigma = params_.beam_range_noise_sigma;
 
-  beams_msg.beams.reserve(msg->beams.size());
+  beams_msg.beams.resize(beam_frames_.size());
+  for (size_t i = 0; i < beam_frames_.size(); ++i) {
+    beams_msg.beams[i].frame_id = beam_frames_[i];
+    beams_msg.beams[i].valid = false;
+    beams_msg.beams[i].velocity_variance = velocity_sigma * velocity_sigma;
+    beams_msg.beams[i].distance_variance = distance_sigma * distance_sigma;
+  }
+
   for (const auto& in : msg->beams) {
     if (in.id < 0 || static_cast<size_t>(in.id) >= beam_frames_.size()) {
       RCLCPP_WARN(get_logger(), "Rejected DVL beam: unexpected beam ID %ld.", in.id);
       continue;
     }
 
-    DvlBeam beam;
-    beam.frame_id = beam_frames_[in.id];
+    DvlBeam& beam = beams_msg.beams[in.id];
     beam.valid = in.valid;
     beam.velocity = params_.velocity_scale * in.velocity;
-    beam.velocity_variance = velocity_sigma * velocity_sigma;
     beam.distance = in.distance;
-    beam.distance_variance = distance_sigma * distance_sigma;
-    beams_msg.beams.push_back(beam);
   }
   return beams_msg;
 }

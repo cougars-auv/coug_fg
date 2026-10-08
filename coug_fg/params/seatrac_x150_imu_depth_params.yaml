@@ -22,12 +22,12 @@ seatrac_x150_imu_depth_node:
       not_empty<>: []
   ahrs_output_topic:
     type: string
-    default_value: "seatrac/imu/data_ned"
+    default_value: "seatrac/imu/data"
     validation:
       not_empty<>: []
   depth_output_topic:
     type: string
-    default_value: "seatrac/depth/odometry_ned"
+    default_value: "seatrac/depth/odometry"
     validation:
       not_empty<>: []
   map_frame:

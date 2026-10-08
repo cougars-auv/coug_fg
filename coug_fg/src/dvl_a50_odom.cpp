@@ -34,6 +34,7 @@
 #include "coug_fg/dvl_a50_odom_parameters.hpp"
 #include "dvl_msgs/msg/dvldr.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_with_covariance.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
@@ -135,6 +136,17 @@ auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& m
 
   static constexpr double kUnknownCovariance = -1.0;
   odom_msg.twist.covariance[0] = kUnknownCovariance;
+
+  // Convert NED -> ENU
+  static const geometry_msgs::msg::TransformStamped kNedToEnu = []() {
+    geometry_msgs::msg::TransformStamped transform;
+    transform.transform.rotation = tf2::toMsg(tf2::Quaternion(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0));
+    return transform;
+  }();
+
+  // Pose orientation covariance is expressed about the world-frame axes
+  const geometry_msgs::msg::PoseWithCovariance ned_pose = odom_msg.pose;
+  tf2::doTransform(ned_pose, odom_msg.pose, kNedToEnu);
 
   return odom_msg;
 }

@@ -62,7 +62,6 @@ set(
   mavros_odom_covariance
   navsat_odom
   odom_child_to_base
-  odom_ned_to_enu
   odom_to_tf
   sbg_imu_mag
   seatrac_x150_imu_depth
@@ -99,7 +98,6 @@ rclcpp_components_register_nodes(coug_fg_component
   "coug_fg::MavrosOdomCovarianceNode"
   "coug_fg::NavsatOdomNode"
   "coug_fg::OdomChildToBaseNode"
-  "coug_fg::OdomNedToEnuNode"
   "coug_fg::OdomToTfNode"
   "coug_fg::SbgImuMagNode"
   "coug_fg::SeatracX150ImuDepthNode"

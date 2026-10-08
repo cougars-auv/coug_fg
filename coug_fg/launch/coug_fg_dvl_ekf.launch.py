@@ -147,41 +147,8 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
         ),
         Node(
             package="coug_fg",
-            executable="odom_ned_to_enu",
-            name="odom_ned_to_enu_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        Node(
-            package="coug_fg",
             executable="odom_to_tf",
             name="odom_to_tf_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        Node(
-            package="coug_fg",
-            executable="imu_ned_to_enu",
-            name="seatrac_imu_ned_to_enu_node",
-            parameters=[
-                fleet_param_file,
-                agent_param_file,
-                scenario_param_file,
-                {"use_sim_time": use_sim_time},
-            ],
-        ),
-        Node(
-            package="coug_fg",
-            executable="odom_ned_to_enu",
-            name="seatrac_odom_ned_to_enu_node",
             parameters=[
                 fleet_param_file,
                 agent_param_file,

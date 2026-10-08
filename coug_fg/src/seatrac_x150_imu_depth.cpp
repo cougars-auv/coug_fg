@@ -14,6 +14,7 @@
 
 #include "coug_fg/seatrac_x150_imu_depth.hpp"
 
+#include <Eigen/Core>
 #include <cmath>
 #include <memory>
 #include <rclcpp/logging.hpp>
@@ -24,6 +25,8 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "coug_fg/seatrac_x150_imu_depth_parameters.hpp"
+#include "geometry_msgs/msg/pose_with_covariance.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "seatrac_interfaces/msg/modem_status.hpp"
 #include "sensor_msgs/msg/imu.hpp"
@@ -89,12 +92,21 @@ auto SeatracX150ImuDepthNode::convertToAhrs(
   static const tf2::Quaternion kFrdToFlu(1.0, 0.0, 0.0, 0.0);
   q *= kFrdToFlu;
 
-  ahrs_msg.orientation = tf2::toMsg(q);
+  // Convert NED -> ENU
+  static const tf2::Quaternion kNedToEnu(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0);
+  ahrs_msg.orientation = tf2::toMsg(kNedToEnu * q);
 
   const auto& sigmas = params_.orientation_noise_sigmas;
   ahrs_msg.orientation_covariance[0] = sigmas[0] * sigmas[0];
   ahrs_msg.orientation_covariance[4] = sigmas[1] * sigmas[1];
   ahrs_msg.orientation_covariance[8] = sigmas[2] * sigmas[2];
+
+  // IMU orientation covariance is expressed about the world-frame axes
+  static const Eigen::Matrix3d kNedToEnu3D =
+      (Eigen::Matrix3d() << 0, 1, 0, 1, 0, 0, 0, 0, -1).finished();
+  Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov(
+      ahrs_msg.orientation_covariance.data());
+  cov = (kNedToEnu3D * cov * kNedToEnu3D.transpose()).eval();
 
   ahrs_msg.linear_acceleration_covariance[0] = kUnknownCovariance;
   ahrs_msg.angular_velocity_covariance[0] = kUnknownCovariance;
@@ -126,6 +138,17 @@ auto SeatracX150ImuDepthNode::convertToOdom(
   odom_msg.pose.covariance[35] = kUnmeasuredVariance;
 
   odom_msg.twist.covariance[0] = kUnknownCovariance;
+
+  // Convert NED -> ENU
+  static const geometry_msgs::msg::TransformStamped kNedToEnu = []() {
+    geometry_msgs::msg::TransformStamped transform;
+    transform.transform.rotation = tf2::toMsg(tf2::Quaternion(M_SQRT1_2, M_SQRT1_2, 0.0, 0.0));
+    return transform;
+  }();
+
+  // Pose orientation covariance is expressed about the world-frame axes
+  const geometry_msgs::msg::PoseWithCovariance ned_pose = odom_msg.pose;
+  tf2::doTransform(ned_pose, odom_msg.pose, kNedToEnu);
 
   return odom_msg;
 }

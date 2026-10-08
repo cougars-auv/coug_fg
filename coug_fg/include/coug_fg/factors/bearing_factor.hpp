@@ -96,6 +96,7 @@ class BearingFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Po
         map_T_sensor_n.translation(), (H_pose_l != nullptr) ? &H_bearing_l : nullptr,
         (H_pose_n != nullptr) ? &H_bearing_n : nullptr);
 
+    // TODO: Fix the antipodal minimum in the cost function
     // 2D bearing residual, anchored at the measured direction to match the noise model basis
     const gtsam::Unit3 measured_direction = losDirection(measured_azi_el_);
     gtsam::Matrix22 H_error = gtsam::Matrix22::Zero();

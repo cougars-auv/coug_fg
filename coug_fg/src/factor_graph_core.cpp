@@ -1834,6 +1834,7 @@ void FactorGraphCore::addMultiAgentFactors(
     auto& neighbor = it->second;
 
     if (inserted && params_.multiagent.estimate_origin_delta) {
+      // TODO: Add options to seed from range or bearing alone (Kalliyan's paper?)
       if (!msg->includes_range || !msg->includes_usbl) {
         logger_.log(LogLevel::kWarn,
                     "Neighbor status (queue " + std::to_string(agent_queue_idx) +

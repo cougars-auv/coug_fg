@@ -103,6 +103,7 @@ namespace {
 
 constexpr double kUnknownCovariance = -1.0;
 constexpr size_t kSensorQueueDepth = 200;
+constexpr double kSecondsToNanoseconds = 1e9;
 
 template <int N, typename Array>
 auto toCovMatrix(const Array& arr) -> Eigen::Matrix<double, N, N> {
@@ -637,7 +638,6 @@ void FactorGraphNode::optimizeGraph() {
                   result->new_keyframes);
     }
 
-    static constexpr double kSecondsToNanoseconds = 1e9;
     const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * kSecondsToNanoseconds));
     publishGlobalOdom(result->pose, result->pose_cov, stamp);
     for (const auto& neighbor : result->neighbors) {

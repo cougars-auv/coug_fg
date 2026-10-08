@@ -26,6 +26,7 @@
 #include <string>
 
 #include "coug_fg/dvl_a50_twist_beams_parameters.hpp"
+#include "coug_fg/utils/data_types.hpp"
 
 namespace coug_fg {
 
@@ -55,12 +56,13 @@ class DvlA50TwistBeamsNode : public rclcpp::Node {
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_fom_pub_;
   rclcpp::Publisher<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_pub_;
   rclcpp::Publisher<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_fom_pub_;
-  std::array<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr, 4> range_pubs_;
+  std::array<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr, utils::kNumDvlBeams>
+      range_pubs_;
 
   // --- Parameters ---
   std::shared_ptr<dvl_a50_twist_beams_node::ParamListener> param_listener_;
   dvl_a50_twist_beams_node::Params params_;
-  std::array<std::string, 4> beam_frames_;
+  std::array<std::string, utils::kNumDvlBeams> beam_frames_;
 
   // --- State ---
   std::optional<double> last_accepted_fom_;

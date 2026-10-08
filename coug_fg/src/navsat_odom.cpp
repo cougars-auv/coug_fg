@@ -44,6 +44,13 @@
 
 namespace coug_fg {
 
+namespace {
+
+constexpr double kUnmeasuredVariance = 1e9;
+constexpr double kUnknownCovariance = -1.0;
+
+}  // namespace
+
 NavsatOdomNode::NavsatOdomNode(const rclcpp::NodeOptions& options)
     : Node("navsat_odom_node", options),
       diagnostic_updater_(this),
@@ -230,12 +237,10 @@ auto NavsatOdomNode::convertToOdom(const sensor_msgs::msg::NavSatFix::ConstShare
   Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(odom_msg.pose.covariance.data())
       .topLeftCorner<3, 3>() = cov;
 
-  static constexpr double kUnmeasuredVariance = 1e9;
   odom_msg.pose.covariance[21] = kUnmeasuredVariance;
   odom_msg.pose.covariance[28] = kUnmeasuredVariance;
   odom_msg.pose.covariance[35] = kUnmeasuredVariance;
 
-  static constexpr double kUnknownCovariance = -1.0;
   odom_msg.twist.covariance[0] = kUnknownCovariance;
 
   return odom_msg;

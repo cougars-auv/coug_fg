@@ -46,6 +46,7 @@ ESTIMATORS: dict[str, str] = {
 }
 
 TUM_KEYS = ("time", "x", "y", "z", "qx", "qy", "qz", "qw")
+NANOSECONDS_TO_SECONDS = 1e-9
 BASE_FLAGS = ["--t_max_diff", "0.05", "--no_warnings"]
 RPE_FLAGS = [
     "--delta",
@@ -119,7 +120,9 @@ def load_sim_ground_truth(bag_path: str | Path, namespace: str) -> list[dict[str
         for conn, _, rawdata in reader.messages(connections=conns) if conns else ():
             msg: Any = reader.deserialize(rawdata, conn.msgtype)
             gt = gts[conn.topic]
-            gt["time"].append(msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
+            gt["time"].append(
+                msg.header.stamp.sec + msg.header.stamp.nanosec * NANOSECONDS_TO_SECONDS
+            )
             for key, field in fields[conn.topic].items():
                 for axis in "xyz":
                     gt[key + axis].append(attrgetter(f"{field}.{axis}")(msg))

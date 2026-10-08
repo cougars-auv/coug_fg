@@ -37,6 +37,9 @@ namespace coug_fg {
 namespace {
 
 constexpr double kUnknownCovariance = -1.0;
+constexpr double kSeatracToRad = M_PI / 1800.0;
+constexpr double kSeatracToMeters = 0.1;
+constexpr double kUnmeasuredVariance = 1e9;
 
 }  // namespace
 
@@ -81,7 +84,6 @@ auto SeatracX150ImuDepthNode::convertToAhrs(
     ahrs_msg.header.frame_id = params_.parameter_frame;
   }
 
-  static constexpr double kSeatracToRad = M_PI / 1800.0;
   const double roll_rad = msg->attitude_roll * kSeatracToRad;
   const double pitch_rad = msg->attitude_pitch * kSeatracToRad;
   const double yaw_rad = msg->attitude_yaw * kSeatracToRad + params_.mag_declination_radians;
@@ -125,13 +127,11 @@ auto SeatracX150ImuDepthNode::convertToOdom(
   odom_msg.child_frame_id =
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
 
-  static constexpr double kSeatracToMeters = 0.1;
   odom_msg.pose.pose.position.z = msg->depth_local * kSeatracToMeters;
 
   const double var_depth = params_.position_z_noise_sigma * params_.position_z_noise_sigma;
   odom_msg.pose.covariance[14] = var_depth;
 
-  static constexpr double kUnmeasuredVariance = 1e9;
   odom_msg.pose.covariance[0] = kUnmeasuredVariance;
   odom_msg.pose.covariance[7] = kUnmeasuredVariance;
   odom_msg.pose.covariance[21] = kUnmeasuredVariance;

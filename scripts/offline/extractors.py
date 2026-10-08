@@ -18,9 +18,11 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
+NANOSECONDS_TO_SECONDS = 1e-9
+
 
 def _stamp(m: Any) -> float:
-    return float(m.header.stamp.sec + m.header.stamp.nanosec * 1e-9)
+    return float(m.header.stamp.sec + m.header.stamp.nanosec * NANOSECONDS_TO_SECONDS)
 
 
 def _vec3(v: Any) -> npt.NDArray[np.float64]:

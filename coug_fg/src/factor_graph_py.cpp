@@ -74,6 +74,8 @@ using utils::WrenchData;
 
 namespace {
 
+constexpr double kNanosecondsToSeconds = 1e-9;
+
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using Matrix6d = Eigen::Matrix<double, 6, 6>;
 using ImuMsgs = std::vector<
@@ -614,7 +616,6 @@ auto FactorGraphPy::optimize() -> pybind11::dict {
     const gtsam::Values& estimates = opt_result->smoothed_path;
     pybind11::list smoothed;
 
-    static constexpr double kNanosecondsToSeconds = 1e-9;
     for (const auto& [time_ns, x_key] : core_->snapshotTimeKeys()) {
       if (!estimates.exists(x_key)) {
         continue;

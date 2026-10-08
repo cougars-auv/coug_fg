@@ -27,6 +27,8 @@ from launch.substitutions import (
 )
 from launch_ros.actions import Node
 
+_NUM_TWIST_ACCEL_STATES = 9
+
 
 def agent_frame(agent_ns: str | Substitution, frame: str) -> PythonExpression:
     return PythonExpression(["'", agent_ns, f"/{frame}' if '", agent_ns, f"' != '' else '{frame}'"])
@@ -45,7 +47,9 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
 
     initial_state_params: list[dict[str, Any]] = []
     if position is not None and orientation is not None:
-        initial_state_params = [{"initial_state": position + orientation + [0.0] * 9}]
+        initial_state_params = [
+            {"initial_state": position + orientation + [0.0] * _NUM_TWIST_ACCEL_STATES}
+        ]
 
     fleet_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]

@@ -38,6 +38,13 @@
 
 namespace coug_fg {
 
+namespace {
+
+constexpr double kUnmeasuredVariance = 1e9;
+constexpr double kUnknownCovariance = -1.0;
+
+}  // namespace
+
 FluidPressureOdomNode::FluidPressureOdomNode(const rclcpp::NodeOptions& options)
     : Node("fluid_pressure_odom_node", options) {
   param_listener_ =
@@ -182,14 +189,12 @@ auto FluidPressureOdomNode::convertToOdom(
   const double var_depth = var_pressure * pressure_to_depth * pressure_to_depth;
   odom_msg.pose.covariance[14] = var_depth;
 
-  static constexpr double kUnmeasuredVariance = 1e9;
   odom_msg.pose.covariance[0] = kUnmeasuredVariance;
   odom_msg.pose.covariance[7] = kUnmeasuredVariance;
   odom_msg.pose.covariance[21] = kUnmeasuredVariance;
   odom_msg.pose.covariance[28] = kUnmeasuredVariance;
   odom_msg.pose.covariance[35] = kUnmeasuredVariance;
 
-  static constexpr double kUnknownCovariance = -1.0;
   odom_msg.twist.covariance[0] = kUnknownCovariance;
 
   return odom_msg;

@@ -40,6 +40,14 @@
 
 namespace coug_fg {
 
+namespace {
+
+constexpr double kDegToRad = M_PI / 180.0;
+constexpr double kSecondsToNanoseconds = 1e9;
+constexpr double kUnknownCovariance = -1.0;
+
+}  // namespace
+
 DvlA50OdomNode::DvlA50OdomNode(const rclcpp::NodeOptions& options)
     : Node("dvl_a50_odom_node", options) {
   param_listener_ =
@@ -94,7 +102,6 @@ auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& m
   odom_T_dvl_tf.transform.translation.y = msg->position.y;
   odom_T_dvl_tf.transform.translation.z = msg->position.z;
 
-  static constexpr double kDegToRad = M_PI / 180.0;
   tf2::Quaternion q;
   q.setRPY(msg->roll * kDegToRad, msg->pitch * kDegToRad, msg->yaw * kDegToRad);
 
@@ -115,7 +122,6 @@ auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& m
   if (params_.override_timestamp) {
     odom_msg.header.stamp = msg->header.stamp;
   } else {
-    static constexpr double kSecondsToNanoseconds = 1e9;
     const double whole_sec = std::floor(msg->time);
     const auto sec = static_cast<int32_t>(whole_sec);
     const auto nanosec = static_cast<uint32_t>((msg->time - whole_sec) * kSecondsToNanoseconds);
@@ -134,7 +140,6 @@ auto DvlA50OdomNode::convertToOdom(const dvl_msgs::msg::DVLDR::ConstSharedPtr& m
   odom_msg.pose.covariance[28] = sigmas[1] * sigmas[1];
   odom_msg.pose.covariance[35] = sigmas[2] * sigmas[2];
 
-  static constexpr double kUnknownCovariance = -1.0;
   odom_msg.twist.covariance[0] = kUnknownCovariance;
 
   // Convert NED -> ENU

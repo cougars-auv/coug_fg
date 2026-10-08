@@ -141,6 +141,7 @@ constexpr double kMinInterpDt = 1.0e-9;
 constexpr double kMinRandomWalkDt = 0.001;
 constexpr double kSecondsToNanoseconds = 1e9;
 constexpr double kInitWaitThrottleSeconds = 5.0;
+constexpr double kUnknownCovariance = -1.0;
 
 template <int N = 3>
 auto sigmasSquaredDiag(const std::vector<double>& sigmas) -> Eigen::Matrix<double, N, N> {
@@ -750,7 +751,6 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
         return isam_->marginalCovariance(key);
       }
     }
-    static constexpr double kUnknownCovariance = -1.0;
     return gtsam::Matrix::Identity(dim, dim) * kUnknownCovariance;
   };
 

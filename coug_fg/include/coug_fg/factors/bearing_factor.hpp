@@ -29,6 +29,8 @@ namespace coug_fg::factors {
 // Two-pose generalization of the single-landmark 3D bearing factor in Real et al. 2025, "Modular
 // Acoustic Graph SLAM for Underwater Monitoring With Autonomous Underwater Vehicles", Sec. III-E
 class BearingFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
+  static constexpr double kMinSigma = 1.0e-3;  // [rad]
+
   gtsam::Point2 measured_azi_el_;
   gtsam::Pose3 target_T_sensor_l_;
   gtsam::Pose3 target_T_sensor_n_;
@@ -64,7 +66,6 @@ class BearingFactorArm : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Po
         J_basis_azi_el * azi_el_covariance * J_basis_azi_el.transpose();
 
     // Isotropic floor, azimuth carries no direction information at the poles
-    constexpr double kMinSigma = 1.0e-3;  // [rad]
     tangent_covariance += (kMinSigma * kMinSigma) * gtsam::Matrix22::Identity();
 
     return tangent_covariance;

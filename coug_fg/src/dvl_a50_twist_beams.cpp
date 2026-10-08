@@ -44,6 +44,16 @@ namespace coug_fg {
 using coug_interfaces::msg::DvlBeam;
 using coug_interfaces::msg::DvlBeamList;
 
+namespace {
+
+constexpr uint64_t kMicrosecondsPerSecond = 1000000;
+constexpr uint64_t kNanosecondsPerMicrosecond = 1000;
+constexpr std::array<double, 3> kFrdToFlu = {1.0, -1.0, -1.0};
+constexpr size_t kDvlCovarianceSize = 9;
+constexpr double kUnknownCovariance = -1.0;
+
+}  // namespace
+
 DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
     : Node("dvl_a50_twist_beams_node", options) {
   param_listener_ =
@@ -69,7 +79,7 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
   beam_frames_ = {params_.beam0_frame, params_.beam1_frame, params_.beam2_frame,
                   params_.beam3_frame};
 
-  const std::array<std::string, 4> range_topics = {
+  const std::array<std::string, utils::kNumDvlBeams> range_topics = {
       params_.beam0_range_output_topic, params_.beam1_range_output_topic,
       params_.beam2_range_output_topic, params_.beam3_range_output_topic};
 
@@ -118,8 +128,6 @@ auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr
            rclcpp::Duration(std::chrono::microseconds(latency_us));
   }
 
-  static constexpr uint64_t kMicrosecondsPerSecond = 1000000;
-  static constexpr uint64_t kNanosecondsPerMicrosecond = 1000;
   const auto sec = static_cast<int32_t>(msg->time_of_validity / kMicrosecondsPerSecond);
   const auto nanosec = static_cast<uint32_t>((msg->time_of_validity % kMicrosecondsPerSecond) *
                                              kNanosecondsPerMicrosecond);
@@ -135,17 +143,12 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   twist_msg.header.stamp = resolveStamp(msg);
 
   // Convert FRD -> FLU
-  static constexpr std::array<double, 3> kFrdToFlu = {1.0, -1.0, -1.0};
-  static constexpr size_t kDvlCovarianceSize = 9;
-
   twist_msg.twist.twist.linear.x = kFrdToFlu[0] * params_.velocity_scale * msg->velocity.x;
   twist_msg.twist.twist.linear.y = kFrdToFlu[1] * params_.velocity_scale * msg->velocity.y;
   twist_msg.twist.twist.linear.z = kFrdToFlu[2] * params_.velocity_scale * msg->velocity.z;
 
   Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov_out(
       twist_msg.twist.covariance.data());
-
-  static constexpr double kUnknownCovariance = -1.0;
 
   if (use_fom_covariance) {
     const double var_vel = params_.use_turtlmap_fom_covariance

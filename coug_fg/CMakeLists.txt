@@ -131,6 +131,7 @@ if(BUILD_TESTING)
     test_const_vel_factor
     test_depth_factor
     test_depth_origin_delta_factor
+    test_dvl_beam_factor
     test_dvl_factor
     test_dvl_loose_preint_factor
     test_dvl_tight_preint_factor

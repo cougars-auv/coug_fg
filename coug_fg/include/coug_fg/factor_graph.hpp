@@ -18,9 +18,11 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/navigation/ImuBias.h>
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <coug_interfaces/msg/agent_status.hpp>
+#include <coug_interfaces/msg/dvl_beam_list.hpp>
 #include <coug_interfaces/msg/graph_metrics.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
@@ -75,6 +77,8 @@ class FactorGraphNode : public rclcpp::Node {
   void ahrsCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& msg);
 
   void dvlCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr& msg);
+
+  void beamsCallback(const coug_interfaces::msg::DvlBeamList::ConstSharedPtr& msg);
 
   void wrenchCallback(const geometry_msgs::msg::WrenchStamped::ConstSharedPtr& msg);
 
@@ -157,6 +161,7 @@ class FactorGraphNode : public rclcpp::Node {
   rclcpp::Subscription<sensor_msgs::msg::MagneticField>::SharedPtr mag_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr ahrs_sub_;
   rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr dvl_sub_;
+  rclcpp::Subscription<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_sub_;
   rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_sub_;
   std::vector<rclcpp::Subscription<coug_interfaces::msg::AgentStatus>::SharedPtr> multiagent_subs_;
   rclcpp::TimerBase::SharedPtr keyframe_timer_;
@@ -164,8 +169,8 @@ class FactorGraphNode : public rclcpp::Node {
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_srv_;
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   diagnostic_updater::Updater diagnostic_updater_;
 
   // --- Parameters ---
@@ -200,6 +205,7 @@ class FactorGraphNode : public rclcpp::Node {
   utils::ThreadSafeQueue<std::shared_ptr<utils::MagneticFieldData>> mag_queue_;
   utils::ThreadSafeQueue<std::shared_ptr<utils::AhrsData>> ahrs_queue_;
   utils::ThreadSafeQueue<std::shared_ptr<utils::TwistData>> dvl_queue_;
+  utils::ThreadSafeQueue<std::shared_ptr<utils::DvlBeamListData>> beams_queue_;
   utils::ThreadSafeQueue<std::shared_ptr<utils::WrenchData>> wrench_queue_;
   std::vector<std::unique_ptr<utils::ThreadSafeQueue<std::shared_ptr<utils::AgentStatusData>>>>
       multiagent_queues_;
@@ -223,6 +229,7 @@ class FactorGraphNode : public rclcpp::Node {
   mutable std::mutex tf_mutex_;
   geometry_msgs::msg::TransformStamped target_T_base_tf_;
   geometry_msgs::msg::TransformStamped target_T_dvl_tf_;
+  std::array<geometry_msgs::msg::TransformStamped, utils::kNumDvlBeams> target_T_beam_tfs_;
   geometry_msgs::msg::TransformStamped target_T_imu_tf_;
   geometry_msgs::msg::TransformStamped target_T_gps_tf_;
   geometry_msgs::msg::TransformStamped target_T_depth_tf_;
@@ -230,9 +237,6 @@ class FactorGraphNode : public rclcpp::Node {
   geometry_msgs::msg::TransformStamped target_T_ahrs_tf_;
   geometry_msgs::msg::TransformStamped target_T_wrench_tf_;
   geometry_msgs::msg::TransformStamped target_T_modem_tf_;
-
-  std::string imu_frame_;
-  std::string mag_frame_;
 };
 
 }  // namespace coug_fg

@@ -35,7 +35,7 @@ def _cov(arr: Any, n: int) -> npt.NDArray[np.float64]:
     return np.array(arr).reshape(n, n)
 
 
-EXTRACTORS: dict[str, Callable[[Any], tuple[str, tuple[Any, ...]]]] = {
+EXTRACTORS: dict[str, Callable[[Any], tuple[str | list[str], tuple[Any, ...]]]] = {
     "imu": lambda m: (
         m.header.frame_id,
         (
@@ -65,6 +65,10 @@ EXTRACTORS: dict[str, Callable[[Any], tuple[str, tuple[Any, ...]]]] = {
     "dvl": lambda m: (
         m.header.frame_id,
         (_stamp(m), _vec3(m.twist.twist.linear), _cov(m.twist.covariance, 6)),
+    ),
+    "beams": lambda m: (
+        [b.frame_id for b in m.beams],
+        (_stamp(m), [(b.velocity, b.velocity_variance, b.valid) for b in m.beams]),
     ),
     "wrench": lambda m: (
         m.header.frame_id,

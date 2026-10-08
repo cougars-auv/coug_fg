@@ -624,73 +624,98 @@ factor_graph_node:
     enable_beams:
       type: bool
       default_value: true
-    use_parameter_frames:
-      type: bool
-      default_value: false
-    beam0_parameter_frame:
-      type: string
-      default_value: "beam0_link"
-      validation:
-        not_empty<>: []
-    beam1_parameter_frame:
-      type: string
-      default_value: "beam1_link"
-      validation:
-        not_empty<>: []
-    beam2_parameter_frame:
-      type: string
-      default_value: "beam2_link"
-      validation:
-        not_empty<>: []
-    beam3_parameter_frame:
-      type: string
-      default_value: "beam3_link"
-      validation:
-        not_empty<>: []
-    use_parameter_tfs:
-      type: bool
-      default_value: false
-    parameter_tfs:
-      beam0_position:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0]
+    beam0:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam0_link"
         validation:
-          fixed_size<>: [3]
-      beam0_orientation:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0, 1.0]
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+    beam1:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam1_link"
         validation:
-          fixed_size<>: [4]
-      beam1_position:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0]
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+    beam2:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam2_link"
         validation:
-          fixed_size<>: [3]
-      beam1_orientation:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0, 1.0]
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+    beam3:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam3_link"
         validation:
-          fixed_size<>: [4]
-      beam2_position:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0]
-        validation:
-          fixed_size<>: [3]
-      beam2_orientation:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0, 1.0]
-        validation:
-          fixed_size<>: [4]
-      beam3_position:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0]
-        validation:
-          fixed_size<>: [3]
-      beam3_orientation:
-        type: double_array
-        default_value: [0.0, 0.0, 0.0, 1.0]
-        validation:
-          fixed_size<>: [4]
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
     covariance_scalar:
       type: double
       default_value: 1.0
@@ -700,7 +725,7 @@ factor_graph_node:
       type: bool
       default_value: false
     parameter_sigmas:
-      beam_velocity_noise_sigma:
+      velocity_noise_sigma:
         type: double
         default_value: 0.0101
         validation:

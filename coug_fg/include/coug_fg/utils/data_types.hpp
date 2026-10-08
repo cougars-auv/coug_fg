@@ -19,11 +19,15 @@
 #include <gtsam/geometry/Rot3.h>
 
 #include <Eigen/Core>
+#include <array>
+#include <cstddef>
 #include <deque>
 #include <memory>
 #include <vector>
 
 namespace coug_fg::utils {
+
+inline constexpr size_t kNumDvlBeams = 4;
 
 struct TfBundle {
   gtsam::Pose3 target_T_base;
@@ -33,6 +37,7 @@ struct TfBundle {
   gtsam::Pose3 target_T_mag;
   gtsam::Pose3 target_T_ahrs;
   gtsam::Pose3 target_T_dvl;
+  std::array<gtsam::Pose3, kNumDvlBeams> target_T_beams;
   gtsam::Pose3 target_T_wrench;
   gtsam::Pose3 target_T_modem;
 };
@@ -70,6 +75,17 @@ struct TwistData {
   gtsam::Matrix66 velocity_covariance;
 };
 
+struct DvlBeamData {
+  double velocity{0.0};
+  double velocity_variance{0.0};
+  bool valid{false};
+};
+
+struct DvlBeamListData {
+  double timestamp{0.0};
+  std::array<DvlBeamData, kNumDvlBeams> beams;
+};
+
 struct WrenchData {
   double timestamp{0.0};
   gtsam::Vector3 force;
@@ -100,6 +116,7 @@ struct QueueBundle {
   std::deque<std::shared_ptr<MagneticFieldData>> mag;
   std::deque<std::shared_ptr<AhrsData>> ahrs;
   std::deque<std::shared_ptr<TwistData>> dvl;
+  std::deque<std::shared_ptr<DvlBeamListData>> beams;
   std::deque<std::shared_ptr<WrenchData>> wrench;
   std::vector<std::deque<std::shared_ptr<AgentStatusData>>> multiagent;
 };

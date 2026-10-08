@@ -47,7 +47,7 @@ void OdomToTfNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& m
   tf_broadcaster_->sendTransform(convertToTf(msg));
 }
 
-auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) const
+auto OdomToTfNode::convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
     -> geometry_msgs::msg::TransformStamped {
   tf2::Transform parent_T_child;
   tf2::fromMsg(msg->pose.pose, parent_T_child);

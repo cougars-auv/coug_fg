@@ -26,7 +26,6 @@ class WrenchDynamicsFactorArm
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3> {
   double dt_;
   gtsam::Vector3 target_force_;
-  gtsam::Matrix33 mass_;
   gtsam::Matrix33 linear_drag_;
   gtsam::Matrix33 quad_drag_;
   gtsam::Matrix33 mass_inv_;
@@ -41,7 +40,6 @@ class WrenchDynamicsFactorArm
             noise_model, pose_key_i, vel_key_i, pose_key_j, vel_key_j),
         dt_(dt),
         target_force_(target_T_sensor.rotation().rotate(control_force)),
-        mass_(mass),
         linear_drag_(linear_drag),
         quad_drag_(quad_drag),
         mass_inv_(mass.inverse()) {}

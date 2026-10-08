@@ -52,6 +52,7 @@
 #include <mutex>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -67,6 +68,7 @@
 #include "coug_fg/factors/const_vel_factor.hpp"
 #include "coug_fg/factors/depth_factor.hpp"
 #include "coug_fg/factors/depth_origin_delta_factor.hpp"
+#include "coug_fg/factors/dvl_beam_factor.hpp"
 #include "coug_fg/factors/dvl_factor.hpp"
 #include "coug_fg/factors/dvl_loose_preint_factor.hpp"
 #include "coug_fg/factors/dvl_tight_preint_factor.hpp"
@@ -92,6 +94,7 @@ using factors::BearingOriginDeltaFactorArm;
 using factors::ConstVelFactor;
 using factors::DepthFactorArm;
 using factors::DepthOriginDeltaFactorArm;
+using factors::DvlBeamFactorArm;
 using factors::DvlFactorArm;
 using factors::DvlLoosePreintFactorArm;
 using factors::DvlTightPreintFactorArm;
@@ -111,6 +114,7 @@ using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
 
 using utils::AgentStatusData;
 using utils::AhrsData;
+using utils::DvlBeamListData;
 using utils::DvlLoosePreintegrator;
 using utils::DvlTightPreintegrator;
 using utils::ImuData;
@@ -240,7 +244,48 @@ auto getInterpolatedOrientation(const std::deque<std::shared_ptr<AhrsData>>& ahr
 }  // namespace
 
 FactorGraphCore::FactorGraphCore(factor_graph_node::Params params) : params_(std::move(params)) {
-  const auto& modem_tf = params_.multiagent.neighbor.modem_tf;
+  auto source_enabled = [this](KeyframeSource source) {
+    switch (source) {
+      case KeyframeSource::kBeams:
+        return params_.beams.enable_beams;
+      case KeyframeSource::kDvl:
+        return params_.dvl.enable_dvl;
+      case KeyframeSource::kDepth:
+        return params_.depth.enable_depth;
+      default:
+        return true;
+    }
+  };
+  if (!source_enabled(parseKeyframeSource(params_.keyframe_source)) ||
+      !source_enabled(parseKeyframeSource(params_.backup_keyframe_source))) {
+    throw std::invalid_argument("Invalid keyframe configuration: source uses a disabled sensor.");
+  }
+
+  const bool dvl_preint = params_.comparison.enable_loose_dvl_preintegration ||
+                          params_.comparison.enable_tight_dvl_preintegration;
+  if (params_.beams.enable_beams && (params_.dvl.enable_dvl || dvl_preint)) {
+    throw std::invalid_argument(
+        "Invalid DVL configuration: beams exclude twist and preintegration.");
+  }
+  if (dvl_preint && !params_.dvl.enable_dvl) {
+    throw std::invalid_argument("Invalid DVL configuration: preintegration requires twist.");
+  }
+
+  const bool const_vel =
+      params_.const_vel.enable_const_vel || params_.const_vel.enable_const_vel_dropout_only;
+  const bool wrench = params_.wrench.enable_wrench || params_.wrench.enable_wrench_dropout_only;
+  if (const_vel && wrench) {
+    throw std::invalid_argument("Invalid motion model configuration: const_vel excludes wrench.");
+  }
+
+  const auto& multiagent = params_.multiagent;
+  if (multiagent.enable_multiagent && multiagent.estimate_origin_delta &&
+      !multiagent.enable_range && !multiagent.enable_bearing) {
+    throw std::invalid_argument(
+        "Invalid multiagent configuration: origin delta requires range or bearing.");
+  }
+
+  const auto& modem_tf = multiagent.neighbor.modem_tf;
   neighbor_base_T_modem_ =
       gtsam::Pose3(gtsam::Rot3::Quaternion(modem_tf.orientation[3], modem_tf.orientation[0],
                                            modem_tf.orientation[1], modem_tf.orientation[2]),
@@ -353,6 +398,7 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
   std::sort(queues.mag.begin(), queues.mag.end(), by_time);
   std::sort(queues.ahrs.begin(), queues.ahrs.end(), by_time);
   std::sort(queues.dvl.begin(), queues.dvl.end(), by_time);
+  std::sort(queues.beams.begin(), queues.beams.end(), by_time);
   std::sort(queues.wrench.begin(), queues.wrench.end(), by_time);
   for (auto& agent : queues.multiagent) {
     std::sort(agent.begin(), agent.end(), by_time);
@@ -392,6 +438,7 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
   split_after_target(queues.mag, leftover.mag);
   split_after_target(queues.ahrs, leftover.ahrs);
   split_after_target(queues.dvl, leftover.dvl);
+  split_after_target(queues.beams, leftover.beams);
   split_after_target(queues.wrench, leftover.wrench);
   leftover.multiagent.resize(queues.multiagent.size());
   for (size_t agent_queue_idx = 0; agent_queue_idx < queues.multiagent.size(); ++agent_queue_idx) {
@@ -430,7 +477,15 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
     }
   };
 
-  if (queues.dvl.empty() || !params_.dvl.enable_dvl) {
+  auto has_valid_beam = [](const std::deque<std::shared_ptr<DvlBeamListData>>& beams_msgs) {
+    return !beams_msgs.empty() &&
+           std::any_of(beams_msgs.back()->beams.begin(), beams_msgs.back()->beams.end(),
+                       [](const auto& beam) { return beam.valid; });
+  };
+  const bool use_beams = params_.beams.enable_beams && has_valid_beam(queues.beams);
+  const bool use_dvl = params_.dvl.enable_dvl && !queues.dvl.empty();
+
+  if (!use_beams && !use_dvl) {
     add_dropout_factors(new_graph);
   } else {
     if (params_.comparison.enable_loose_dvl_preintegration) {
@@ -444,7 +499,11 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
       addDvlTightPreintFactor(new_graph, queues.dvl, queues.imu, target_time, held_imu_accel,
                               held_imu_gyro);
     } else {
-      addDvlFactor(new_graph, queues.dvl, last_imu_gyro_);
+      if (use_beams) {
+        addDvlBeamFactors(new_graph, queues.beams, last_imu_gyro_);
+      } else {
+        addDvlFactor(new_graph, queues.dvl, last_imu_gyro_);
+      }
 
       if (params_.wrench.enable_wrench) {
         addWrenchDynamicsFactor(new_graph, queues.wrench, target_time);
@@ -778,7 +837,6 @@ auto FactorGraphCore::snapshotNeighborTimeKeys() const
 auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& queues) const
     -> std::optional<FactorGraphCore::InitialState> {
   const KeyframeSource kf = parseKeyframeSource(params_.keyframe_source);
-  const KeyframeSource backup_kf = parseKeyframeSource(params_.backup_keyframe_source);
 
   const bool use_param_priors = params_.priors.use_parameter_priors;
   auto use_init_prior = [use_param_priors](bool enabled) { return enabled && !use_param_priors; };
@@ -792,10 +850,6 @@ auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& q
   const bool need_dvl =
       params_.dvl.enable_dvl && (params_.comparison.enable_loose_dvl_preintegration ||
                                  params_.comparison.enable_tight_dvl_preintegration);
-
-  auto keyframed_by = [kf, backup_kf](KeyframeSource src) { return kf == src || backup_kf == src; };
-  const bool start_depth = params_.depth.enable_depth && keyframed_by(KeyframeSource::kDepth);
-  const bool start_dvl = params_.dvl.enable_dvl && keyframed_by(KeyframeSource::kDvl);
 
   const std::array<std::pair<bool, const char*>, 5> requirements = {{
       {queues.imu.empty(), "IMU"},
@@ -824,8 +878,6 @@ auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& q
   auto depth = newest_if(use_depth, queues.depth);
   auto ahrs = newest_if(use_ahrs, queues.ahrs);
   auto dvl = newest_if(use_dvl, queues.dvl);
-  auto depth_at_start = newest_if(start_depth, queues.depth);
-  auto dvl_at_start = newest_if(start_dvl || need_dvl, queues.dvl);
   auto imu = queues.imu.back();
 
   InitialState state;
@@ -847,16 +899,18 @@ auto FactorGraphCore::computeInitialState(double init_time, const QueueBundle& q
       sigmasSquaredDiag(params_.priors.initial_gyro_bias_sigmas);
   state.mag_bias_cov = sigmasSquaredDiag(params_.priors.hard_iron_bias_sigmas);
 
-  if (kf == KeyframeSource::kDvl && dvl_at_start) {
-    state.timestamp = dvl_at_start->timestamp;
-  } else if (kf == KeyframeSource::kDepth && depth_at_start) {
-    state.timestamp = depth_at_start->timestamp;
+  if (kf == KeyframeSource::kDvl && params_.dvl.enable_dvl && !queues.dvl.empty()) {
+    state.timestamp = queues.dvl.back()->timestamp;
+  } else if (kf == KeyframeSource::kBeams && params_.beams.enable_beams && !queues.beams.empty()) {
+    state.timestamp = queues.beams.back()->timestamp;
+  } else if (kf == KeyframeSource::kDepth && params_.depth.enable_depth && !queues.depth.empty()) {
+    state.timestamp = queues.depth.back()->timestamp;
   } else {
     state.timestamp = imu->timestamp;
   }
 
   state.imu = imu;
-  state.dvl = dvl_at_start;
+  state.dvl = newest_if(need_dvl, queues.dvl);
   return state;
 }
 
@@ -1202,6 +1256,44 @@ void FactorGraphCore::addDvlFactor(gtsam::NonlinearFactorGraph& graph,
   graph.emplace_shared<DvlFactorArm>(X(curr_step_), V(curr_step_), B(curr_step_), tfs_.target_T_dvl,
                                      tfs_.target_T_imu, dvl_msg->linear_velocity, imu_gyro,
                                      dvl_noise);
+}
+
+void FactorGraphCore::addDvlBeamFactors(
+    gtsam::NonlinearFactorGraph& graph,
+    const std::deque<std::shared_ptr<DvlBeamListData>>& beams_msgs,
+    const gtsam::Vector3& imu_gyro) {
+  if (beams_msgs.empty()) {
+    return;
+  }
+
+  const auto& beams_msg = beams_msgs.back();
+
+  // Scale the preintegrator's continuous-time density to the per-sample noise
+  const gtsam::Matrix3 gyro_sample_cov =
+      imu_preintegrator_->params()->getGyroscopeCovariance() * params_.imu.sensor_rate_hz;
+
+  for (size_t i = 0; i < utils::kNumDvlBeams; ++i) {
+    const auto& beam = beams_msg->beams[i];
+    if (!beam.valid) {
+      continue;
+    }
+
+    double beam_velocity_var = resolveVar(
+        params_.beams.use_parameter_sigmas, params_.beams.parameter_sigmas.velocity_noise_sigma,
+        params_.beams.covariance_scalar, beam.velocity_variance, "DVL Beams", logger_);
+
+    beam_velocity_var += DvlBeamFactorArm::gyroLeverArmVariance(
+        gyro_sample_cov, tfs_.target_T_beams[i], tfs_.target_T_imu);
+
+    gtsam::SharedNoiseModel beam_noise =
+        gtsam::noiseModel::Isotropic::Sigma(1, std::sqrt(beam_velocity_var));
+
+    beam_noise = applyRobustKernel(beam_noise, params_.beams.robust_kernel, params_.beams.robust_k);
+
+    graph.emplace_shared<DvlBeamFactorArm>(X(curr_step_), V(curr_step_), B(curr_step_),
+                                           tfs_.target_T_beams[i], tfs_.target_T_imu, beam.velocity,
+                                           imu_gyro, beam_noise);
+  }
 }
 
 void FactorGraphCore::addConstVelFactor(gtsam::NonlinearFactorGraph& graph, double target_time) {

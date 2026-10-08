@@ -1,0 +1,98 @@
+// Copyright 2026 BYU FROST Lab
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <gtest/gtest.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/NoiseModel.h>
+#include <gtsam/navigation/ImuBias.h>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/factorTesting.h>
+
+#include "coug_fg/factors/dvl_beam_factor.hpp"
+
+namespace {
+
+using coug_fg::factors::DvlBeamFactorArm;
+
+using gtsam::symbol_shorthand::B;  // Bias (ax,ay,az,gx,gy,gz)
+using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
+using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
+
+constexpr double kStep = 1e-5;  // finite difference step
+constexpr double kJacobianTol = 1e-5;
+constexpr double kResidualTol = 1e-9;
+
+}  // namespace
+
+TEST(DvlBeamFactorArmTest, Jacobians) {
+  const gtsam::Key pose_key = X(1);
+  const gtsam::Key vel_key = V(1);
+  const gtsam::Key bias_key = B(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                     gtsam::Point3(0.5, 0.5, 0.5));
+  const gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
+  const double measured_vel = 1.0;
+  const gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
+
+  const DvlBeamFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
+                                measured_vel, measured_gyro, model);
+
+  gtsam::Values values;
+  values.insert(pose_key,
+                gtsam::Pose3(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0)));
+  values.insert(vel_key, gtsam::Vector3(1.5, -0.5, 0.2));
+  values.insert(bias_key, gtsam::imuBias::ConstantBias(gtsam::Vector3(0.01, -0.02, 0.03),
+                                                       gtsam::Vector3(0.02, -0.01, 0.01)));
+
+  EXPECT_TRUE(gtsam::internal::testFactorJacobians("DvlBeamFactorArm", factor, values, kStep,
+                                                   kJacobianTol));
+}
+
+TEST(DvlBeamFactorArmTest, Residual) {
+  const gtsam::Key pose_key = X(1);
+  const gtsam::Key vel_key = V(1);
+  const gtsam::Key bias_key = B(1);
+  const gtsam::SharedNoiseModel model = gtsam::noiseModel::Isotropic::Sigma(1, 0.1);
+  const gtsam::Pose3 target_T_sensor(gtsam::Rot3::Ypr(0.1, -0.1, 0.1),
+                                     gtsam::Point3(0.5, 0.5, 0.5));
+  const gtsam::Pose3 target_T_imu(gtsam::Rot3::Ypr(-0.2, 0.1, 0.3), gtsam::Point3(0.1, 0.2, 0.3));
+  const gtsam::Vector3 measured_gyro(0.1, -0.3, 0.2);
+
+  const gtsam::Pose3 pose(gtsam::Rot3::Ypr(0.1, 0.2, 0.3), gtsam::Point3(1.0, 2.0, 4.0));
+  const gtsam::Vector3 map_v_target(1.5, -0.5, 0.2);
+  const gtsam::imuBias::ConstantBias bias(gtsam::Vector3(0.01, -0.02, 0.03),
+                                          gtsam::Vector3(0.02, -0.01, 0.01));
+
+  // Velocity the beam would report: target motion plus lever arm rotation, along the beam
+  const gtsam::Vector3 target_omega =
+      target_T_imu.rotation().matrix() * (measured_gyro - bias.gyroscope());
+  const gtsam::Vector3 target_vel = pose.rotation().matrix().transpose() * map_v_target;
+  const gtsam::Vector3 target_v_lever_arm = target_omega.cross(target_T_sensor.translation());
+  const gtsam::Vector3 target_b_beam = target_T_sensor.rotation().matrix().col(0);
+  const double beam_vel = target_b_beam.dot(target_vel + target_v_lever_arm);
+
+  // Measured short of the prediction
+  const double offset = 0.01;
+  const DvlBeamFactorArm factor(pose_key, vel_key, bias_key, target_T_sensor, target_T_imu,
+                                beam_vel - offset, measured_gyro, model);
+
+  const gtsam::Vector expected = gtsam::Vector1(offset);
+  EXPECT_TRUE(
+      gtsam::assert_equal(expected, factor.evaluateError(pose, map_v_target, bias), kResidualTol));
+}

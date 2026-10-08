@@ -193,6 +193,10 @@ class FactorGraphCore {
                     const std::deque<std::shared_ptr<utils::TwistData>>& dvl_msgs,
                     const gtsam::Vector3& imu_gyro);
 
+  void addDvlBeamFactors(gtsam::NonlinearFactorGraph& graph,
+                         const std::deque<std::shared_ptr<utils::DvlBeamListData>>& beams_msgs,
+                         const gtsam::Vector3& imu_gyro);
+
   void addConstVelFactor(gtsam::NonlinearFactorGraph& graph, double target_time);
 
   void addWrenchDynamicsFactor(gtsam::NonlinearFactorGraph& graph,

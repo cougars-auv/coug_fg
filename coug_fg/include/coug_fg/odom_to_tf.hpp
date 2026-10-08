@@ -33,7 +33,7 @@ class OdomToTfNode : public rclcpp::Node {
   void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
 
   // --- Helpers ---
-  auto convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg) const
+  static auto convertToTf(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
       -> geometry_msgs::msg::TransformStamped;
 
   // --- ROS Interfaces ---

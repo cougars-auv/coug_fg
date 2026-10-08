@@ -29,6 +29,8 @@
 #include <pybind11/pytypes.h>
 
 #include <Eigen/Core>
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -58,6 +60,8 @@ using gtsam::symbol_shorthand::V;  // Velocity (x,y,z)
 
 using utils::AgentStatusData;
 using utils::AhrsData;
+using utils::DvlBeamData;
+using utils::DvlBeamListData;
 using utils::ImuData;
 using utils::LogLevel;
 using utils::MagneticFieldData;
@@ -79,6 +83,8 @@ using DepthMsgs = std::vector<std::tuple<double, double, Matrix6d>>;
 using MagMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Eigen::Matrix3d>>;
 using AhrsMsgs = std::vector<std::tuple<double, Eigen::Vector4d, Eigen::Matrix3d>>;
 using DvlMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
+using BeamMsg = std::tuple<double, double, bool>;
+using BeamsMsgs = std::vector<std::tuple<double, std::array<BeamMsg, utils::kNumDvlBeams>>>;
 using WrenchMsgs = std::vector<std::tuple<double, Vector6d>>;
 using AgentStatusMsg =
     std::tuple<double, Eigen::Vector3d, Eigen::Vector4d, Matrix6d, bool, double, bool,
@@ -179,8 +185,16 @@ auto toTfBundle(const TfMap& tfs) -> TfBundle {
       {"dvl", &TfBundle::target_T_dvl},    {"wrench", &TfBundle::target_T_wrench},
       {"modem", &TfBundle::target_T_modem}};
 
+  static const std::array<std::string, utils::kNumDvlBeams> kBeamNames = {"beam0", "beam1", "beam2",
+                                                                          "beam3"};
+
   TfBundle bundle;
   for (const auto& [name, tf] : tfs) {
+    const auto* beam_it = std::find(kBeamNames.begin(), kBeamNames.end(), name);
+    if (beam_it != kBeamNames.end()) {
+      bundle.target_T_beams[beam_it - kBeamNames.begin()] = toPose3(tf.first, tf.second);
+      continue;
+    }
     auto it = kTransformFields.find(name);
     if (it == kTransformFields.end()) {
       throw std::invalid_argument("Unknown transform name: " + name);
@@ -192,7 +206,8 @@ auto toTfBundle(const TfMap& tfs) -> TfBundle {
 
 auto toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& depth,
                    const MagMsgs& mag, const AhrsMsgs& ahrs, const DvlMsgs& dvl,
-                   const WrenchMsgs& wrench, const MultiAgentMsgs& multiagent) -> QueueBundle {
+                   const BeamsMsgs& beams, const WrenchMsgs& wrench,
+                   const MultiAgentMsgs& multiagent) -> QueueBundle {
   QueueBundle queues;
 
   for (const auto& [t, accel, gyro, accel_cov, gyro_cov] : imu) {
@@ -245,6 +260,16 @@ auto toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& dept
     queues.dvl.push_back(dvl_msg);
   }
 
+  for (const auto& [t, beam_list] : beams) {
+    auto beams_msg = std::make_shared<DvlBeamListData>();
+    beams_msg->timestamp = t;
+    for (size_t i = 0; i < utils::kNumDvlBeams; ++i) {
+      const auto& [velocity, velocity_variance, valid] = beam_list[i];
+      beams_msg->beams[i] = DvlBeamData{velocity, velocity_variance, valid};
+    }
+    queues.beams.push_back(beams_msg);
+  }
+
   for (const auto& [t, force_torque] : wrench) {
     auto wrench_msg = std::make_shared<WrenchData>();
     wrench_msg->timestamp = t;
@@ -286,12 +311,12 @@ auto queueOrEmpty(const pybind11::dict& queues, const char* name) -> Msgs {
 }
 
 auto toQueueBundle(const pybind11::dict& queues) -> QueueBundle {
-  return toQueueBundle(queueOrEmpty<ImuMsgs>(queues, "imu"), queueOrEmpty<GpsMsgs>(queues, "gps"),
-                       queueOrEmpty<DepthMsgs>(queues, "depth"),
-                       queueOrEmpty<MagMsgs>(queues, "mag"), queueOrEmpty<AhrsMsgs>(queues, "ahrs"),
-                       queueOrEmpty<DvlMsgs>(queues, "dvl"),
-                       queueOrEmpty<WrenchMsgs>(queues, "wrench"),
-                       queueOrEmpty<MultiAgentMsgs>(queues, "multiagent"));
+  return toQueueBundle(
+      queueOrEmpty<ImuMsgs>(queues, "imu"), queueOrEmpty<GpsMsgs>(queues, "gps"),
+      queueOrEmpty<DepthMsgs>(queues, "depth"), queueOrEmpty<MagMsgs>(queues, "mag"),
+      queueOrEmpty<AhrsMsgs>(queues, "ahrs"), queueOrEmpty<DvlMsgs>(queues, "dvl"),
+      queueOrEmpty<BeamsMsgs>(queues, "beams"), queueOrEmpty<WrenchMsgs>(queues, "wrench"),
+      queueOrEmpty<MultiAgentMsgs>(queues, "multiagent"));
 }
 
 auto toQueueDict(const QueueBundle& queue_bundle) -> pybind11::dict {
@@ -331,6 +356,16 @@ auto toQueueDict(const QueueBundle& queue_bundle) -> pybind11::dict {
                      swapCovarianceBlocks(dvl_msg->velocity_covariance));
   }
 
+  BeamsMsgs beams;
+  for (const auto& beams_msg : queue_bundle.beams) {
+    std::array<BeamMsg, utils::kNumDvlBeams> beam_list;
+    for (size_t i = 0; i < utils::kNumDvlBeams; ++i) {
+      const auto& beam = beams_msg->beams[i];
+      beam_list[i] = {beam.velocity, beam.velocity_variance, beam.valid};
+    }
+    beams.emplace_back(beams_msg->timestamp, beam_list);
+  }
+
   WrenchMsgs wrench;
   for (const auto& wrench_msg : queue_bundle.wrench) {
     Vector6d force_torque;
@@ -363,6 +398,7 @@ auto toQueueDict(const QueueBundle& queue_bundle) -> pybind11::dict {
   queues["mag"] = mag;
   queues["ahrs"] = ahrs;
   queues["dvl"] = dvl;
+  queues["beams"] = beams;
   queues["wrench"] = wrench;
   queues["multiagent"] = multiagent;
   return queues;
@@ -427,6 +463,7 @@ auto FactorGraphPy::get_params() const -> pybind11::dict {
   topics["mag"] = params_.mag_topic;
   topics["ahrs"] = params_.ahrs_topic;
   topics["dvl"] = params_.dvl_topic;
+  topics["beams"] = params_.beams_topic;
   topics["wrench"] = params_.wrench_topic;
   params["topics"] = topics;
 
@@ -459,6 +496,14 @@ auto FactorGraphPy::get_params() const -> pybind11::dict {
       sensor_dict(params_.ahrs, params_.ahrs.enable_ahrs, params_.ahrs.enable_ahrs_init_priors);
   sensors["dvl"] =
       sensor_dict(params_.dvl, params_.dvl.enable_dvl, params_.dvl.enable_dvl_init_priors);
+
+  pybind11::dict beams_sensor;
+  beams_sensor["enable"] = params_.beams.enable_beams;
+  sensors["beams"] = beams_sensor;
+  sensors["beam0"] = sensor_dict(params_.beams.beam0, params_.beams.enable_beams, false);
+  sensors["beam1"] = sensor_dict(params_.beams.beam1, params_.beams.enable_beams, false);
+  sensors["beam2"] = sensor_dict(params_.beams.beam2, params_.beams.enable_beams, false);
+  sensors["beam3"] = sensor_dict(params_.beams.beam3, params_.beams.enable_beams, false);
   sensors["wrench"] = sensor_dict(params_.wrench, params_.wrench.enable_wrench, false,
                                   params_.wrench.enable_wrench_dropout_only);
 
@@ -638,6 +683,7 @@ PYBIND11_MODULE(coug_fg_py, m) {
 
   pybind11::enum_<KeyframeSource>(m, "KeyframeSource")
       .value("NONE", KeyframeSource::kNone)
+      .value("BEAMS", KeyframeSource::kBeams)
       .value("DVL", KeyframeSource::kDvl)
       .value("DEPTH", KeyframeSource::kDepth)
       .value("TIMER", KeyframeSource::kTimer);

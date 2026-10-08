@@ -39,15 +39,18 @@ logger = logging.getLogger(__name__)
 SolverType: TypeAlias = coug_fg_py.SolverType
 KeyframeSource: TypeAlias = coug_fg_py.KeyframeSource
 
-SENSORS = ("imu", "gps", "depth", "mag", "ahrs", "dvl", "wrench")
+SENSORS = ("imu", "gps", "depth", "mag", "ahrs", "dvl", "beams", "wrench")
+NUM_DVL_BEAMS = 4
 
 SOURCE_SENSORS: dict[KeyframeSource, str] = {
+    KeyframeSource.BEAMS: "beams",
     KeyframeSource.DVL: "dvl",
     KeyframeSource.DEPTH: "depth",
     KeyframeSource.TIMER: "imu",
 }
 
 TRIGGER_SOURCES: dict[str, KeyframeSource] = {
+    "beams": KeyframeSource.BEAMS,
     "dvl": KeyframeSource.DVL,
     "depth": KeyframeSource.DEPTH,
 }
@@ -87,12 +90,13 @@ class OfflineFactorGraph:
         sensors = self._params["sensors"]
         loose_preint = self._params["comparison"]["enable_loose_dvl_preintegration"]
 
-        gps, depth, mag, ahrs, dvl, wrench = (
+        gps, depth, mag, ahrs, dvl, beams, wrench = (
             sensors["gps"],
             sensors["depth"],
             sensors["mag"],
             sensors["ahrs"],
             sensors["dvl"],
+            sensors["beams"],
             sensors["wrench"],
         )
 
@@ -103,6 +107,7 @@ class OfflineFactorGraph:
             "mag": mag["enable"],
             "ahrs": ahrs["enable"] or ahrs["enable_init_priors"] or loose_preint,
             "dvl": dvl["enable"] or dvl["enable_init_priors"],
+            "beams": beams["enable"],
             "wrench": wrench["enable"] or wrench["enable_dropout_only"],
         }
 
@@ -113,14 +118,6 @@ class OfflineFactorGraph:
             else []
         )
         self._multiagent_keys = [f"multiagent_{i}" for i in range(len(self._multiagent_topics))]
-
-        for source in (self._keyframe_source, self._backup_keyframe_source):
-            sensor = SOURCE_SENSORS.get(source)
-            if sensor in ("dvl", "depth") and not sensors[sensor]["enable"]:
-                raise ValueError(
-                    f"Keyframe source '{self._keyframe_source}' or backup "
-                    f"'{self._backup_keyframe_source}' references a disabled sensor."
-                )
 
         self._is_initialized = False
         self._results: list[dict[str, Any]] = []
@@ -153,12 +150,23 @@ class OfflineFactorGraph:
             topics.setdefault(resolved, []).append(key)
         return topics
 
-    def add_message(self, sensor: str, frame_id: str, measurement: tuple[Any, ...]) -> None:
+    def add_message(
+        self, sensor: str, frame_id: str | list[str], measurement: tuple[Any, ...]
+    ) -> None:
         # Offline, the graph/timer fires on message stamps instead of the wall clock
         self._stream_time = max(self._stream_time, measurement[0])
 
         is_neighbor = sensor.startswith("multiagent_")
-        self._resolve_sensor_tf("modem" if is_neighbor else sensor, frame_id)
+        if isinstance(frame_id, list):
+            if len(frame_id) != NUM_DVL_BEAMS:
+                logger.warning(
+                    "Rejected DVL beams: expected %d beams, got %d.", NUM_DVL_BEAMS, len(frame_id)
+                )
+                return
+            for i, beam_frame_id in enumerate(frame_id):
+                self._resolve_sensor_tf(f"beam{i}", beam_frame_id)
+        else:
+            self._resolve_sensor_tf("modem" if is_neighbor else sensor, frame_id)
         self._queues[sensor].append(measurement)
         self._last_msg_time[sensor] = measurement[0]
         if is_neighbor:

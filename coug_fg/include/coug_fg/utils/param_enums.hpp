@@ -24,7 +24,7 @@ enum class SolverType : std::uint8_t { kIncrementalFixedLagSmoother, kIsam2, kLe
 
 enum class RobustKernel : std::uint8_t { kNone, kHuber, kTukey };
 
-enum class KeyframeSource : std::uint8_t { kNone, kDvl, kDepth, kTimer };
+enum class KeyframeSource : std::uint8_t { kNone, kBeams, kDvl, kDepth, kTimer };
 
 inline auto parseSolverType(const std::string& solver_type) -> SolverType {
   if (solver_type == "IncrementalFixedLagSmoother") {
@@ -55,6 +55,9 @@ inline auto parseRobustKernel(const std::string& robust_kernel) -> RobustKernel 
 inline auto parseKeyframeSource(const std::string& keyframe_source) -> KeyframeSource {
   if (keyframe_source == "None") {
     return KeyframeSource::kNone;
+  }
+  if (keyframe_source == "Beams") {
+    return KeyframeSource::kBeams;
   }
   if (keyframe_source == "DVL") {
     return KeyframeSource::kDvl;

@@ -21,6 +21,7 @@
 #include <rcl/time.h>
 
 #include <Eigen/Dense>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -38,7 +39,6 @@
 #include <rclcpp/node_options.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <shared_mutex>
-#include <stdexcept>
 #include <string>
 #include <tf2/exceptions.hpp>
 #include <tf2/time.hpp>
@@ -55,6 +55,7 @@
 #include "coug_fg/utils/param_enums.hpp"
 #include "coug_fg/utils/ros_conversions.hpp"
 #include "coug_interfaces/msg/agent_status.hpp"
+#include "coug_interfaces/msg/dvl_beam_list.hpp"
 #include "coug_interfaces/msg/graph_metrics.hpp"
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -70,10 +71,13 @@
 namespace coug_fg {
 
 using coug_interfaces::msg::AgentStatus;
+using coug_interfaces::msg::DvlBeamList;
 using coug_interfaces::msg::GraphMetrics;
 
 using utils::AgentStatusData;
 using utils::AhrsData;
+using utils::DvlBeamData;
+using utils::DvlBeamListData;
 using utils::ImuData;
 using utils::KeyframeSource;
 using utils::LogLevel;
@@ -115,25 +119,6 @@ FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
       params_(param_listener_->get_params()),
       keyframe_source_(parseKeyframeSource(params_.keyframe_source)),
       backup_keyframe_source_(parseKeyframeSource(params_.backup_keyframe_source)) {
-  // Ensure the keyframe sources are valid
-  auto source_enabled = [this](KeyframeSource source) {
-    switch (source) {
-      case KeyframeSource::kDvl:
-        return params_.dvl.enable_dvl;
-      case KeyframeSource::kDepth:
-        return params_.depth.enable_depth;
-      default:
-        return true;
-    }
-  };
-  if (!source_enabled(keyframe_source_) || !source_enabled(backup_keyframe_source_)) {
-    RCLCPP_FATAL(get_logger(),
-                 "Invalid keyframe configuration: source '%s' or backup '%s' uses a disabled "
-                 "sensor. Shutting down.",
-                 params_.keyframe_source.c_str(), params_.backup_keyframe_source.c_str());
-    throw std::runtime_error("Invalid keyframe source configuration.");
-  }
-
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
@@ -192,6 +177,12 @@ FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
           dvlCallback(msg);
         },
         sensor_options);
+  }
+
+  if (params_.beams.enable_beams) {
+    beams_sub_ = create_subscription<DvlBeamList>(
+        params_.beams_topic, rclcpp::SensorDataQoS(),
+        [this](const DvlBeamList::ConstSharedPtr& msg) { beamsCallback(msg); }, sensor_options);
   }
 
   if (params_.wrench.enable_wrench || params_.wrench.enable_wrench_dropout_only) {
@@ -328,10 +319,6 @@ void FactorGraphNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr& m
                       params_.imu.parameter_tf.position, params_.imu.parameter_tf.orientation)) {
     return;
   }
-  {
-    const std::scoped_lock lock(tf_mutex_);
-    imu_frame_ = child_frame;
-  }
   auto imu_msg = std::make_shared<ImuData>();
   imu_msg->timestamp = rclcpp::Time(msg->header.stamp).seconds();
   imu_msg->linear_acceleration = toGtsam(msg->linear_acceleration);
@@ -382,10 +369,6 @@ void FactorGraphNode::magCallback(const sensor_msgs::msg::MagneticField::ConstSh
                       params_.mag.parameter_tf.position, params_.mag.parameter_tf.orientation)) {
     return;
   }
-  {
-    const std::scoped_lock lock(tf_mutex_);
-    mag_frame_ = child_frame;
-  }
   auto mag_msg = std::make_shared<MagneticFieldData>();
   mag_msg->timestamp = rclcpp::Time(msg->header.stamp).seconds();
   mag_msg->magnetic_field = toGtsam(msg->magnetic_field);
@@ -422,6 +405,39 @@ void FactorGraphNode::dvlCallback(
   dvl_queue_.push(dvl_msg);
 
   if (keyframe_source_ == KeyframeSource::kDvl || backup_keyframe_source_ == KeyframeSource::kDvl) {
+    notifyFrontend();
+  }
+}
+
+void FactorGraphNode::beamsCallback(const DvlBeamList::ConstSharedPtr& msg) {
+  if (msg->beams.size() != utils::kNumDvlBeams) {
+    RCLCPP_WARN(get_logger(), "Rejected DVL beams: expected %zu beams, got %zu.",
+                utils::kNumDvlBeams, msg->beams.size());
+    return;
+  }
+
+  auto beams_msg = std::make_shared<DvlBeamListData>();
+  beams_msg->timestamp = rclcpp::Time(msg->header.stamp).seconds();
+  auto load_beam = [&](size_t i, const auto& beam_params) {
+    const auto& beam = msg->beams[i];
+    const std::string child_frame =
+        beam_params.use_parameter_frame ? beam_params.parameter_frame : beam.frame_id;
+    if (!loadOrLookupTf(target_T_beam_tfs_[i], child_frame, beam_params.use_parameter_tf,
+                        beam_params.parameter_tf.position, beam_params.parameter_tf.orientation)) {
+      return false;
+    }
+    beams_msg->beams[i] = DvlBeamData{beam.velocity, beam.velocity_variance, beam.valid};
+    return true;
+  };
+  const auto& beams = params_.beams;
+  if (!load_beam(0, beams.beam0) || !load_beam(1, beams.beam1) || !load_beam(2, beams.beam2) ||
+      !load_beam(3, beams.beam3)) {
+    return;
+  }
+  beams_queue_.push(beams_msg);
+
+  if (keyframe_source_ == KeyframeSource::kBeams ||
+      backup_keyframe_source_ == KeyframeSource::kBeams) {
     notifyFrontend();
   }
 }
@@ -543,9 +559,14 @@ void FactorGraphNode::initializeGraph() {
 void FactorGraphNode::updateGraph() {
   KeyframeSource active_source = keyframe_source_;
   if (active_source != KeyframeSource::kTimer) {
-    std::optional<double> last_received = (active_source == KeyframeSource::kDvl)
-                                              ? dvl_queue_.getLastTime()
-                                              : depth_queue_.getLastTime();
+    std::optional<double> last_received;
+    if (active_source == KeyframeSource::kBeams) {
+      last_received = beams_queue_.getLastTime();
+    } else if (active_source == KeyframeSource::kDvl) {
+      last_received = dvl_queue_.getLastTime();
+    } else {
+      last_received = depth_queue_.getLastTime();
+    }
 
     std::optional<double> newest_stamp = imu_queue_.getLastTime();
     if (!last_received.has_value() ||
@@ -566,7 +587,9 @@ void FactorGraphNode::updateGraph() {
   }
 
   std::optional<double> target_time;
-  if (active_source == KeyframeSource::kDvl && !dvl_queue_.empty()) {
+  if (active_source == KeyframeSource::kBeams && !beams_queue_.empty()) {
+    target_time = beams_queue_.getLastTime();
+  } else if (active_source == KeyframeSource::kDvl && !dvl_queue_.empty()) {
     target_time = dvl_queue_.getLastTime();
   } else if (active_source == KeyframeSource::kDepth && !depth_queue_.empty()) {
     target_time = depth_queue_.getLastTime();
@@ -783,6 +806,9 @@ auto FactorGraphNode::buildCurrentTfBundle() const -> TfBundle {
   resolve_tf(target_T_mag_tf_, tfs.target_T_mag);
   resolve_tf(target_T_ahrs_tf_, tfs.target_T_ahrs);
   resolve_tf(target_T_dvl_tf_, tfs.target_T_dvl);
+  for (size_t i = 0; i < utils::kNumDvlBeams; ++i) {
+    resolve_tf(target_T_beam_tfs_[i], tfs.target_T_beams[i]);
+  }
   resolve_tf(target_T_base_tf_, tfs.target_T_base);
   resolve_tf(target_T_wrench_tf_, tfs.target_T_wrench);
   resolve_tf(target_T_modem_tf_, tfs.target_T_modem);
@@ -797,6 +823,7 @@ auto FactorGraphNode::drainAllQueues() -> QueueBundle {
   queues.mag = mag_queue_.drain();
   queues.ahrs = ahrs_queue_.drain();
   queues.dvl = dvl_queue_.drain();
+  queues.beams = beams_queue_.drain();
   queues.wrench = wrench_queue_.drain();
   queues.multiagent.resize(multiagent_queues_.size());
   for (size_t agent_queue_idx = 0; agent_queue_idx < multiagent_queues_.size(); ++agent_queue_idx) {
@@ -812,6 +839,7 @@ void FactorGraphNode::restoreAllQueues(const QueueBundle& queues) {
   mag_queue_.restore(queues.mag);
   ahrs_queue_.restore(queues.ahrs);
   dvl_queue_.restore(queues.dvl);
+  beams_queue_.restore(queues.beams);
   wrench_queue_.restore(queues.wrench);
   for (size_t agent_queue_idx = 0;
        agent_queue_idx < multiagent_queues_.size() && agent_queue_idx < queues.multiagent.size();
@@ -976,7 +1004,7 @@ void FactorGraphNode::publishImuBias(const gtsam::imuBias::ConstantBias& curr_im
   imu_bias_msg.header.stamp = timestamp;
   {
     const std::scoped_lock lock(tf_mutex_);
-    imu_bias_msg.header.frame_id = imu_frame_;
+    imu_bias_msg.header.frame_id = target_T_imu_tf_.child_frame_id;
   }
 
   // This maps 'linear' to accelerometer bias and 'angular' to gyroscope bias.
@@ -995,7 +1023,7 @@ void FactorGraphNode::publishMagBias(const gtsam::Point3& curr_mag_bias,
   mag_bias_msg.header.stamp = timestamp;
   {
     const std::scoped_lock lock(tf_mutex_);
-    mag_bias_msg.header.frame_id = mag_frame_;
+    mag_bias_msg.header.frame_id = target_T_mag_tf_.child_frame_id;
   }
 
   mag_bias_msg.magnetic_field = toVectorMsg(curr_mag_bias);
@@ -1054,6 +1082,9 @@ void FactorGraphNode::checkSensorStatus(diagnostic_updater::DiagnosticStatusWrap
               params_.ahrs.enable_ahrs, false, params_.ahrs.diagnostic_timeout_sec);
   check_queue("DVL", dvl_queue_.size(), dvl_queue_.secondsSinceLastArrival(),
               params_.dvl.enable_dvl, params_.dvl.enable_dvl, params_.dvl.diagnostic_timeout_sec);
+  check_queue("DVL Beams", beams_queue_.size(), beams_queue_.secondsSinceLastArrival(),
+              params_.beams.enable_beams, params_.beams.enable_beams,
+              params_.beams.diagnostic_timeout_sec);
   check_queue("Wrench", wrench_queue_.size(), wrench_queue_.secondsSinceLastArrival(),
               params_.wrench.enable_wrench, false, params_.wrench.diagnostic_timeout_sec);
   for (size_t agent_queue_idx = 0; agent_queue_idx < multiagent_queues_.size(); ++agent_queue_idx) {

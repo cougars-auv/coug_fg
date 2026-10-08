@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import Any
 
 import yaml
@@ -26,6 +27,16 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 
 
+def load_launch_params(path: str, top_key: str) -> dict[str, Any]:
+    try:
+        with open(path) as config_file:
+            config = yaml.safe_load(config_file)
+        params = config[top_key]["coug_fg_base_launch"]["ros__parameters"]
+        return dict(params)
+    except (KeyError, TypeError, OSError):
+        return {}
+
+
 def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Action]:
     use_sim_time = LaunchConfiguration("use_sim_time")
 
@@ -35,10 +46,26 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
     agent_list = yaml.safe_load(agent_list_str)
     agent_ns = agent_list[0]
 
+    config_dir = os.environ["CONFIG_DIR"]
+
     fleet_param_file = PathJoinSubstitution(
         [EnvironmentVariable("CONFIG_DIR"), "fleet", "coug_fg_params.yaml"]
     )
     scenario_param_file = scenario_param_path or fleet_param_file
+
+    fleet_param_path = os.path.join(config_dir, "fleet", "coug_fg_params.yaml")
+    agent_param_path = os.path.join(config_dir, f"{agent_ns}_params.yaml")
+
+    launch_params = {
+        **load_launch_params(fleet_param_path, "/**"),
+        **load_launch_params(agent_param_path, f"/{agent_ns}"),
+        **load_launch_params(scenario_param_path, "/**"),
+        **load_launch_params(scenario_param_path, f"/{agent_ns}"),
+    }
+    gps_topic_name = launch_params["gps_topic"]
+    gps_topic = (
+        gps_topic_name if gps_topic_name.startswith("/") else f"/{agent_ns}/{gps_topic_name}"
+    )
 
     return [
         Node(
@@ -51,7 +78,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 {
                     "use_sim_time": use_sim_time,
                     "map_frame": "map",
-                    "input_topic": f"/{agent_ns}/gps/fix",
+                    "input_topic": gps_topic,
                 },
             ],
         ),

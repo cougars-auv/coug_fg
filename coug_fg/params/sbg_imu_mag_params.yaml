@@ -1,4 +1,7 @@
 sbg_imu_mag_node:
+  stamp_offset_sec:
+    type: double
+    default_value: 0.0
   au_to_tesla:
     type: double
     default_value: 5.0286e-05

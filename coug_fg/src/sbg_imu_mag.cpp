@@ -42,7 +42,10 @@ SbgImuMagNode::SbgImuMagNode(const rclcpp::NodeOptions& options)
 }
 
 void SbgImuMagNode::magCallback(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) {
-  mag_pub_->publish(convertToTesla(msg));
+  sensor_msgs::msg::MagneticField mag_msg = convertToTesla(msg);
+  mag_msg.header.stamp =
+      rclcpp::Time(msg->header.stamp) - rclcpp::Duration::from_seconds(params_.stamp_offset_sec);
+  mag_pub_->publish(mag_msg);
 }
 
 auto SbgImuMagNode::convertToTesla(const sensor_msgs::msg::MagneticField::ConstSharedPtr& msg) const

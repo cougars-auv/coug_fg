@@ -168,7 +168,7 @@ pgm_dynamics = copy.deepcopy(pgm)
 pgm_const_vel = copy.deepcopy(pgm)
 pgm_dvl_beams = copy.deepcopy(pgm)
 
-# --- DIRECT DVL GRAPH ---
+# --- VELOCITY DVL GRAPH ---
 
 for i in range(5):
     col_x = start_x + (i * col_spacing)
@@ -185,8 +185,8 @@ for i in range(5):
     pgm.add_edge(f"v{i}", f"dvl{i}")
 
 pgm.render()
-pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_direct.pdf", bbox_inches="tight")
-pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_direct.png", bbox_inches="tight", dpi=300)
+pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_vel.pdf", bbox_inches="tight")
+pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_vel.png", bbox_inches="tight", dpi=300)
 
 # --- PER-BEAM DVL GRAPH ---
 

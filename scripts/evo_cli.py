@@ -34,9 +34,9 @@ SIM_TRUTH_FIELDS = {
 }
 ESTIMATORS: dict[str, str] = {
     "global": "odometry/global",
-    "global_isam2": "odometry/global_isam2",
-    "global_lpi": "odometry/global_lpi",
+    "global_vel": "odometry/global_vel",
     "global_tpi": "odometry/global_tpi",
+    "global_lpi": "odometry/global_lpi",
     "global_tm": "",
     "global_ukf": "odometry/global_ukf",
     "global_ekf": "odometry/global_ekf",

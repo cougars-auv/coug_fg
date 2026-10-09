@@ -160,11 +160,11 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 factor_graph_params,
             ],
         ),
-        # iSAM2 (comparison)
+        # DVL velocity (comparison)
         Node(
             package="coug_fg",
             executable="factor_graph",
-            name="factor_graph_node_isam2",
+            name="factor_graph_node_vel",
             condition=IfCondition(loc_comparison),
             parameters=[
                 fleet_param_file,
@@ -173,34 +173,12 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                 scenario_param_file,
                 {
                     **factor_graph_params,
-                    "global_odom_topic": "odometry/global_isam2",
-                    "smoothed_path_topic": "smoothed_path_isam2",
-                    "publish_global_tf": False,
-                    "publish_smoothed_path": False,
-                    "solver_type": "ISAM2",
-                },
-            ],
-        ),
-        # Loosely-coupled DVL preintegration (comparison)
-        Node(
-            package="coug_fg",
-            executable="factor_graph",
-            name="factor_graph_node_lpi",
-            condition=IfCondition(loc_comparison),
-            parameters=[
-                fleet_param_file,
-                *initial_prior_params,
-                agent_param_file,
-                scenario_param_file,
-                {
-                    **factor_graph_params,
-                    "global_odom_topic": "odometry/global_lpi",
-                    "smoothed_path_topic": "smoothed_path_lpi",
+                    "global_odom_topic": "odometry/global_vel",
+                    "smoothed_path_topic": "smoothed_path_vel",
                     "publish_global_tf": False,
                     "keyframe_source": "DVL",
                     "dvl.enable_dvl": True,
                     "beams.enable_beams": False,
-                    "comparison.enable_loose_dvl_preintegration": True,
                 },
             ],
         ),
@@ -224,6 +202,29 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                     "dvl.enable_dvl": True,
                     "beams.enable_beams": False,
                     "comparison.enable_tight_dvl_preintegration": True,
+                },
+            ],
+        ),
+        # Loosely-coupled DVL preintegration (comparison)
+        Node(
+            package="coug_fg",
+            executable="factor_graph",
+            name="factor_graph_node_lpi",
+            condition=IfCondition(loc_comparison),
+            parameters=[
+                fleet_param_file,
+                *initial_prior_params,
+                agent_param_file,
+                scenario_param_file,
+                {
+                    **factor_graph_params,
+                    "global_odom_topic": "odometry/global_lpi",
+                    "smoothed_path_topic": "smoothed_path_lpi",
+                    "publish_global_tf": False,
+                    "keyframe_source": "DVL",
+                    "dvl.enable_dvl": True,
+                    "beams.enable_beams": False,
+                    "comparison.enable_loose_dvl_preintegration": True,
                 },
             ],
         ),

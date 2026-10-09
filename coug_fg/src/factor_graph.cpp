@@ -84,9 +84,7 @@ using utils::LogLevel;
 using utils::MagneticFieldData;
 using utils::OdometryData;
 using utils::parseKeyframeSource;
-using utils::parseSolverType;
 using utils::QueueBundle;
-using utils::SolverType;
 using utils::TfBundle;
 using utils::ThreadSafeQueue;
 using utils::toCovariance36Msg;
@@ -262,11 +260,13 @@ FactorGraphNode::FactorGraphNode(const rclcpp::NodeOptions& options)
 
     std::string suffix;
     if (params_.comparison.enable_loose_dvl_preintegration) {
-      suffix = " (FL-LPI)";
+      suffix = " (FG-LPI)";
     } else if (params_.comparison.enable_tight_dvl_preintegration) {
-      suffix = " (FL-TPI)";
-    } else if (parseSolverType(params_.solver_type) == SolverType::kIsam2) {
-      suffix = " (iS2-B)";
+      suffix = " (FG-TPI)";
+    } else if (params_.dvl.enable_dvl) {
+      suffix = " (FG-V)";
+    } else if (params_.beams.enable_beams) {
+      suffix = " (FG-B)";
     } else {
       suffix = "";
     }

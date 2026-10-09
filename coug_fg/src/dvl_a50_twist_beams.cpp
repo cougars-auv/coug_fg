@@ -93,14 +93,12 @@ DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
 }
 
 void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
-  if (msg->velocity_valid || msg->fom <= params_.fom_valid_threshold) {
+  if (msg->velocity_valid) {
     last_accepted_fom_ = msg->fom;
     twist_pub_->publish(convertToTwist(msg, false));
     twist_fom_pub_->publish(convertToTwist(msg, true));
   } else {
-    RCLCPP_WARN(get_logger(),
-                "Rejected DVL velocity: flagged invalid and FOM %g m/s exceeds %g m/s.", msg->fom,
-                params_.fom_valid_threshold);
+    RCLCPP_WARN(get_logger(), "Rejected DVL velocity: flagged invalid (FOM %g m/s).", msg->fom);
   }
 
   if (!msg->beams.empty()) {

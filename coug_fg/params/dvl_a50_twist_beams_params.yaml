@@ -7,11 +7,6 @@ dvl_a50_twist_beams_node:
     default_value: 1.0
     validation:
       gt<>: [0.0]
-  fom_valid_threshold:
-    type: double
-    default_value: 0.01
-    validation:
-      gt<>: [0.0]
   use_turtlmap_fom_covariance:
     type: bool
     default_value: false

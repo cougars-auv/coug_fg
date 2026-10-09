@@ -18,14 +18,12 @@ from typing import Any
 from launch import LaunchContext, LaunchDescription
 from launch.action import Action
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitution import Substitution
 from launch.substitutions import (
-    AndSubstitution,
     EnvironmentVariable,
     EqualsSubstitution,
     LaunchConfiguration,
-    NotSubstitution,
     PathJoinSubstitution,
     PythonExpression,
 )
@@ -221,13 +219,6 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
                     "global_odom_topic": "odometry/global_lpi",
                     "smoothed_path_topic": "smoothed_path_lpi",
                     "publish_global_tf": False,
-                    "ahrs_topic": PythonExpression(
-                        [
-                            "'imu/data' if ",
-                            is_agent(agent_ns, "turtlmap"),
-                            " else 'imu/data_madgwick'",
-                        ]
-                    ),
                     "keyframe_source": "DVL",
                     "dvl.enable_dvl": True,
                     "beams.enable_beams": False,
@@ -361,9 +352,7 @@ def launch_setup(context: LaunchContext, *args: Any, **kwargs: Any) -> list[Acti
             package="imu_filter_madgwick",
             executable="imu_filter_madgwick_node",
             name="imu_filter_madgwick",
-            condition=IfCondition(
-                AndSubstitution(loc_comparison, NotSubstitution(is_agent(agent_ns, "turtlmap")))
-            ),
+            condition=UnlessCondition(is_agent(agent_ns, "turtlmap", "tank", "tankwhole")),
             parameters=[
                 fleet_param_file,
                 agent_param_file,

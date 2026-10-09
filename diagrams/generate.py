@@ -56,6 +56,8 @@ win_left = (start_x + col_spacing) - win_pad
 win_width = (3 * col_spacing) + (2 * win_pad)
 win_bottom = 0 - win_pad + 0.175
 
+num_beams = {0: 4, 1: 4, 2: 3, 3: 2, 4: 4}
+
 # --- BASE FACTOR GRAPH ---
 
 pgm = daft.PGM(directed=False)
@@ -191,7 +193,7 @@ pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_direct.png", bbox_inches="tight", dpi=30
 for i in range(5):
     col_x = start_x + (i * col_spacing)
 
-    for beam in reversed(range(4)):
+    for beam in reversed(range(num_beams[i])):
         pgm_dvl_beams.add_node(
             f"dvl{i}_{beam}",
             f"${{v}}_{{{i}}}$" if beam == 0 else "",
@@ -263,7 +265,7 @@ pgm_preint_tight.figure.savefig(
 for i in [0, 1, 4]:
     col_x = start_x + (i * col_spacing)
 
-    for beam in reversed(range(4)):
+    for beam in reversed(range(num_beams[i])):
         pgm_dynamics.add_node(
             f"dvl{i}_{beam}",
             f"${{v}}_{{{i}}}$" if beam == 0 else "",
@@ -304,7 +306,7 @@ pgm_dynamics.figure.savefig(OUTPUT_DIR / "fg_dynamics.png", bbox_inches="tight",
 for i in [0, 1, 4]:
     col_x = start_x + (i * col_spacing)
 
-    for beam in reversed(range(4)):
+    for beam in reversed(range(num_beams[i])):
         pgm_const_vel.add_node(
             f"dvl{i}_{beam}",
             f"${{v}}_{{{i}}}$" if beam == 0 else "",
@@ -438,7 +440,7 @@ pgm_multiagent.add_edge("pm", "mag")
 for i in range(5):
     col_x = start_x + (i * col_spacing)
 
-    for beam in reversed(range(4)):
+    for beam in reversed(range(num_beams[i])):
         pgm_multiagent.add_node(
             f"dvl{i}_{beam}",
             f"${{v}}^0_{{{i}}}$" if beam == 0 else "",

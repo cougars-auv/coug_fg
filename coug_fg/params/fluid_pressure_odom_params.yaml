@@ -1,0 +1,67 @@
+fluid_pressure_odom_node:
+  pressure_scale:
+    type: double
+    default_value: 1.0
+    validation:
+      gt<>: [0.0]
+  atmospheric_pressure:
+    type: double
+    default_value: 101325.0
+    validation:
+      gt<>: [0.0]
+  water_density:
+    type: double
+    default_value: 997.0
+    validation:
+      gt<>: [0.0]
+  gravity:
+    type: double
+    default_value: 9.8
+    validation:
+      gt<>: [0.0]
+  max_pressure_delta:
+    type: double
+    default_value: 0.0
+    validation:
+      gt_eq<>: [0.0]
+  max_consecutive_rejections:
+    type: int
+    default_value: 5
+    validation:
+      gt_eq<>: [1]
+  use_ahrs:
+    type: bool
+    default_value: true
+  input_topic:
+    type: string
+    default_value: "pressure/data"
+    validation:
+      not_empty<>: []
+  output_topic:
+    type: string
+    default_value: "depth/odometry"
+    validation:
+      not_empty<>: []
+  ahrs_topic:
+    type: string
+    default_value: "imu/data"
+    validation:
+      not_empty<>: []
+  calibrate_service:
+    type: string
+    default_value: "depth/calibrate"
+    validation:
+      not_empty<>: []
+  map_frame:
+    type: string
+    default_value: "map"
+    validation:
+      not_empty<>: []
+  use_parameter_child_frame:
+    type: bool
+    default_value: false
+  parameter_child_frame:
+    type: string
+    default_value: "depth_link"
+    validation:
+      not_empty<>: []

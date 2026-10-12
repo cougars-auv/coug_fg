@@ -1,0 +1,71 @@
+// Copyright 2026 BYU FROST Lab
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#pragma once
+
+#include <array>
+#include <coug_interfaces/msg/dvl_beam_list.hpp>
+#include <dvl_msgs/msg/dvl.hpp>
+#include <dvl_msgs/msg/dvl_beam.hpp>
+#include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
+#include <memory>
+#include <optional>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/range.hpp>
+#include <string>
+
+#include "coug_fg/dvl_a50_twist_beams_parameters.hpp"
+#include "coug_fg/utils/data_types.hpp"
+
+namespace coug_fg {
+
+class DvlA50TwistBeamsNode : public rclcpp::Node {
+ public:
+  explicit DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options);
+
+ private:
+  // --- Callbacks ---
+  void dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg);
+
+  // --- Helpers ---
+  auto resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const -> rclcpp::Time;
+
+  auto convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg, bool use_fom_covariance) const
+      -> geometry_msgs::msg::TwistWithCovarianceStamped;
+
+  auto convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg, bool use_fom_covariance) const
+      -> coug_interfaces::msg::DvlBeamList;
+
+  auto convertToRange(const dvl_msgs::msg::DVLBeam& beam, const std::string& frame_id,
+                      const rclcpp::Time& stamp) const -> sensor_msgs::msg::Range;
+
+  // --- ROS Interfaces ---
+  rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvl_sub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_fom_pub_;
+  rclcpp::Publisher<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_pub_;
+  rclcpp::Publisher<coug_interfaces::msg::DvlBeamList>::SharedPtr beams_fom_pub_;
+  std::array<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr, utils::kNumDvlBeams>
+      range_pubs_;
+
+  // --- Parameters ---
+  std::shared_ptr<dvl_a50_twist_beams_node::ParamListener> param_listener_;
+  dvl_a50_twist_beams_node::Params params_;
+  std::array<std::string, utils::kNumDvlBeams> beam_frames_;
+
+  // --- State ---
+  std::optional<double> last_accepted_fom_;
+};
+
+}  // namespace coug_fg

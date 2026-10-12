@@ -1,0 +1,232 @@
+// Copyright 2026 BYU FROST Lab
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "coug_fg/dvl_a50_twist_beams.hpp"
+
+#include <rcl/time.h>
+
+#include <Eigen/Core>
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <optional>
+#include <rclcpp/duration.hpp>
+#include <rclcpp/logging.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/time.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
+
+#include "coug_fg/dvl_a50_twist_beams_parameters.hpp"
+#include "coug_fg/utils/data_types.hpp"
+#include "coug_interfaces/msg/dvl_beam.hpp"
+#include "coug_interfaces/msg/dvl_beam_list.hpp"
+#include "dvl_msgs/msg/dvl.hpp"
+#include "dvl_msgs/msg/dvl_beam.hpp"
+#include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
+#include "sensor_msgs/msg/range.hpp"
+
+namespace coug_fg {
+
+using coug_interfaces::msg::DvlBeam;
+using coug_interfaces::msg::DvlBeamList;
+
+namespace {
+
+constexpr uint64_t kMicrosecondsPerSecond = 1000000;
+constexpr uint64_t kNanosecondsPerMicrosecond = 1000;
+constexpr std::array<double, 3> kFrdToFlu = {1.0, -1.0, -1.0};
+constexpr size_t kDvlCovarianceSize = 9;
+constexpr double kUnknownCovariance = -1.0;
+
+}  // namespace
+
+DvlA50TwistBeamsNode::DvlA50TwistBeamsNode(const rclcpp::NodeOptions& options)
+    : Node("dvl_a50_twist_beams_node", options) {
+  param_listener_ =
+      std::make_shared<dvl_a50_twist_beams_node::ParamListener>(get_node_parameters_interface());
+  params_ = param_listener_->get_params();
+
+  dvl_sub_ = create_subscription<dvl_msgs::msg::DVL>(
+      params_.input_topic, rclcpp::SensorDataQoS(),
+      [this](const dvl_msgs::msg::DVL::ConstSharedPtr& msg) { dvlCallback(msg); });
+
+  twist_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
+      params_.twist_output_topic, rclcpp::SystemDefaultsQoS());
+
+  twist_fom_pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
+      params_.twist_fom_output_topic, rclcpp::SystemDefaultsQoS());
+
+  beams_pub_ =
+      create_publisher<DvlBeamList>(params_.beams_output_topic, rclcpp::SystemDefaultsQoS());
+
+  beams_fom_pub_ =
+      create_publisher<DvlBeamList>(params_.beams_fom_output_topic, rclcpp::SystemDefaultsQoS());
+
+  beam_frames_ = {params_.beam0_frame, params_.beam1_frame, params_.beam2_frame,
+                  params_.beam3_frame};
+
+  const std::array<std::string, utils::kNumDvlBeams> range_topics = {
+      params_.beam0_range_output_topic, params_.beam1_range_output_topic,
+      params_.beam2_range_output_topic, params_.beam3_range_output_topic};
+
+  for (size_t i = 0; i < range_pubs_.size(); ++i) {
+    range_pubs_[i] =
+        create_publisher<sensor_msgs::msg::Range>(range_topics[i], rclcpp::SystemDefaultsQoS());
+  }
+
+  RCLCPP_INFO(get_logger(), "Initialization complete.");
+}
+
+void DvlA50TwistBeamsNode::dvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) {
+  if (msg->velocity_valid) {
+    last_accepted_fom_ = msg->fom;
+    twist_pub_->publish(convertToTwist(msg, false));
+    twist_fom_pub_->publish(convertToTwist(msg, true));
+  } else {
+    RCLCPP_WARN(get_logger(), "Rejected DVL velocity: flagged invalid (FOM %g m/s).", msg->fom);
+  }
+
+  if (!msg->beams.empty()) {
+    beams_pub_->publish(convertToBeams(msg, false));
+    beams_fom_pub_->publish(convertToBeams(msg, true));
+
+    const rclcpp::Time stamp = resolveStamp(msg);
+    for (const auto& in : msg->beams) {
+      if (in.id < 0 || static_cast<size_t>(in.id) >= range_pubs_.size()) {
+        continue;
+      }
+      range_pubs_[in.id]->publish(convertToRange(in, beam_frames_[in.id], stamp));
+    }
+  }
+}
+
+auto DvlA50TwistBeamsNode::resolveStamp(const dvl_msgs::msg::DVL::ConstSharedPtr& msg) const
+    -> rclcpp::Time {
+  if (params_.override_timestamp) {
+    // Back out the A50's ping-to-transmission latency
+    const int64_t latency_us = msg->time_of_transmission - msg->time_of_validity;
+    if (latency_us <= 0) {
+      return {msg->header.stamp};
+    }
+    return rclcpp::Time(msg->header.stamp) -
+           rclcpp::Duration(std::chrono::microseconds(latency_us));
+  }
+
+  const auto sec = static_cast<int32_t>(msg->time_of_validity / kMicrosecondsPerSecond);
+  const auto nanosec = static_cast<uint32_t>((msg->time_of_validity % kMicrosecondsPerSecond) *
+                                             kNanosecondsPerMicrosecond);
+  return {sec, nanosec, RCL_ROS_TIME};
+}
+
+auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedPtr& msg,
+                                          bool use_fom_covariance) const
+    -> geometry_msgs::msg::TwistWithCovarianceStamped {
+  geometry_msgs::msg::TwistWithCovarianceStamped twist_msg;
+  twist_msg.header.frame_id =
+      params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
+  twist_msg.header.stamp = resolveStamp(msg);
+
+  // Convert FRD -> FLU
+  twist_msg.twist.twist.linear.x = kFrdToFlu[0] * params_.velocity_scale * msg->velocity.x;
+  twist_msg.twist.twist.linear.y = kFrdToFlu[1] * params_.velocity_scale * msg->velocity.y;
+  twist_msg.twist.twist.linear.z = kFrdToFlu[2] * params_.velocity_scale * msg->velocity.z;
+
+  Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov_out(
+      twist_msg.twist.covariance.data());
+
+  if (use_fom_covariance) {
+    const double var_vel = params_.use_turtlmap_fom_covariance
+                               ? msg->fom * params_.turtlmap_fom_covariance_scale
+                               : msg->fom * msg->fom;
+    cov_out.topLeftCorner<3, 3>() = Eigen::Vector3d::Constant(var_vel).asDiagonal();
+  } else if (msg->covariance.size() < kDvlCovarianceSize) {
+    RCLCPP_WARN(get_logger(),
+                "Received DVL covariance with %zu elements (expected %zu); marking it unknown.",
+                msg->covariance.size(), kDvlCovarianceSize);
+    cov_out(0, 0) = kUnknownCovariance;
+  } else {
+    const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> frd_cov(
+        msg->covariance.data());
+    const Eigen::DiagonalMatrix<double, 3> frd_to_flu(kFrdToFlu[0], kFrdToFlu[1], kFrdToFlu[2]);
+    cov_out.topLeftCorner<3, 3>() = frd_to_flu * frd_cov * frd_to_flu;
+  }
+
+  cov_out(3, 3) = kUnknownCovariance;
+
+  return twist_msg;
+}
+
+auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedPtr& msg,
+                                          bool use_fom_covariance) const -> DvlBeamList {
+  DvlBeamList beams_msg;
+  beams_msg.header.frame_id =
+      params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
+  beams_msg.header.stamp = resolveStamp(msg);
+
+  beams_msg.altitude = msg->altitude;
+  beams_msg.altitude_valid = msg->altitude > 0.0;
+
+  // Reuse the last accepted FOM for rejected pings
+  const double velocity_sigma = use_fom_covariance ? last_accepted_fom_.value_or(msg->fom)
+                                                   : params_.beam_velocity_noise_sigma;
+  const double distance_sigma = params_.beam_range_noise_sigma;
+
+  beams_msg.beams.resize(beam_frames_.size());
+  for (size_t i = 0; i < beam_frames_.size(); ++i) {
+    beams_msg.beams[i].frame_id = beam_frames_[i];
+    beams_msg.beams[i].valid = false;
+    beams_msg.beams[i].velocity_variance = velocity_sigma * velocity_sigma;
+    beams_msg.beams[i].distance_variance = distance_sigma * distance_sigma;
+  }
+
+  for (const auto& in : msg->beams) {
+    if (in.id < 0 || static_cast<size_t>(in.id) >= beam_frames_.size()) {
+      RCLCPP_WARN(get_logger(), "Rejected DVL beam: unexpected beam ID %ld.", in.id);
+      continue;
+    }
+
+    DvlBeam& beam = beams_msg.beams[in.id];
+    beam.valid = in.valid;
+    beam.velocity = params_.velocity_scale * in.velocity;
+    beam.distance = in.distance;
+  }
+  return beams_msg;
+}
+
+auto DvlA50TwistBeamsNode::convertToRange(const dvl_msgs::msg::DVLBeam& beam,
+                                          const std::string& frame_id,
+                                          const rclcpp::Time& stamp) const
+    -> sensor_msgs::msg::Range {
+  sensor_msgs::msg::Range range_msg;
+  range_msg.header.frame_id = frame_id;
+  range_msg.header.stamp = stamp;
+
+  range_msg.radiation_type = sensor_msgs::msg::Range::ULTRASOUND;
+  range_msg.field_of_view = static_cast<float>(params_.beam_field_of_view_radians);
+  range_msg.min_range = static_cast<float>(params_.beam_min_range);
+  range_msg.max_range = static_cast<float>(params_.beam_max_range);
+
+  range_msg.range =
+      beam.valid ? static_cast<float>(beam.distance) : std::numeric_limits<float>::infinity();
+
+  return range_msg;
+}
+
+}  // namespace coug_fg
+
+RCLCPP_COMPONENTS_REGISTER_NODE(coug_fg::DvlA50TwistBeamsNode)

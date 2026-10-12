@@ -1,0 +1,53 @@
+#!/bin/bash
+# Copyright 2026 BYU FROST Lab
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+
+# --- Selection ---
+while true; do
+  selected_bags=$(cd "${BAGS_DIR}" && find . -name metadata.yaml -printf '%h\n' |
+    sed 's|^\./||' | sort -r |
+    gum choose --no-limit --header "Select bags to process:") || exit 0
+  [[ -n ${selected_bags} ]] && break
+done
+
+mapfile -t selected_bags <<<"${selected_bags}"
+bag_paths=()
+for bag in "${selected_bags[@]}"; do
+  bag_paths+=("${BAGS_DIR}/${bag}")
+done
+
+agent_ns=$(basename -s _params.yaml -a "${CONFIG_DIR}"/*_params.yaml |
+  gum filter --placeholder "Select an agent to process...") || exit 0
+[[ -z ${agent_ns} ]] && exit 0
+
+# --- Options ---
+prefix=$(gum input --placeholder "Set output prefix..." || true)
+prefix=${prefix//[^A-Za-z0-9_-]/_}
+
+evo_options=$(gum choose --no-limit --selected=--align --header "Select evo flags:" -- \
+  "--align" \
+  "--project_to_plane xy") || exit 0
+
+run_args=(
+  --bags "${bag_paths[@]}"
+  --namespace "${agent_ns}"
+  --prefix "${prefix:-offline}$(date +'_%Y-%m-%d-%H-%M-%S')"
+  "--evo-flags=${evo_options//$'\n'/ }"
+)
+
+# --- Run ---
+echo "python3 $(dirname "$0")/run_offline_fg.py ${run_args[*]}"
+python3 "$(dirname "$0")/run_offline_fg.py" "${run_args[@]}"

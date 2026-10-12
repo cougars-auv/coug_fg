@@ -1,0 +1,86 @@
+# Copyright 2026 BYU FROST Lab
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import logging
+from pathlib import Path
+from typing import Any
+
+from rosbags.highlevel import AnyReader
+from rosbags.typesys import Stores, get_typestore
+from tqdm import tqdm
+
+from offline.extractors import EXTRACTORS
+from offline.graph import OfflineFactorGraph
+from offline.urdf import UrdfTree, resolve_urdf_path
+
+logger = logging.getLogger(__name__)
+
+
+def _replay_messages(
+    reader: AnyReader, graph: OfflineFactorGraph, topic_to_sensors: dict[str, list[str]]
+) -> bool:
+    matched_conns = [c for c in reader.connections if c.topic in topic_to_sensors]
+    if not matched_conns:
+        logger.error("No sensor topics in the bag match the configuration.")
+        return False
+
+    conn_str = "\n".join(f"  - '{c.topic}' ({topic_to_sensors[c.topic]})" for c in matched_conns)
+    logger.info(f"Matched {len(matched_conns)} sensor topic(s):\n{conn_str}")
+
+    for conn, _, rawdata in tqdm(
+        reader.messages(connections=matched_conns),
+        total=sum(c.msgcount for c in matched_conns),
+        disable=not logger.isEnabledFor(logging.INFO),
+    ):
+        msg = reader.deserialize(rawdata, conn.msgtype)
+        try:
+            for sensor in topic_to_sensors[conn.topic]:
+                key = "multiagent" if sensor.startswith("multiagent_") else sensor
+                frame_id, measurement = EXTRACTORS[key](msg)
+                graph.add_message(sensor, frame_id, measurement)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Failed to replay '{conn.topic}': {e}")
+            return False
+    return True
+
+
+def process_bag_offline(
+    bag_path: str, config_paths: list[str], namespace: str
+) -> dict[str, Any] | None:
+    urdf_path = resolve_urdf_path(namespace, config_paths)
+
+    cfg_str = "\n".join(f"  - '{p}'" for p in config_paths)
+    logger.info(f"Loaded {len(config_paths)} config file(s):\n{cfg_str}")
+
+    urdf = UrdfTree(urdf_path) if urdf_path else None
+    graph = OfflineFactorGraph(config_paths, namespace, urdf)
+
+    with AnyReader([Path(bag_path)], default_typestore=get_typestore(Stores.ROS2_JAZZY)) as reader:
+        replayed = _replay_messages(reader, graph, graph.topic_map)
+
+    if replayed:
+        try:
+            graph.finalize()
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Failed to run the final optimization: {e}")
+
+    results = graph.get_results()
+    if results is None:
+        logger.error(
+            "Graph initialized but produced no results."
+            if graph.is_initialized
+            else "Graph never initialized; check that the bag has the required sensor data."
+        )
+
+    return results

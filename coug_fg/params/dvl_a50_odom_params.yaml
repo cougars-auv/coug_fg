@@ -1,0 +1,38 @@
+dvl_a50_odom_node:
+  override_timestamp:
+    type: bool
+    default_value: false
+  orientation_noise_sigmas:
+    type: double_array
+    default_value: [0.01745, 0.01745, 0.03491]
+    validation:
+      fixed_size<>: [3]
+      lower_element_bounds<>: [0.0]
+  input_topic:
+    type: string
+    default_value: "dvl/position"
+    validation:
+      not_empty<>: []
+  output_topic:
+    type: string
+    default_value: "dvl/odometry"
+    validation:
+      not_empty<>: []
+  odom_frame:
+    type: string
+    default_value: "odom"
+    validation:
+      not_empty<>: []
+  base_frame:
+    type: string
+    default_value: "base_link"
+    validation:
+      not_empty<>: []
+  use_parameter_frame:
+    type: bool
+    default_value: false
+  parameter_frame:
+    type: string
+    default_value: "dvl_link"
+    validation:
+      not_empty<>: []

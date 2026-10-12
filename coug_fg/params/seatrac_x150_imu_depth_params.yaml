@@ -1,0 +1,45 @@
+seatrac_x150_imu_depth_node:
+  orientation_noise_sigmas:
+    type: double_array
+    default_value: [0.00349, 0.00349, 0.01745]
+    validation:
+      fixed_size<>: [3]
+      lower_element_bounds<>: [0.0]
+  mag_declination_radians:
+    type: double
+    default_value: 0.0
+    validation:
+      bounds<>: [-3.14159, 3.14159]
+  position_z_noise_sigma:
+    type: double
+    default_value: 0.1
+    validation:
+      gt_eq<>: [0.0]
+  input_topic:
+    type: string
+    default_value: "modem_status"
+    validation:
+      not_empty<>: []
+  ahrs_output_topic:
+    type: string
+    default_value: "seatrac/imu/data"
+    validation:
+      not_empty<>: []
+  depth_output_topic:
+    type: string
+    default_value: "seatrac/depth/odometry"
+    validation:
+      not_empty<>: []
+  map_frame:
+    type: string
+    default_value: "map"
+    validation:
+      not_empty<>: []
+  use_parameter_frame:
+    type: bool
+    default_value: false
+  parameter_frame:
+    type: string
+    default_value: "modem_link"
+    validation:
+      not_empty<>: []

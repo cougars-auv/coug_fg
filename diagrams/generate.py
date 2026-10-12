@@ -1,0 +1,580 @@
+#!/usr/bin/env python3
+# Copyright 2026 BYU FROST Lab
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import copy
+import math
+from pathlib import Path
+
+import daft
+import matplotlib.pyplot as plt
+
+OUTPUT_DIR = Path(__file__).parent
+
+plt.rcParams["text.usetex"] = True
+plt.rcParams["font.family"] = "serif"
+
+COLOR_VAR = "#B5CBE6"
+COLOR_PRIOR = "#4C72B0"
+COLOR_FACTOR_DEPTH = "#DD8452"
+COLOR_FACTOR_HEADING = "#C44E52"
+COLOR_FACTOR_GPS = "#55A868"
+COLOR_FACTOR_DVL = "#8172B3"
+COLOR_FACTOR_IMU = "#000000"
+COLOR_FACTOR_DYNAMICS = "#DA8BC3"
+COLOR_FACTOR_RANGE = "#937860"
+COLOR_FACTOR_BEARING = "#CCB974"
+
+style_var = {"facecolor": COLOR_VAR, "edgecolor": "black"}
+style_prior = {"facecolor": COLOR_PRIOR, "edgecolor": "black"}
+style_factor_depth = {"facecolor": COLOR_FACTOR_DEPTH, "edgecolor": "black"}
+style_factor_heading = {"facecolor": COLOR_FACTOR_HEADING, "edgecolor": "black"}
+style_factor_gps = {"facecolor": COLOR_FACTOR_GPS, "edgecolor": "black"}
+style_factor_dvl = {"facecolor": COLOR_FACTOR_DVL, "edgecolor": "black"}
+style_factor_imu = {"facecolor": COLOR_FACTOR_IMU, "edgecolor": "black"}
+style_factor_dynamics = {"facecolor": COLOR_FACTOR_DYNAMICS, "edgecolor": "black"}
+style_factor_range = {"facecolor": COLOR_FACTOR_RANGE, "edgecolor": "black"}
+style_factor_bearing = {"facecolor": COLOR_FACTOR_BEARING, "edgecolor": "black"}
+
+col_spacing = 1.5
+start_x = 2.0
+prior_dist = col_spacing / 2
+
+win_pad = col_spacing / 2
+win_left = (start_x + col_spacing) - win_pad
+win_width = (3 * col_spacing) + (2 * win_pad)
+win_bottom = 0 - win_pad + 0.175
+
+num_beams = {0: 4, 1: 4, 2: 3, 3: 2, 4: 4}
+
+# --- BASE FACTOR GRAPH ---
+
+pgm = daft.PGM(directed=False)
+
+for sym, row in [("x", 3), ("v", 2), ("b", 1)]:
+    pgm.add_node(
+        f"p{sym}",
+        f"$p_\\mathbf{{{sym}}}$",
+        start_x - prior_dist,
+        row,
+        fixed=True,
+        offset=[0, 3],
+        plot_params=style_prior,
+    )
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+    pgm.add_node(f"x{i}", f"$\\mathbf{{x}}_{{{i}}}$", col_x, 3, plot_params=style_var)
+    pgm.add_node(f"v{i}", f"$\\mathbf{{v}}_{{{i}}}$", col_x, 2, plot_params=style_var)
+    pgm.add_node(f"b{i}", f"$\\mathbf{{b}}_{{{i}}}$", col_x, 1, plot_params=style_var)
+
+for sym in ["x", "v", "b"]:
+    pgm.add_edge(f"p{sym}", f"{sym}0")
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+
+    pgm.add_node(
+        f"depth{i}",
+        f"$z_{i}$",
+        col_x - 0.4,
+        3.4,
+        fixed=True,
+        plot_params=style_factor_depth,
+        offset=[0, 3],
+    )
+    pgm.add_edge(f"x{i}", f"depth{i}")
+
+    pgm.add_node(
+        f"heading{i}",
+        f"$\\psi^*_{i}$",
+        col_x + 0.4,
+        3.4,
+        fixed=True,
+        plot_params=style_factor_heading,
+        offset=[0, 3],
+    )
+    pgm.add_edge(f"x{i}", f"heading{i}")
+
+for i in range(4):
+    col_x = start_x + (i * col_spacing)
+    mid_x = col_x + (col_spacing / 2)
+
+    pgm.add_node(
+        f"imu{i}",
+        f"$\\mathcal{{I}}_{{{i}{i + 1}}}$",
+        mid_x,
+        2,
+        fixed=True,
+        offset=[0, -25],
+        plot_params=style_factor_imu,
+    )
+    pgm.add_edge(f"x{i}", f"imu{i}")
+    pgm.add_edge(f"v{i}", f"imu{i}")
+    pgm.add_edge(f"b{i}", f"imu{i}")
+    pgm.add_edge(f"imu{i}", f"x{i + 1}")
+    pgm.add_edge(f"imu{i}", f"v{i + 1}")
+    pgm.add_edge(f"imu{i}", f"b{i + 1}")
+
+gps_x = start_x + (3 * col_spacing)
+pgm.add_node(
+    "gps",
+    "$xy_3$",
+    gps_x,
+    3.6,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_factor_gps,
+)
+pgm.add_edge("x3", "gps")
+
+mag_x = start_x + col_spacing
+pgm.add_node(
+    "pm",
+    "$p_\\mathbf{m}$",
+    mag_x - prior_dist,
+    0,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_prior,
+)
+pgm.add_node("mag", "$\\mathbf{m}^*$", mag_x, 0, plot_params=style_var)
+pgm.add_edge("pm", "mag")
+
+# Shade the sliding window
+win_top = 3.6 + win_pad - 0.2
+pgm.add_plate(
+    [win_left, win_bottom, win_width, win_top - win_bottom],
+    label="sliding window",
+    position="bottom right",
+    rect_params={"fc": "#F4F4F4", "ec": "none"},
+    fontsize=10,
+)
+
+pgm_preint_loose = copy.deepcopy(pgm)
+pgm_preint_tight = copy.deepcopy(pgm)
+pgm_dynamics = copy.deepcopy(pgm)
+pgm_const_vel = copy.deepcopy(pgm)
+pgm_dvl_beams = copy.deepcopy(pgm)
+
+# --- VELOCITY DVL GRAPH ---
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+    pgm.add_node(
+        f"dvl{i}",
+        f"${{v}}_{{{i}}}$",
+        col_x,
+        2.5,
+        fixed=True,
+        offset=[-10, -8],
+        plot_params=style_factor_dvl,
+    )
+    pgm.add_edge(f"x{i}", f"dvl{i}")
+    pgm.add_edge(f"v{i}", f"dvl{i}")
+
+pgm.render()
+pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_vel.pdf", bbox_inches="tight")
+pgm.figure.savefig(OUTPUT_DIR / "fg_dvl_vel.png", bbox_inches="tight", dpi=300)
+
+# --- PER-BEAM DVL GRAPH ---
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+
+    for beam in reversed(range(num_beams[i])):
+        pgm_dvl_beams.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+
+    pgm_dvl_beams.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_dvl_beams.add_edge(f"v{i}", f"dvl{i}_0")
+
+pgm_dvl_beams.render()
+pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fg_dvl_beams.pdf", bbox_inches="tight")
+pgm_dvl_beams.figure.savefig(OUTPUT_DIR / "fg_dvl_beams.png", bbox_inches="tight", dpi=300)
+
+# --- LOOSE PREINTEGRATED DVL GRAPH ---
+
+for i in range(4):
+    col_x = start_x + (i * col_spacing)
+    mid_x = col_x + (col_spacing / 2)
+
+    pgm_preint_loose.add_node(
+        f"dvl_preint{i}",
+        f"$\\mathcal{{D}}_{{{i}{i + 1}}}$",
+        mid_x,
+        3,
+        fixed=True,
+        plot_params=style_factor_dvl,
+        offset=[0, 3],
+    )
+    pgm_preint_loose.add_edge(f"x{i}", f"dvl_preint{i}")
+    pgm_preint_loose.add_edge(f"dvl_preint{i}", f"x{i + 1}")
+
+pgm_preint_loose.render()
+pgm_preint_loose.figure.savefig(OUTPUT_DIR / "fg_dvl_preint_loose.pdf", bbox_inches="tight")
+pgm_preint_loose.figure.savefig(
+    OUTPUT_DIR / "fg_dvl_preint_loose.png", bbox_inches="tight", dpi=300
+)
+
+# --- TIGHT PREINTEGRATED DVL GRAPH ---
+
+for i in range(4):
+    col_x = start_x + (i * col_spacing)
+    mid_x = col_x + (col_spacing / 2)
+
+    pgm_preint_tight.add_node(
+        f"dvl_preint{i}",
+        f"$\\mathcal{{D}}_{{{i}{i + 1}}}$",
+        mid_x,
+        2.5,
+        fixed=True,
+        plot_params=style_factor_dvl,
+        offset=[0, 5],
+    )
+    pgm_preint_tight.add_edge(f"x{i}", f"dvl_preint{i}")
+    pgm_preint_tight.add_edge(f"dvl_preint{i}", f"x{i + 1}")
+    pgm_preint_tight.add_edge(f"b{i}", f"dvl_preint{i}")
+
+pgm_preint_tight.render()
+pgm_preint_tight.figure.savefig(OUTPUT_DIR / "fg_dvl_preint_tight.pdf", bbox_inches="tight")
+pgm_preint_tight.figure.savefig(
+    OUTPUT_DIR / "fg_dvl_preint_tight.png", bbox_inches="tight", dpi=300
+)
+
+# --- DYNAMICS GRAPH ---
+
+for i in [0, 1, 4]:
+    col_x = start_x + (i * col_spacing)
+
+    for beam in reversed(range(num_beams[i])):
+        pgm_dynamics.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+
+    pgm_dynamics.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_dynamics.add_edge(f"v{i}", f"dvl{i}_0")
+
+for i in range(4):
+    col_x = start_x + (i * col_spacing)
+    mid_x = col_x + (col_spacing / 2)
+
+    pgm_dynamics.add_node(
+        f"dynamics{i}",
+        f"$\\mathcal{{M}}_{{{i}{i + 1}}}$",
+        mid_x,
+        2.5,
+        fixed=True,
+        plot_params=style_factor_dynamics,
+        offset=[0, 5],
+    )
+    pgm_dynamics.add_edge(f"x{i}", f"dynamics{i}")
+    pgm_dynamics.add_edge(f"dynamics{i}", f"x{i + 1}")
+    pgm_dynamics.add_edge(f"v{i}", f"dynamics{i}")
+    pgm_dynamics.add_edge(f"v{i + 1}", f"dynamics{i}")
+
+pgm_dynamics.render()
+pgm_dynamics.figure.savefig(OUTPUT_DIR / "fg_dynamics.pdf", bbox_inches="tight")
+pgm_dynamics.figure.savefig(OUTPUT_DIR / "fg_dynamics.png", bbox_inches="tight", dpi=300)
+
+# --- CONSTANT VELOCITY GRAPH ---
+
+for i in [0, 1, 4]:
+    col_x = start_x + (i * col_spacing)
+
+    for beam in reversed(range(num_beams[i])):
+        pgm_const_vel.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+
+    pgm_const_vel.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_const_vel.add_edge(f"v{i}", f"dvl{i}_0")
+
+for i in range(1, 3):
+    col_x = start_x + (i * col_spacing)
+    mid_x = col_x + (col_spacing / 2)
+
+    pgm_const_vel.add_node(
+        f"const_vel{i}",
+        f"${{\\dot{{v}}}}_{{{i}{i + 1}}}$",
+        mid_x,
+        2.5,
+        fixed=True,
+        plot_params=style_factor_dynamics,
+        offset=[0, 3],
+    )
+    pgm_const_vel.add_edge(f"x{i}", f"const_vel{i}")
+    pgm_const_vel.add_edge(f"const_vel{i}", f"x{i + 1}")
+    pgm_const_vel.add_edge(f"v{i}", f"const_vel{i}")
+    pgm_const_vel.add_edge(f"v{i + 1}", f"const_vel{i}")
+
+pgm_const_vel.render()
+pgm_const_vel.figure.savefig(OUTPUT_DIR / "fg_const_vel.pdf", bbox_inches="tight")
+pgm_const_vel.figure.savefig(OUTPUT_DIR / "fg_const_vel.png", bbox_inches="tight", dpi=300)
+
+# --- MULTI-AGENT GRAPH ---
+
+# Lead agent factor graph
+pgm_multiagent = daft.PGM(directed=False)
+
+for sym, row in [("x", 3), ("v", 2), ("b", 1)]:
+    pgm_multiagent.add_node(
+        f"p{sym}",
+        f"$p^0_\\mathbf{{{sym}}}$",
+        start_x - prior_dist,
+        row,
+        fixed=True,
+        offset=[0, 3],
+        plot_params=style_prior,
+    )
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+
+    pgm_multiagent.add_node(f"x{i}", f"$\\mathbf{{x}}^0_{{{i}}}$", col_x, 3, plot_params=style_var)
+    pgm_multiagent.add_node(f"v{i}", f"$\\mathbf{{v}}^0_{{{i}}}$", col_x, 2, plot_params=style_var)
+    pgm_multiagent.add_node(f"b{i}", f"$\\mathbf{{b}}^0_{{{i}}}$", col_x, 1, plot_params=style_var)
+
+for sym in ["x", "v", "b"]:
+    pgm_multiagent.add_edge(f"p{sym}", f"{sym}0")
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+
+    pgm_multiagent.add_node(
+        f"depth{i}",
+        f"$z^0_{i}$",
+        col_x - 0.4,
+        3.4,
+        fixed=True,
+        plot_params=style_factor_depth,
+        offset=[0, 3],
+    )
+    pgm_multiagent.add_edge(f"x{i}", f"depth{i}")
+
+    pgm_multiagent.add_node(
+        f"heading{i}",
+        f"$\\psi^{{0*}}_{i}$",
+        col_x + 0.4,
+        3.4,
+        fixed=True,
+        plot_params=style_factor_heading,
+        offset=[0, 3],
+    )
+    pgm_multiagent.add_edge(f"x{i}", f"heading{i}")
+
+for i in range(4):
+    col_x = start_x + (i * col_spacing)
+    mid_x = col_x + (col_spacing / 2)
+
+    pgm_multiagent.add_node(
+        f"imu{i}",
+        f"$\\mathcal{{I}}^0_{{{i}{i + 1}}}$",
+        mid_x,
+        2,
+        fixed=True,
+        offset=[0, -25],
+        plot_params=style_factor_imu,
+    )
+    pgm_multiagent.add_edge(f"x{i}", f"imu{i}")
+    pgm_multiagent.add_edge(f"v{i}", f"imu{i}")
+    pgm_multiagent.add_edge(f"b{i}", f"imu{i}")
+    pgm_multiagent.add_edge(f"imu{i}", f"x{i + 1}")
+    pgm_multiagent.add_edge(f"imu{i}", f"v{i + 1}")
+    pgm_multiagent.add_edge(f"imu{i}", f"b{i + 1}")
+
+gps_x = start_x + (3 * col_spacing)
+pgm_multiagent.add_node(
+    "gps",
+    "$xy^0_3$",
+    gps_x,
+    3.6,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_factor_gps,
+)
+pgm_multiagent.add_edge("x3", "gps")
+
+pgm_multiagent.add_node(
+    "pm",
+    "$p^0_\\mathbf{m}$",
+    mag_x - prior_dist,
+    0,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_prior,
+)
+pgm_multiagent.add_node("mag", "$\\mathbf{m}^{0*}$", mag_x, 0, plot_params=style_var)
+pgm_multiagent.add_edge("pm", "mag")
+
+for i in range(5):
+    col_x = start_x + (i * col_spacing)
+
+    for beam in reversed(range(num_beams[i])):
+        pgm_multiagent.add_node(
+            f"dvl{i}_{beam}",
+            f"${{v}}^0_{{{i}}}$" if beam == 0 else "",
+            col_x + (beam * 0.055),
+            2.5,
+            fixed=True,
+            offset=[-10, -8],
+            plot_params=style_factor_dvl,
+        )
+
+    pgm_multiagent.add_edge(f"x{i}", f"dvl{i}_0")
+    pgm_multiagent.add_edge(f"v{i}", f"dvl{i}_0")
+
+# Origin delta
+delta_row = 4.0
+neighbor_row = delta_row + 1.0
+pgm_multiagent.add_node(
+    "pdelta",
+    "$p^{01}_\\mathbf{\\Delta}$",
+    mag_x - prior_dist,
+    delta_row,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_prior,
+)
+pgm_multiagent.add_node(
+    "delta", "$\\mathbf{\\Delta}^{01\\dagger}$", mag_x, delta_row, plot_params=style_var
+)
+pgm_multiagent.add_edge("pdelta", "delta")
+
+# Neighbor agent factor graph
+pgm_multiagent.add_node(
+    "px1",
+    "$p^1_\\mathbf{n}$",
+    (start_x + (2 * col_spacing)) - prior_dist,
+    neighbor_row,
+    fixed=True,
+    offset=[0, 3],
+    plot_params=style_prior,
+)
+
+for i in [2, 4]:
+    col_x = start_x + (i * col_spacing)
+    pgm_multiagent.add_node(
+        f"x1_{i}",
+        f"$\\mathbf{{n}}^1_{{{i}}}$",
+        col_x,
+        neighbor_row,
+        plot_params=style_var,
+    )
+
+pgm_multiagent.add_edge("px1", "x1_2")
+
+for i in [2, 4]:
+    col_x = start_x + (i * col_spacing)
+
+    pgm_multiagent.add_node(
+        f"depth1_{i}",
+        f"$z^{{1\\dagger}}_{i}$",
+        col_x - 0.4,
+        neighbor_row + 0.4,
+        fixed=True,
+        plot_params=style_factor_depth,
+        offset=[0, 3],
+    )
+    pgm_multiagent.add_edge(f"x1_{i}", f"depth1_{i}")
+
+    pgm_multiagent.add_node(
+        f"heading1_{i}",
+        f"$\\phi\\theta\\psi^{{1\\dagger}}_{i}$",
+        col_x + 0.4,
+        neighbor_row + 0.4,
+        fixed=True,
+        plot_params=style_factor_heading,
+        offset=[0, 3],
+    )
+    pgm_multiagent.add_edge(f"x1_{i}", f"heading1_{i}")
+
+for a, b in [(2, 4)]:
+    mid_x = start_x + ((a + b) / 2) * col_spacing
+    pgm_multiagent.add_node(
+        f"odom1_{a}{b}",
+        f"$u^1_{{{a}{b}}}$",
+        mid_x,
+        neighbor_row,
+        fixed=True,
+        offset=[0, -20],
+        plot_params=style_factor_imu,
+    )
+    pgm_multiagent.add_edge(f"x1_{a}", f"odom1_{a}{b}")
+    pgm_multiagent.add_edge(f"odom1_{a}{b}", f"x1_{b}")
+
+# Inter-agent factors
+inter_radius = math.hypot(0.4, 0.4)
+inter_dx = inter_radius * math.sin(math.radians(20))
+inter_dy = inter_radius * math.cos(math.radians(20))
+
+for i in [2, 4]:
+    col_x = start_x + (i * col_spacing)
+
+    pgm_multiagent.add_node(
+        f"range{i}",
+        f"$r^{{01\\dagger}}_{{{i}}}$",
+        col_x - inter_dx,
+        neighbor_row - inter_dy,
+        fixed=True,
+        offset=[-15, -8],
+        plot_params=style_factor_range,
+    )
+    pgm_multiagent.add_edge(f"x{i}", f"range{i}")
+    pgm_multiagent.add_edge(f"range{i}", f"x1_{i}")
+
+    pgm_multiagent.add_node(
+        f"bearing{i}",
+        f"$\\beta^{{01\\dagger}}_{{{i}}}$",
+        col_x + inter_dx,
+        neighbor_row - inter_dy,
+        fixed=True,
+        offset=[15, -8],
+        plot_params=style_factor_bearing,
+    )
+    pgm_multiagent.add_edge(f"x{i}", f"bearing{i}")
+    pgm_multiagent.add_edge(f"bearing{i}", f"x1_{i}")
+
+# Shade the sliding window
+win_top_multiagent = (neighbor_row + 0.4) + win_pad - 0.2
+pgm_multiagent.add_plate(
+    [win_left, win_bottom, win_width, win_top_multiagent - win_bottom],
+    label="sliding window",
+    position="bottom right",
+    rect_params={"fc": "#F4F4F4", "ec": "none"},
+    fontsize=10,
+)
+
+pgm_multiagent.render()
+pgm_multiagent.figure.savefig(OUTPUT_DIR / "fg_multiagent.pdf", bbox_inches="tight")
+pgm_multiagent.figure.savefig(OUTPUT_DIR / "fg_multiagent.png", bbox_inches="tight", dpi=300)

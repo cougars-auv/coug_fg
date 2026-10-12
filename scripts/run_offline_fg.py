@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# Copyright 2026 BYU FROST Lab
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+import logging
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
+import evo_cli
+import matplotlib.pyplot as plt
+import state_plot
+from logs import setup_logging
+from matplotlib.figure import Figure
+from offline import pipeline
+from tqdm.contrib.logging import logging_redirect_tqdm
+
+logger = logging.getLogger(__name__)
+
+NAMESPACE = "turtlmap"
+EVO_FLAGS = ["--align"]  # , "--project_to_plane", "xy"]
+
+
+def _snapshot_config() -> Path:
+    snapshot = Path(tempfile.mkdtemp(prefix="config_"))
+    shutil.copytree(os.environ["CONFIG_DIR"], snapshot, dirs_exist_ok=True)
+    return snapshot
+
+
+def _save_config(config_dir: Path, dest_dir: Path) -> None:
+    dest = dest_dir / "config"
+    shutil.copytree(config_dir, dest, dirs_exist_ok=True)
+    logger.info(f"Config saved: '{dest}'.")
+
+
+def _save_plot(fig: Figure, dest: Path) -> None:
+    fig.savefig(dest, dpi=150)
+    logger.info(f"State plot saved: '{dest}'.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bags", nargs="+", required=True)
+    parser.add_argument("--namespace", default=NAMESPACE)
+    parser.add_argument("--prefix", default="offline")
+    parser.add_argument("--evo-flags", default=" ".join(EVO_FLAGS))
+    parser.add_argument("--no-show", action="store_true")
+    args = parser.parse_args()
+
+    setup_logging()
+    evo_flags = args.evo_flags.split()
+    config_snapshot = _snapshot_config()
+    cfg_paths = [
+        str(config_snapshot / "fleet" / "coug_fg_params.yaml"),
+        str(config_snapshot / f"{args.namespace}_params.yaml"),
+    ]
+
+    with logging_redirect_tqdm():
+        for bag in args.bags:
+            logger.info(f"Processing bag: '{bag}'.")
+            pose_gt, gt_path = evo_cli.load_ground_truth(bag, args.namespace)
+            results = pipeline.process_bag_offline(bag, cfg_paths, args.namespace)
+            if not results:
+                continue
+
+            evo_dir = evo_cli.evo_agent_dir(bag, args.namespace) / args.prefix
+            evo_dir.mkdir(parents=True, exist_ok=True)
+            _save_config(config_snapshot, evo_dir)
+            est_path = evo_dir / f"{args.namespace}_{args.prefix}.tum"
+            evo_cli.save_tum(est_path, results)
+
+            if gt_path is not None:
+                evo_cli.run_evo_evaluations(gt_path, est_path, evo_dir, evo_flags)
+
+            label, t0 = Path(bag).name, results["time"][0]
+            gts = [pose_gt, *evo_cli.load_sim_ground_truth(bag, args.namespace)]
+            fig = state_plot.plot_results(results, gts, label, state_plot.LAYOUT, t0)
+            _save_plot(fig, evo_dir / f"{args.namespace}_{args.prefix}.png")
+
+            for ns, neighbor in results["neighbors"].items():
+                neighbor_dir = evo_dir / "neighbors" / ns
+                neighbor_dir.mkdir(parents=True, exist_ok=True)
+                neighbor_path = neighbor_dir / f"{ns}_{args.prefix}.tum"
+                evo_cli.save_tum(neighbor_path, neighbor)
+
+                neighbor_gt, neighbor_gt_path = evo_cli.load_ground_truth(bag, ns)
+                if neighbor_gt_path is not None:
+                    evo_cli.run_evo_evaluations(
+                        neighbor_gt_path, neighbor_path, neighbor_dir, evo_flags
+                    )
+
+                layout = state_plot.NEIGHBOR_LAYOUT
+                fig = state_plot.plot_results(
+                    neighbor, [neighbor_gt], f"{label} ({ns})", layout, t0
+                )
+                _save_plot(fig, neighbor_dir / f"{ns}_{args.prefix}.png")
+
+    if not args.no_show:
+        plt.show()
+
+
+if __name__ == "__main__":
+    main()

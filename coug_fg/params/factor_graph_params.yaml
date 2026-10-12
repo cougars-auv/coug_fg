@@ -1,0 +1,1094 @@
+factor_graph_node:
+  publish_global_tf:
+    type: bool
+    default_value: true
+  publish_neighbor_global_tf:
+    type: bool
+    default_value: true
+  transform_time_offset:
+    type: double
+    default_value: 0.0
+  transform_timeout_sec:
+    type: double
+    default_value: 0.1
+    validation:
+      gt_eq<>: [0.0]
+  publish_smoothed_path:
+    type: bool
+    default_value: false
+  publish_velocity:
+    type: bool
+    default_value: false
+  publish_imu_bias:
+    type: bool
+    default_value: false
+  publish_mag_bias:
+    type: bool
+    default_value: false
+  publish_graph_metrics:
+    type: bool
+    default_value: false
+  publish_diagnostics:
+    type: bool
+    default_value: false
+  publish_pose_cov:
+    type: bool
+    default_value: false
+  publish_neighbor_pose_cov:
+    type: bool
+    default_value: false
+  publish_velocity_cov:
+    type: bool
+    default_value: false
+  publish_imu_bias_cov:
+    type: bool
+    default_value: false
+  publish_mag_bias_cov:
+    type: bool
+    default_value: false
+  solver_type:
+    type: string
+    default_value: "IncrementalFixedLagSmoother"
+    validation:
+      one_of<>: [["IncrementalFixedLagSmoother", "ISAM2", "LevenbergMarquardt"]]
+  max_update_rate_hz:
+    type: double
+    default_value: 0.0
+    validation:
+      gt_eq<>: [0.0]
+  max_opt_rate_hz:
+    type: double
+    default_value: 0.0
+    validation:
+      gt_eq<>: [0.0]
+  smoother_lag_sec:
+    type: double
+    default_value: 20.0
+    validation:
+      gt<>: [0.0]
+  relinearize_threshold:
+    type: double
+    default_value: 0.1
+    validation:
+      gt<>: [0.0]
+  relinearize_skip:
+    type: int
+    default_value: 10
+    validation:
+      gt_eq<>: [1]
+  keyframe_source:
+    type: string
+    default_value: "Beams"
+    validation:
+      one_of<>: [["None", "Beams", "DVL", "Depth", "Timer"]]
+  backup_keyframe_source:
+    type: string
+    default_value: "Depth"
+    validation:
+      one_of<>: [["None", "Beams", "DVL", "Depth", "Timer"]]
+  keyframe_timeout_sec:
+    type: double
+    default_value: 0.5
+    validation:
+      gt<>: [0.0]
+  keyframe_timer_rate_hz:
+    type: double
+    default_value: 10.0
+    validation:
+      gt<>: [0.0]
+  min_keyframe_interval_sec:
+    type: double
+    default_value: 0.02
+    validation:
+      gt_eq<>: [0.0]
+  imu_topic:
+    type: string
+    default_value: "imu/data"
+    validation:
+      not_empty<>: []
+  gps_odom_topic:
+    type: string
+    default_value: "gps/odometry"
+    validation:
+      not_empty<>: []
+  depth_odom_topic:
+    type: string
+    default_value: "depth/odometry"
+    validation:
+      not_empty<>: []
+  mag_topic:
+    type: string
+    default_value: "imu/mag_tesla"
+    validation:
+      not_empty<>: []
+  ahrs_topic:
+    type: string
+    default_value: "imu/data"
+    validation:
+      not_empty<>: []
+  dvl_topic:
+    type: string
+    default_value: "dvl/twist"
+    validation:
+      not_empty<>: []
+  beams_topic:
+    type: string
+    default_value: "dvl/beams"
+    validation:
+      not_empty<>: []
+  wrench_topic:
+    type: string
+    default_value: "cmd_wrench"
+    validation:
+      not_empty<>: []
+  global_odom_topic:
+    type: string
+    default_value: "odometry/global"
+    validation:
+      not_empty<>: []
+  smoothed_path_topic:
+    type: string
+    default_value: "smoothed_path"
+    validation:
+      not_empty<>: []
+  velocity_topic:
+    type: string
+    default_value: "~/velocity"
+    validation:
+      not_empty<>: []
+  imu_bias_topic:
+    type: string
+    default_value: "~/imu/bias"
+    validation:
+      not_empty<>: []
+  mag_bias_topic:
+    type: string
+    default_value: "~/imu/mag/bias"
+    validation:
+      not_empty<>: []
+  graph_metrics_topic:
+    type: string
+    default_value: "~/metrics"
+    validation:
+      not_empty<>: []
+  reset_service:
+    type: string
+    default_value: "~/reset"
+    validation:
+      not_empty<>: []
+  multiagent_namespaces:
+    type: string_array
+    default_value: ["coug2holo", "coug3holo"]
+  multiagent_status_topic:
+    type: string
+    default_value: "base/agent/status"
+    validation:
+      not_empty<>: []
+  multiagent_global_odom_topic:
+    type: string
+    default_value: "base/odometry/global_nbr"
+    validation:
+      not_empty<>: []
+  map_frame:
+    type: string
+    default_value: "map"
+    validation:
+      not_empty<>: []
+  odom_frame:
+    type: string
+    default_value: "odom"
+    validation:
+      not_empty<>: []
+  target_frame:
+    type: string
+    default_value: "dvl_link"
+    validation:
+      not_empty<>: []
+  base_frame:
+    type: string
+    default_value: "base_link"
+    validation:
+      not_empty<>: []
+  multiagent_base_frame:
+    type: string
+    default_value: "base_link_nbr"
+    validation:
+      not_empty<>: []
+
+  base:
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+
+  imu:
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "imu_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    sensor_rate_hz:
+      type: double
+      default_value: 200.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_sigmas:
+      type: bool
+      default_value: false
+    parameter_sigmas:
+      accel_noise_density_sigmas:
+        type: double_array
+        default_value: [0.00056, 0.00056, 0.00056]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+      gyro_noise_density_sigmas:
+        type: double_array
+        default_value: [0.0000524, 0.0000524, 0.0000524]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+    accel_bias_rw_sigmas:
+      type: double_array
+      default_value: [0.000014, 0.000014, 0.000014]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    gyro_bias_rw_sigmas:
+      type: double_array
+      default_value: [0.0000035, 0.0000035, 0.0000035]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    integration_covariance:
+      type: double
+      default_value: 1.0e-8
+      validation:
+        gt<>: [0.0]
+    gravity:
+      type: double_array
+      default_value: [0.0, 0.0, -9.8]
+      validation:
+        fixed_size<>: [3]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+
+  gps:
+    enable_gps:
+      type: bool
+      default_value: true
+    enable_gps_init_priors:
+      type: bool
+      default_value: true
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "gps_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_sigmas:
+      type: bool
+      default_value: false
+    parameter_sigmas:
+      position_noise_sigmas:
+        type: double_array
+        default_value: [0.015, 0.015]
+        validation:
+          fixed_size<>: [2]
+          lower_element_bounds<>: [0.0]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 2.0
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  depth:
+    enable_depth:
+      type: bool
+      default_value: true
+    enable_depth_init_priors:
+      type: bool
+      default_value: true
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "depth_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_sigmas:
+      type: bool
+      default_value: false
+    parameter_sigmas:
+      position_z_noise_sigma:
+        type: double
+        default_value: 0.02
+        validation:
+          gt<>: [0.0]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  mag:
+    enable_mag:
+      type: bool
+      default_value: true
+    estimate_hard_iron_bias:
+      type: bool
+      default_value: true
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "imu_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_sigmas:
+      type: bool
+      default_value: false
+    parameter_sigmas:
+      magnetic_field_noise_sigmas:
+        type: double_array
+        default_value: [3.0e-07, 3.0e-07, 3.0e-07]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+    reference_field:
+      type: double_array
+      default_value: [3.9166e-06, 2.08288e-05, -4.5602e-05]
+      validation:
+        fixed_size<>: [3]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  ahrs:
+    enable_ahrs:
+      type: bool
+      default_value: false
+    enable_ahrs_init_priors:
+      type: bool
+      default_value: true
+    constrain_yaw_only:
+      type: bool
+      default_value: true
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "imu_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_sigmas:
+      type: bool
+      default_value: false
+    parameter_sigmas:
+      orientation_noise_sigmas:
+        type: double_array
+        default_value: [0.00698, 0.00698, 0.01745]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+    mag_declination_radians:
+      type: double
+      default_value: 0.0
+      validation:
+        bounds<>: [-3.14159, 3.14159]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  dvl:
+    enable_dvl:
+      type: bool
+      default_value: false
+    enable_dvl_init_priors:
+      type: bool
+      default_value: true
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "dvl_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_sigmas:
+      type: bool
+      default_value: false
+    parameter_sigmas:
+      velocity_noise_sigmas:
+        type: double_array
+        default_value: [0.0187, 0.0187, 0.00547]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 0.25
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  beams:
+    enable_beams:
+      type: bool
+      default_value: true
+    beam0:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam0_link"
+        validation:
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+    beam1:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam1_link"
+        validation:
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+    beam2:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam2_link"
+        validation:
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+    beam3:
+      use_parameter_frame:
+        type: bool
+        default_value: false
+      parameter_frame:
+        type: string
+        default_value: "beam3_link"
+        validation:
+          not_empty<>: []
+      use_parameter_tf:
+        type: bool
+        default_value: false
+      parameter_tf:
+        position:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    use_parameter_sigmas:
+      type: bool
+      default_value: false
+    parameter_sigmas:
+      velocity_noise_sigma:
+        type: double
+        default_value: 0.0101
+        validation:
+          gt<>: [0.0]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 0.25
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  const_vel:
+    enable_const_vel:
+      type: bool
+      default_value: false
+    enable_const_vel_dropout_only:
+      type: bool
+      default_value: false
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    prediction_noise_sigmas:
+      type: double_array
+      default_value: [0.001, 0.001, 0.001]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  wrench:
+    enable_wrench:
+      type: bool
+      default_value: false
+    enable_wrench_dropout_only:
+      type: bool
+      default_value: false
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "com_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    prediction_noise_sigmas:
+      type: double_array
+      default_value: [0.1, 0.1, 0.1]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    mass:
+      type: double_array
+      default_value: [31.87, 60.46, 60.46]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    linear_drag:
+      type: double_array
+      default_value: [1.59, 3.02, 3.02]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    quad_drag:
+      type: double_array
+      default_value: [6.11, 196.13, 196.13]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  multiagent:
+    enable_multiagent:
+      type: bool
+      default_value: false
+    estimate_origin_delta:
+      type: bool
+      default_value: false
+    use_parameter_frame:
+      type: bool
+      default_value: false
+    parameter_frame:
+      type: string
+      default_value: "modem_link"
+      validation:
+        not_empty<>: []
+    use_parameter_tf:
+      type: bool
+      default_value: false
+    parameter_tf:
+      position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0, 1.0]
+        validation:
+          fixed_size<>: [4]
+    covariance_scalar:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    enable_bearing:
+      type: bool
+      default_value: true
+    bearing_noise_sigmas:
+      type: double_array
+      default_value: [0.01745, 0.01745]
+      validation:
+        fixed_size<>: [2]
+        lower_element_bounds<>: [0.0]
+    enable_range:
+      type: bool
+      default_value: true
+    range_noise_sigma:
+      type: double
+      default_value: 0.1
+      validation:
+        gt<>: [0.0]
+    sound_speed:
+      type: double
+      default_value: 1500.0
+      validation:
+        gt<>: [0.0]
+    neighbor:
+      modem_tf:
+        position:
+          type: double_array
+          default_value: [0.3785, 0.0, -0.0985]
+          validation:
+            fixed_size<>: [3]
+        orientation:
+          type: double_array
+          default_value: [0.0, 0.0, 0.0, 1.0]
+          validation:
+            fixed_size<>: [4]
+      ahrs:
+        enable_ahrs:
+          type: bool
+          default_value: true
+        covariance_scalar:
+          type: double
+          default_value: 1.0
+          validation:
+            gt<>: [0.0]
+        orientation_noise_sigmas:
+          type: double_array
+          default_value: [0.00349, 0.00349, 0.01745]
+          validation:
+            fixed_size<>: [3]
+            lower_element_bounds<>: [0.0]
+        mag_declination_radians:
+          type: double
+          default_value: 0.0
+          validation:
+            bounds<>: [-3.14159, 3.14159]
+        robust_kernel:
+          type: string
+          default_value: "None"
+          validation:
+            one_of<>: [["None", "Huber", "Tukey"]]
+        robust_k:
+          type: double
+          default_value: 1.345
+          validation:
+            gt<>: [0.0]
+      depth:
+        enable_depth:
+          type: bool
+          default_value: true
+        covariance_scalar:
+          type: double
+          default_value: 1.0
+          validation:
+            gt<>: [0.0]
+        position_z_noise_sigma:
+          type: double
+          default_value: 0.1
+          validation:
+            gt<>: [0.0]
+        robust_kernel:
+          type: string
+          default_value: "None"
+          validation:
+            one_of<>: [["None", "Huber", "Tukey"]]
+        robust_k:
+          type: double
+          default_value: 1.345
+          validation:
+            gt<>: [0.0]
+    diagnostic_timeout_sec:
+      type: double
+      default_value: 1.0
+      validation:
+        gt<>: [0.0]
+    robust_kernel:
+      type: string
+      default_value: "None"
+      validation:
+        one_of<>: [["None", "Huber", "Tukey"]]
+    robust_k:
+      type: double
+      default_value: 1.345
+      validation:
+        gt<>: [0.0]
+
+  priors:
+    use_parameter_priors:
+      type: bool
+      default_value: true
+    parameter_priors:
+      initial_position:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      initial_orientation:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+      initial_velocity:
+        type: double_array
+        default_value: [0.0, 0.0, 0.0]
+        validation:
+          fixed_size<>: [3]
+    initial_accel_bias:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    initial_gyro_bias:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    hard_iron_bias:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    origin_delta_position:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    origin_delta_orientation:
+      type: double_array
+      default_value: [0.0, 0.0, 0.0]
+      validation:
+        fixed_size<>: [3]
+    use_parameter_priors_sigmas:
+      type: bool
+      default_value: true
+    parameter_priors_sigmas:
+      initial_position_sigmas:
+        type: double_array
+        default_value: [0.001, 0.001, 0.001]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+      initial_orientation_sigmas:
+        type: double_array
+        default_value: [0.001, 0.001, 0.001]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+      initial_velocity_sigmas:
+        type: double_array
+        default_value: [0.001, 0.001, 0.001]
+        validation:
+          fixed_size<>: [3]
+          lower_element_bounds<>: [0.0]
+    initial_accel_bias_sigmas:
+      type: double_array
+      default_value: [0.01, 0.01, 0.01]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    initial_gyro_bias_sigmas:
+      type: double_array
+      default_value: [0.000034, 0.000034, 0.000034]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    hard_iron_bias_sigmas:
+      type: double_array
+      default_value: [1.0e-05, 1.0e-05, 1.0e-05]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    origin_delta_position_sigmas:
+      type: double_array
+      default_value: [1000.0, 1000.0, 1.0e-04]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+    origin_delta_orientation_sigmas:
+      type: double_array
+      default_value: [1.0e-04, 1.0e-04, 1.0e-04]
+      validation:
+        fixed_size<>: [3]
+        lower_element_bounds<>: [0.0]
+
+  comparison:
+    enable_loose_dvl_preintegration:
+      type: bool
+      default_value: false
+    enable_tight_dvl_preintegration:
+      type: bool
+      default_value: false

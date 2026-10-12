@@ -1,0 +1,161 @@
+# Copyright 2026 BYU FROST Lab
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+cmake_minimum_required(VERSION 3.22)
+project(coug_fg)
+
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
+
+find_package(GTSAM REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+find_package(pybind11 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GeographicLib REQUIRED IMPORTED_TARGET geographiclib)
+
+get_target_property(GTSAM_TARGET_INC gtsam INTERFACE_INCLUDE_DIRECTORIES)
+find_path(
+  GTSAM_EIGEN_INCLUDE_DIR
+  Eigen/Core
+  PATHS ${GTSAM_TARGET_INC}
+  PATH_SUFFIXES gtsam/3rdparty/Eigen
+  NO_DEFAULT_PATH
+)
+if(NOT GTSAM_EIGEN_INCLUDE_DIR)
+  message(
+    FATAL_ERROR
+    "Could not find GTSAM's vendored Eigen (Eigen/Core) under any of: "
+    "${GTSAM_TARGET_INC}"
+  )
+endif()
+
+include_directories(BEFORE SYSTEM "${GTSAM_EIGEN_INCLUDE_DIR}")
+
+set(
+  COUG_FG_NODES
+  factor_graph
+  dvl_a50_odom
+  dvl_a50_twist_beams
+  fluid_pressure_odom
+  imu_ned_to_enu
+  mavros_odom_covariance
+  navsat_odom
+  odom_child_to_base
+  odom_to_tf
+  sbg_imu_mag
+  seatrac_x150_imu_depth
+)
+
+foreach(node IN LISTS COUG_FG_NODES)
+  generate_parameter_library(
+    ${node}_parameters
+    "params/${node}_params.yaml"
+  )
+  list(APPEND COUG_FG_NODE_SOURCES "src/${node}.cpp")
+  list(APPEND COUG_FG_PARAM_LIBRARIES "${node}_parameters")
+endforeach()
+
+ament_auto_add_library(coug_fg_component SHARED
+  src/factor_graph_core.cpp
+  ${COUG_FG_NODE_SOURCES}
+)
+
+target_link_libraries(
+  coug_fg_component
+  gtsam
+  gtsam_unstable
+  ${COUG_FG_PARAM_LIBRARIES}
+  PkgConfig::GeographicLib
+)
+
+rclcpp_components_register_nodes(coug_fg_component
+  "coug_fg::FactorGraphNode"
+  "coug_fg::DvlA50OdomNode"
+  "coug_fg::DvlA50TwistBeamsNode"
+  "coug_fg::FluidPressureOdomNode"
+  "coug_fg::ImuNedToEnuNode"
+  "coug_fg::MavrosOdomCovarianceNode"
+  "coug_fg::NavsatOdomNode"
+  "coug_fg::OdomChildToBaseNode"
+  "coug_fg::OdomToTfNode"
+  "coug_fg::SbgImuMagNode"
+  "coug_fg::SeatracX150ImuDepthNode"
+)
+
+foreach(node IN LISTS COUG_FG_NODES)
+  ament_auto_add_executable(${node} "src/${node}_node.cpp")
+endforeach()
+
+pybind11_add_module(coug_fg_py NO_EXTRAS src/factor_graph_py.cpp)
+target_link_libraries(coug_fg_py PRIVATE coug_fg_component)
+target_compile_options(coug_fg_py PRIVATE -Wno-maybe-uninitialized)
+
+install(
+  TARGETS coug_fg_py
+  LIBRARY
+    DESTINATION
+      "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
+)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  set(
+    COUG_FG_FACTOR_TESTS
+    test_ahrs_factor
+    test_ahrs_origin_delta_factor
+    test_ahrs_yaw_factor
+    test_bearing_factor
+    test_bearing_origin_delta_factor
+    test_const_vel_factor
+    test_depth_factor
+    test_depth_origin_delta_factor
+    test_dvl_beam_factor
+    test_dvl_factor
+    test_dvl_loose_preint_factor
+    test_dvl_tight_preint_factor
+    test_gps_factor
+    test_mag_calib_factor
+    test_mag_factor
+    test_range_factor
+    test_range_origin_delta_factor
+    test_wrench_dynamics_factor
+  )
+
+  foreach(test_name IN LISTS COUG_FG_FACTOR_TESTS)
+    ament_add_gtest(${test_name} "test/${test_name}.cpp")
+    target_include_directories(
+      ${test_name}
+      PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    )
+    target_link_libraries(${test_name} gtsam gtsam_unstable)
+  endforeach()
+endif()
+
+ament_auto_package(
+  INSTALL_TO_SHARE
+  config
+  launch
+  USE_SCOPED_HEADER_INSTALL_DIR
+)

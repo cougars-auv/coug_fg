@@ -446,6 +446,10 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
     split_after_target(queues.multiagent[agent_queue_idx], leftover.multiagent[agent_queue_idx]);
   }
 
+  if (params_.use_imu_keyframe_stamp) {
+    target_time = queues.imu.back()->timestamp;
+  }
+
   if (params_.comparison.enable_loose_dvl_preintegration && !queues.ahrs.empty()) {
     leftover.ahrs.push_front(queues.ahrs.back());
   }
@@ -1414,7 +1418,7 @@ void FactorGraphCore::addDvlLoosePreintFactor(
   dvl_loose_preintegrator_->reset(map_R_target_prev, target_R_ahrs, target_R_dvl, ahrs_tangent_cov);
 
   for (const auto& dvl_msg : dvl_msgs) {
-    const double curr_dvl_time = dvl_msg->timestamp;
+    const double curr_dvl_time = std::min(dvl_msg->timestamp, target_time);
     if (curr_dvl_time <= last_dvl_time) {
       continue;
     }
@@ -1547,7 +1551,7 @@ void FactorGraphCore::addDvlTightPreintFactor(
   };
 
   for (const auto& dvl_msg : dvl_msgs) {
-    const double curr_dvl_time = dvl_msg->timestamp;
+    const double curr_dvl_time = std::min(dvl_msg->timestamp, target_time);
     if (curr_dvl_time <= last_dvl_time) {
       continue;
     }

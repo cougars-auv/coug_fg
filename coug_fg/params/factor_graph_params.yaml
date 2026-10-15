@@ -86,6 +86,9 @@ factor_graph_node:
     default_value: "Depth"
     validation:
       one_of<>: [["None", "Beams", "DVL", "Depth", "Timer"]]
+  use_imu_keyframe_stamp:
+    type: bool
+    default_value: false
   keyframe_timeout_sec:
     type: double
     default_value: 0.5

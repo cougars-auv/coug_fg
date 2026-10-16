@@ -20,7 +20,7 @@ from rosbags.highlevel import AnyReader
 from rosbags.typesys import Stores, get_typestore
 from tqdm import tqdm
 
-from offline.extractors import EXTRACTORS
+from offline.extractors import EXTRACTORS, NANOSECONDS_TO_SECONDS
 from offline.graph import OfflineFactorGraph
 from offline.urdf import UrdfTree, resolve_urdf_path
 
@@ -38,7 +38,7 @@ def _replay_messages(
     conn_str = "\n".join(f"  - '{c.topic}' ({topic_to_sensors[c.topic]})" for c in matched_conns)
     logger.info(f"Matched {len(matched_conns)} sensor topic(s):\n{conn_str}")
 
-    for conn, _, rawdata in tqdm(
+    for conn, log_time_ns, rawdata in tqdm(
         reader.messages(connections=matched_conns),
         total=sum(c.msgcount for c in matched_conns),
         disable=not logger.isEnabledFor(logging.INFO),
@@ -48,7 +48,9 @@ def _replay_messages(
             for sensor in topic_to_sensors[conn.topic]:
                 key = "multiagent" if sensor.startswith("multiagent_") else sensor
                 frame_id, measurement = EXTRACTORS[key](msg)
-                graph.add_message(sensor, frame_id, measurement)
+                graph.add_message(
+                    sensor, frame_id, measurement, log_time_ns * NANOSECONDS_TO_SECONDS
+                )
         except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to replay '{conn.topic}': {e}")
             return False

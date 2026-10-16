@@ -356,7 +356,7 @@ void FactorGraphNode::depthCallback(const nav_msgs::msg::Odometry::ConstSharedPt
   depth_msg->timestamp = rclcpp::Time(msg->header.stamp).seconds();
   depth_msg->pose = toGtsam(msg->pose.pose);
   depth_msg->pose_covariance = toGtsam(msg->pose.covariance);
-  depth_queue_.push(depth_msg);
+  depth_queue_.push(depth_msg, now().seconds());
 
   if (keyframe_source_ == KeyframeSource::kDepth ||
       backup_keyframe_source_ == KeyframeSource::kDepth) {
@@ -404,7 +404,7 @@ void FactorGraphNode::dvlCallback(
   dvl_msg->timestamp = rclcpp::Time(msg->header.stamp).seconds();
   dvl_msg->linear_velocity = toGtsam(msg->twist.twist.linear);
   dvl_msg->velocity_covariance = toGtsam(msg->twist.covariance);
-  dvl_queue_.push(dvl_msg);
+  dvl_queue_.push(dvl_msg, now().seconds());
 
   if (keyframe_source_ == KeyframeSource::kDvl || backup_keyframe_source_ == KeyframeSource::kDvl) {
     notifyFrontend();
@@ -436,7 +436,7 @@ void FactorGraphNode::beamsCallback(const DvlBeamList::ConstSharedPtr& msg) {
       !load_beam(3, beams.beam3)) {
     return;
   }
-  beams_queue_.push(beams_msg);
+  beams_queue_.push(beams_msg, now().seconds());
 
   if (keyframe_source_ == KeyframeSource::kBeams ||
       backup_keyframe_source_ == KeyframeSource::kBeams) {
@@ -561,19 +561,17 @@ void FactorGraphNode::initializeGraph() {
 void FactorGraphNode::updateGraph() {
   KeyframeSource active_source = keyframe_source_;
   if (active_source != KeyframeSource::kTimer) {
-    std::optional<double> last_received;
+    std::optional<double> last_arrival;
     if (active_source == KeyframeSource::kBeams) {
-      last_received = beams_queue_.getLastTime();
+      last_arrival = beams_queue_.getLastRosArrivalTime();
     } else if (active_source == KeyframeSource::kDvl) {
-      last_received = dvl_queue_.getLastTime();
+      last_arrival = dvl_queue_.getLastRosArrivalTime();
     } else {
-      last_received = depth_queue_.getLastTime();
+      last_arrival = depth_queue_.getLastRosArrivalTime();
     }
 
-    std::optional<double> newest_stamp = imu_queue_.getLastTime();
-    if (!last_received.has_value() ||
-        (newest_stamp.has_value() &&
-         (*newest_stamp - *last_received) > params_.keyframe_timeout_sec)) {
+    if (!last_arrival.has_value() ||
+        (now().seconds() - *last_arrival) > params_.keyframe_timeout_sec) {
       if (backup_keyframe_source_ != KeyframeSource::kNone) {
         active_source = backup_keyframe_source_;
         RCLCPP_WARN(get_logger(), "Keyframe source '%s' timed out after %g s; using backup '%s'.",

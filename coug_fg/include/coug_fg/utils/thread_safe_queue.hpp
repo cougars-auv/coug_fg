@@ -25,11 +25,14 @@ namespace coug_fg::utils {
 template <typename T>
 class ThreadSafeQueue {
  public:
-  void push(const T& value) {
+  void push(const T& value, std::optional<double> arrival_time = std::nullopt) {
     const std::scoped_lock lock(mutex_);
     queue_.push_back(value);
     last_msg_time_ = value->timestamp;
     last_arrival_time_ = std::chrono::steady_clock::now();
+    if (arrival_time.has_value()) {
+      last_ros_arrival_time_ = arrival_time;
+    }
   }
 
   auto drain() -> std::deque<T> {
@@ -52,6 +55,11 @@ class ThreadSafeQueue {
     return last_msg_time_;
   }
 
+  auto getLastRosArrivalTime() const -> std::optional<double> {
+    const std::scoped_lock lock(mutex_);
+    return last_ros_arrival_time_;
+  }
+
   auto secondsSinceLastArrival() const -> std::optional<double> {
     const std::scoped_lock lock(mutex_);
     if (!last_arrival_time_.has_value()) {
@@ -70,6 +78,7 @@ class ThreadSafeQueue {
   mutable std::mutex mutex_;
   std::deque<T> queue_;
   std::optional<double> last_msg_time_;
+  std::optional<double> last_ros_arrival_time_;
   std::optional<std::chrono::steady_clock::time_point> last_arrival_time_;
 };
 

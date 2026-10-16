@@ -130,6 +130,7 @@ class OfflineFactorGraph:
 
         self._stream_time = 0.0
         self._last_msg_time: dict[str, float] = {}
+        self._last_arrival_time: dict[str, float] = {}
         self._last_target_time: float | None = None
         self._last_timer_time: float | None = None
         self._rate_limits: dict[str, float] = {}
@@ -151,10 +152,14 @@ class OfflineFactorGraph:
         return topics
 
     def add_message(
-        self, sensor: str, frame_id: str | list[str], measurement: tuple[Any, ...]
+        self,
+        sensor: str,
+        frame_id: str | list[str],
+        measurement: tuple[Any, ...],
+        log_time: float,
     ) -> None:
-        # Offline, the graph/timer fires on message stamps instead of the wall clock
-        self._stream_time = max(self._stream_time, measurement[0])
+        # Offline, the bag log time stands in for the ROS clock
+        self._stream_time = log_time
 
         is_neighbor = sensor.startswith("multiagent_")
         if isinstance(frame_id, list):
@@ -169,6 +174,7 @@ class OfflineFactorGraph:
             self._resolve_sensor_tf("modem" if is_neighbor else sensor, frame_id)
         self._queues[sensor].append(measurement)
         self._last_msg_time[sensor] = measurement[0]
+        self._last_arrival_time[sensor] = log_time
         if is_neighbor:
             return
 
@@ -285,12 +291,11 @@ class OfflineFactorGraph:
             return self._keyframe_source
 
         sensor = SOURCE_SENSORS.get(self._keyframe_source, SOURCE_SENSORS[KeyframeSource.DEPTH])
-        last_received = self._last_msg_time.get(sensor)
-        newest_stamp = self._last_msg_time.get("imu")
+        last_arrival = self._last_arrival_time.get(sensor)
 
-        timed_out = last_received is None or (
-            newest_stamp is not None
-            and newest_stamp - last_received > self._params["keyframe_timeout_sec"]
+        timed_out = (
+            last_arrival is None
+            or self._stream_time - last_arrival > self._params["keyframe_timeout_sec"]
         )
         if not timed_out:
             return self._keyframe_source

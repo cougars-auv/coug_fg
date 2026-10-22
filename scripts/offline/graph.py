@@ -356,11 +356,10 @@ class OfflineFactorGraph:
 
     def _optimize_graph(self) -> None:
         if result := self._core.optimize():
-            new_keyframes = result.pop("new_keyframes")
+            new_updates = result.pop("new_updates")
             if result.pop("processing_overflow"):
                 logger.warning(
-                    f"Processing overflow: batching {new_keyframes} keyframes "
-                    "into one optimization."
+                    f"Processing overflow: batching {new_updates} updates into one optimization."
                 )
             self._results.append(result)
 

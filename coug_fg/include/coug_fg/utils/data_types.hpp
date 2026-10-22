@@ -76,6 +76,7 @@ struct TwistData {
 };
 
 struct DvlBeamData {
+  double timestamp{0.0};
   double velocity{0.0};
   double velocity_variance{0.0};
   bool valid{false};

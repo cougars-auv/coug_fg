@@ -66,7 +66,7 @@ struct OptimizeResult {
   double cov_duration{0.0};
   bool processing_overflow{false};
 
-  size_t new_keyframes{0};
+  size_t new_updates{0};
   size_t new_factors{0};
   size_t total_factors{0};
   size_t total_variables{0};
@@ -172,6 +172,13 @@ class FactorGraphCore {
   // --- Configuration ---
   auto configureImuPreintegration(const InitialState& init_state) const
       -> std::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params>;
+
+  // --- Keyframes ---
+  auto computeKeyframeTimes(utils::QueueBundle& queues, double target_time) const
+      -> std::vector<double>;
+
+  auto addKeyframe(double target_time, utils::QueueBundle& queues, const utils::TfBundle& tfs)
+      -> std::optional<utils::QueueBundle>;
 
   // --- Factor Construction ---
   void addPriorFactors(const InitialState& init_state, gtsam::NonlinearFactorGraph& graph,
@@ -292,7 +299,7 @@ class FactorGraphCore {
   gtsam::IncrementalFixedLagSmoother::KeyTimestampMap buffer_timestamps_;
   double buffer_target_time_{0.0};
   size_t buffer_prev_step_{0};
-  size_t buffer_keyframes_{0};
+  size_t buffer_updates_{0};
   bool has_buffer_{false};
   std::map<size_t, gtsam::PreintegratedCombinedMeasurements> pending_imu_deltas_;
 };

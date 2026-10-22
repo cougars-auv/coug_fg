@@ -88,7 +88,7 @@ factor_graph_node:
       one_of<>: [["None", "Beams", "DVL", "Depth", "Timer"]]
   use_imu_keyframe_stamp:
     type: bool
-    default_value: false
+    default_value: true
   keyframe_timeout_sec:
     type: double
     default_value: 0.5
@@ -627,6 +627,11 @@ factor_graph_node:
     enable_beams:
       type: bool
       default_value: true
+    min_split_imu_samples:
+      type: int
+      default_value: 2
+      validation:
+        gt_eq<>: [0]
     beam0:
       use_parameter_frame:
         type: bool

@@ -69,8 +69,8 @@ EXTRACTORS: dict[str, Callable[[Any], tuple[str | list[str], tuple[Any, ...]]]] 
         (_stamp(m), _vec3(m.twist.twist.linear), _cov(m.twist.covariance, 6)),
     ),
     "beams": lambda m: (
-        [b.frame_id for b in m.beams],
-        (_stamp(m), [(b.velocity, b.velocity_variance, b.valid) for b in m.beams]),
+        [b.header.frame_id for b in m.beams],
+        (_stamp(m), [(_stamp(b), b.velocity, b.velocity_variance, b.valid) for b in m.beams]),
     ),
     "wrench": lambda m: (
         m.header.frame_id,

@@ -423,12 +423,13 @@ void FactorGraphNode::beamsCallback(const DvlBeamList::ConstSharedPtr& msg) {
   auto load_beam = [&](size_t i, const auto& beam_params) {
     const auto& beam = msg->beams[i];
     const std::string child_frame =
-        beam_params.use_parameter_frame ? beam_params.parameter_frame : beam.frame_id;
+        beam_params.use_parameter_frame ? beam_params.parameter_frame : beam.header.frame_id;
     if (!loadOrLookupTf(target_T_beam_tfs_[i], child_frame, beam_params.use_parameter_tf,
                         beam_params.parameter_tf.position, beam_params.parameter_tf.orientation)) {
       return false;
     }
-    beams_msg->beams[i] = DvlBeamData{beam.velocity, beam.velocity_variance, beam.valid};
+    beams_msg->beams[i] = DvlBeamData{rclcpp::Time(beam.header.stamp).seconds(), beam.velocity,
+                                      beam.velocity_variance, beam.valid};
     return true;
   };
   const auto& beams = params_.beams;
@@ -632,9 +633,8 @@ void FactorGraphNode::optimizeGraph() {
     processing_overflow_.store(result->processing_overflow);
 
     if (result->processing_overflow) {
-      RCLCPP_WARN(get_logger(),
-                  "Processing overflow: batching %zu keyframes into one optimization.",
-                  result->new_keyframes);
+      RCLCPP_WARN(get_logger(), "Processing overflow: batching %zu updates into one optimization.",
+                  result->new_updates);
     }
 
     const rclcpp::Time stamp(static_cast<int64_t>(result->timestamp * kSecondsToNanoseconds));

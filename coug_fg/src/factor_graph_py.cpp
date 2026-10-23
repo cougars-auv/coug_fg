@@ -85,7 +85,7 @@ using DepthMsgs = std::vector<std::tuple<double, double, Matrix6d>>;
 using MagMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Eigen::Matrix3d>>;
 using AhrsMsgs = std::vector<std::tuple<double, Eigen::Vector4d, Eigen::Matrix3d>>;
 using DvlMsgs = std::vector<std::tuple<double, Eigen::Vector3d, Matrix6d>>;
-using BeamMsg = std::tuple<double, double, bool>;
+using BeamMsg = std::tuple<double, double, double, bool>;
 using BeamsMsgs = std::vector<std::tuple<double, std::array<BeamMsg, utils::kNumDvlBeams>>>;
 using WrenchMsgs = std::vector<std::tuple<double, Vector6d>>;
 using AgentStatusMsg =
@@ -266,8 +266,8 @@ auto toQueueBundle(const ImuMsgs& imu, const GpsMsgs& gps, const DepthMsgs& dept
     auto beams_msg = std::make_shared<DvlBeamListData>();
     beams_msg->timestamp = t;
     for (size_t i = 0; i < utils::kNumDvlBeams; ++i) {
-      const auto& [velocity, velocity_variance, valid] = beam_list[i];
-      beams_msg->beams[i] = DvlBeamData{velocity, velocity_variance, valid};
+      const auto& [timestamp, velocity, velocity_variance, valid] = beam_list[i];
+      beams_msg->beams[i] = DvlBeamData{timestamp, velocity, velocity_variance, valid};
     }
     queues.beams.push_back(beams_msg);
   }
@@ -363,7 +363,7 @@ auto toQueueDict(const QueueBundle& queue_bundle) -> pybind11::dict {
     std::array<BeamMsg, utils::kNumDvlBeams> beam_list;
     for (size_t i = 0; i < utils::kNumDvlBeams; ++i) {
       const auto& beam = beams_msg->beams[i];
-      beam_list[i] = {beam.velocity, beam.velocity_variance, beam.valid};
+      beam_list[i] = {beam.timestamp, beam.velocity, beam.velocity_variance, beam.valid};
     }
     beams.emplace_back(beams_msg->timestamp, beam_list);
   }
@@ -603,7 +603,7 @@ auto FactorGraphPy::optimize() -> pybind11::dict {
   }
 
   result["processing_overflow"] = opt_result->processing_overflow;
-  result["new_keyframes"] = opt_result->new_keyframes;
+  result["new_updates"] = opt_result->new_updates;
 
   pybind11::list neighbors;
   for (const auto& neighbor : opt_result->neighbors) {

@@ -2,9 +2,14 @@ dvl_a50_twist_beams_node:
   override_timestamp:
     type: bool
     default_value: false
-  velocity_scale:
+  sound_speed:
     type: double
-    default_value: 1.0
+    default_value: 1500.0
+    validation:
+      gt<>: [0.0]
+  configured_sound_speed:
+    type: double
+    default_value: 1500.0
     validation:
       gt<>: [0.0]
   use_turtlmap_fom_covariance:

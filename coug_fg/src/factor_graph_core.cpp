@@ -387,6 +387,24 @@ auto FactorGraphCore::initialize(double init_time, const QueueBundle& queues, co
 
 auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBundle& tfs)
     -> std::optional<QueueBundle> {
+  QueueBundle keyframe_queues = queues;
+  std::optional<QueueBundle> leftover;
+
+  const std::scoped_lock state_lock(state_mutex_);
+  for (const double keyframe_time : computeKeyframeTimes(keyframe_queues, target_time)) {
+    if (auto keyframe_leftover = addKeyframe(keyframe_time, keyframe_queues, tfs)) {
+      leftover = std::move(keyframe_leftover);
+      keyframe_queues = *leftover;
+    }
+  }
+  if (leftover) {
+    buffer_updates_++;
+  }
+  return leftover;
+}
+
+auto FactorGraphCore::addKeyframe(double target_time, QueueBundle& queues, const TfBundle& tfs)
+    -> std::optional<QueueBundle> {
   if (target_time <= prev_time_ + kMinIntegrationDt) {
     return std::nullopt;
   }
@@ -417,8 +435,6 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
   gtsam::IncrementalFixedLagSmoother::KeyTimestampMap new_timestamps;
 
   QueueBundle leftover;
-
-  const std::scoped_lock state_lock(state_mutex_);
 
   // Update lazily-resolved transforms
   tfs_ = tfs;
@@ -573,7 +589,6 @@ auto FactorGraphCore::update(double target_time, QueueBundle& queues, const TfBu
   }
   buffer_target_time_ = target_time;
   buffer_prev_step_ = prev_step_;
-  buffer_keyframes_++;
   has_buffer_ = true;
 
   return leftover;
@@ -586,7 +601,7 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   gtsam::IncrementalFixedLagSmoother::KeyTimestampMap batch_timestamps;
   double batch_target_time{0.0};
   size_t batch_prev_step = 0;
-  size_t batch_keyframes = 0;
+  size_t batch_updates = 0;
 
   {
     const std::scoped_lock state_lock(state_mutex_);
@@ -599,12 +614,12 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
     batch_timestamps = std::move(buffer_timestamps_);
     batch_target_time = buffer_target_time_;
     batch_prev_step = buffer_prev_step_;
-    batch_keyframes = buffer_keyframes_;
+    batch_updates = buffer_updates_;
 
     buffer_graph_ = gtsam::NonlinearFactorGraph();
     buffer_values_ = gtsam::Values();
     buffer_timestamps_.clear();
-    buffer_keyframes_ = 0;
+    buffer_updates_ = 0;
     has_buffer_ = false;
   }
 
@@ -612,8 +627,8 @@ auto FactorGraphCore::optimize() -> std::optional<OptimizeResult> {
   result.timestamp = batch_target_time;
 
   // --- Detect Processing Overflow ---
-  result.new_keyframes = batch_keyframes;
-  if (result.new_keyframes > 1) {
+  result.new_updates = batch_updates;
+  if (result.new_updates > 1) {
     result.processing_overflow = true;
   }
 
@@ -1082,6 +1097,56 @@ auto FactorGraphCore::configureImuPreintegration(const InitialState& init_state)
       gtsam::Matrix33::Identity() * params_.imu.integration_covariance;
 
   return imu_params;
+}
+
+auto FactorGraphCore::computeKeyframeTimes(QueueBundle& queues, double target_time) const
+    -> std::vector<double> {
+  const auto beams_it =
+      std::find_if(queues.beams.begin(), queues.beams.end(),
+                   [&](const auto& msg) { return msg->timestamp == target_time; });
+  if (params_.beams.min_split_imu_samples <= 0 ||
+      parseKeyframeSource(params_.keyframe_source) != KeyframeSource::kBeams ||
+      beams_it == queues.beams.end()) {
+    return {target_time};
+  }
+  const auto beams_msg = *beams_it;
+
+  std::vector<std::pair<double, size_t>> beam_times;
+  for (size_t i = 0; i < utils::kNumDvlBeams; ++i) {
+    if (beams_msg->beams[i].valid) {
+      beam_times.emplace_back(beams_msg->beams[i].timestamp, i);
+    }
+  }
+  std::sort(beam_times.begin(), beam_times.end());
+
+  // Split beam keyframes with enough IMU messages to preintegrate across
+  std::vector<std::shared_ptr<DvlBeamListData>> group_msgs;
+  for (const auto& beam_time : beam_times) {
+    if (group_msgs.empty() ||
+        std::count_if(queues.imu.begin(), queues.imu.end(), [&](const auto& imu_msg) {
+          return imu_msg->timestamp > group_msgs.back()->timestamp &&
+                 imu_msg->timestamp <= beam_time.first;
+        }) >= params_.beams.min_split_imu_samples) {
+      group_msgs.push_back(std::make_shared<DvlBeamListData>());
+    }
+    group_msgs.back()->timestamp = beam_time.first;
+    group_msgs.back()->beams[beam_time.second] = beams_msg->beams[beam_time.second];
+  }
+  if (group_msgs.size() < 2) {
+    return {target_time};
+  }
+  logger_.log(LogLevel::kInfo,
+              "Split DVL beams into " + std::to_string(group_msgs.size()) + " keyframes across " +
+                  std::to_string(group_msgs.back()->timestamp - group_msgs.front()->timestamp) +
+                  " s.");
+
+  std::vector<double> keyframe_times;
+  queues.beams.erase(beams_it);
+  for (const auto& group_msg : group_msgs) {
+    queues.beams.push_back(group_msg);
+    keyframe_times.push_back(group_msg->timestamp);
+  }
+  return keyframe_times;
 }
 
 void FactorGraphCore::addPriorFactors(const InitialState& init_state,

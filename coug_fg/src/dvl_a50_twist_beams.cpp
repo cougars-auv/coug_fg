@@ -142,9 +142,10 @@ auto DvlA50TwistBeamsNode::convertToTwist(const dvl_msgs::msg::DVL::ConstSharedP
   twist_msg.header.stamp = resolveStamp(msg);
 
   // Convert FRD -> FLU
-  twist_msg.twist.twist.linear.x = kFrdToFlu[0] * params_.velocity_scale * msg->velocity.x;
-  twist_msg.twist.twist.linear.y = kFrdToFlu[1] * params_.velocity_scale * msg->velocity.y;
-  twist_msg.twist.twist.linear.z = kFrdToFlu[2] * params_.velocity_scale * msg->velocity.z;
+  const double velocity_scale = params_.sound_speed / params_.configured_sound_speed;
+  twist_msg.twist.twist.linear.x = kFrdToFlu[0] * velocity_scale * msg->velocity.x;
+  twist_msg.twist.twist.linear.y = kFrdToFlu[1] * velocity_scale * msg->velocity.y;
+  twist_msg.twist.twist.linear.z = kFrdToFlu[2] * velocity_scale * msg->velocity.z;
 
   Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov_out(
       twist_msg.twist.covariance.data());
@@ -178,7 +179,8 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
       params_.use_parameter_frame ? params_.parameter_frame : msg->header.frame_id;
   beams_msg.header.stamp = resolveStamp(msg);
 
-  beams_msg.altitude = msg->altitude;
+  const double velocity_scale = params_.sound_speed / params_.configured_sound_speed;
+  beams_msg.altitude = velocity_scale * msg->altitude;
   beams_msg.altitude_valid = msg->altitude > 0.0;
 
   // Reuse the last accepted FOM for rejected pings
@@ -188,11 +190,22 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
 
   beams_msg.beams.resize(beam_frames_.size());
   for (size_t i = 0; i < beam_frames_.size(); ++i) {
-    beams_msg.beams[i].frame_id = beam_frames_[i];
+    beams_msg.beams[i].header.frame_id = beam_frames_[i];
+    beams_msg.beams[i].header.stamp = beams_msg.header.stamp;
     beams_msg.beams[i].valid = false;
     beams_msg.beams[i].velocity_variance = velocity_sigma * velocity_sigma;
     beams_msg.beams[i].distance_variance = distance_sigma * distance_sigma;
   }
+
+  double distance_sum = 0.0;
+  size_t num_valid = 0;
+  for (const auto& in : msg->beams) {
+    if (in.valid) {
+      distance_sum += in.distance;
+      ++num_valid;
+    }
+  }
+  const double mean_distance = num_valid > 0 ? distance_sum / static_cast<double>(num_valid) : 0.0;
 
   for (const auto& in : msg->beams) {
     if (in.id < 0 || static_cast<size_t>(in.id) >= beam_frames_.size()) {
@@ -202,8 +215,14 @@ auto DvlA50TwistBeamsNode::convertToBeams(const dvl_msgs::msg::DVL::ConstSharedP
 
     DvlBeam& beam = beams_msg.beams[in.id];
     beam.valid = in.valid;
-    beam.velocity = params_.velocity_scale * in.velocity;
-    beam.distance = in.distance;
+    beam.velocity = velocity_scale * in.velocity;
+    beam.distance = velocity_scale * in.distance;
+    if (in.valid) {
+      // Assume the time of validity marks the mean valid reflection by flight time
+      beam.header.stamp = rclcpp::Time(beams_msg.header.stamp) +
+                          rclcpp::Duration::from_seconds((in.distance - mean_distance) /
+                                                         params_.configured_sound_speed);
+    }
   }
   return beams_msg;
 }

@@ -14,9 +14,13 @@
 
 #pragma once
 
+#include <gtsam/base/Matrix.h>
 #include <gtsam/base/Vector.h>
+#include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/navigation/ImuBias.h>
+#include <gtsam/nonlinear/Values.h>
+#include <rcl/time.h>
 
 #include <array>
 #include <atomic>
@@ -25,6 +29,8 @@
 #include <coug_interfaces/msg/dvl_beam_list.hpp>
 #include <coug_interfaces/msg/graph_metrics.hpp>
 #include <coug_interfaces/msg/imu_bias.hpp>
+#include <cstddef>
+#include <diagnostic_updater/diagnostic_status_wrapper.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/wrench_stamped.hpp>
@@ -33,13 +39,19 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <optional>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/callback_group.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/service.hpp>
+#include <rclcpp/subscription.hpp>
+#include <rclcpp/time.hpp>
+#include <rclcpp/timer.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/magnetic_field.hpp>
 #include <shared_mutex>
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_broadcaster.hpp>
 #include <tf2_ros/transform_listener.hpp>
@@ -48,9 +60,10 @@
 
 #include "coug_fg/factor_graph_core.hpp"
 #include "coug_fg/factor_graph_parameters.hpp"
+#include "coug_fg/utils/data_types.hpp"
 #include "coug_fg/utils/param_enums.hpp"
-#include "coug_fg/utils/ros_conversions.hpp"
 #include "coug_fg/utils/thread_safe_queue.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 
 namespace coug_fg {
 

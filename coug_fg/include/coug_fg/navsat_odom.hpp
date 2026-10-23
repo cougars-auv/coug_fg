@@ -15,11 +15,16 @@
 #pragma once
 
 #include <GeographicLib/LocalCartesian.hpp>
+#include <diagnostic_updater/diagnostic_status_wrapper.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/subscription.hpp>
+#include <rclcpp/timer.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <string>

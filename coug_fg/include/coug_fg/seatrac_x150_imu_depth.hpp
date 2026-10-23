@@ -16,7 +16,10 @@
 
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/subscription.hpp>
 #include <seatrac_interfaces/msg/modem_status.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 

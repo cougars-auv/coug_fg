@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include <pybind11/eigen.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <pybind11/eigen.h>  // NOLINT(misc-include-cleaner)
+#include <pybind11/pytypes.h>
+#include <pybind11/stl.h>  // NOLINT(misc-include-cleaner)
 
 #include <memory>
 #include <string>

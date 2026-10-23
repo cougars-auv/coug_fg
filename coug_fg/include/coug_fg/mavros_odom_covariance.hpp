@@ -16,7 +16,10 @@
 
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/subscription.hpp>
 
 #include "coug_fg/mavros_odom_covariance_parameters.hpp"
 

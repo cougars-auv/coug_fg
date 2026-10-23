@@ -21,7 +21,11 @@
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
 #include <memory>
 #include <optional>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/subscription.hpp>
+#include <rclcpp/time.hpp>
 #include <sensor_msgs/msg/range.hpp>
 #include <string>
 

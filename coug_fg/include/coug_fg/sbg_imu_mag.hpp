@@ -15,7 +15,10 @@
 #pragma once
 
 #include <memory>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/subscription.hpp>
 #include <sensor_msgs/msg/magnetic_field.hpp>
 
 #include "coug_fg/sbg_imu_mag_parameters.hpp"

@@ -14,20 +14,25 @@
 
 #pragma once
 
+#include <gtsam/base/Matrix.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/base/types.h>
+#include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Rot3.h>
 #include <gtsam/navigation/CombinedImuFactor.h>
+#include <gtsam/navigation/ImuBias.h>
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/IncrementalFixedLagSmoother.h>
-#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <deque>
-#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <string>
 #include <unordered_map>
 #include <vector>
 

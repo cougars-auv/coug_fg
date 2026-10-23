@@ -17,7 +17,11 @@
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/node_options.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/service.hpp>
+#include <rclcpp/subscription.hpp>
 #include <sensor_msgs/msg/fluid_pressure.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_srvs/srv/trigger.hpp>

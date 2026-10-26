@@ -24,6 +24,7 @@ OUTPUT_DIR = Path(__file__).parent
 
 plt.rcParams["text.usetex"] = True
 plt.rcParams["font.family"] = "serif"
+plt.rcParams["text.latex.preamble"] = r"\usepackage{times}"
 
 COLOR_VAR = "#B5CBE6"
 COLOR_PRIOR = "#4C72B0"

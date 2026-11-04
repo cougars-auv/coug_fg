@@ -190,7 +190,7 @@ for sym, row in [("x", 3), ("v", 2), ("b", 1)]:
         plot_params=style_prior,
     )
 
-for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
+for i, k in enumerate((0, 1, 2, 3, 4, 5, "k")):
     col_x = start_x + (i * col_spacing)
     pgm.add_node(f"x{i}", f"$\\mathbf{{x}}_{{{k}}}$", col_x, 3, plot_params=style_var)
     pgm.add_node(f"v{i}", f"$\\mathbf{{v}}_{{{k}}}$", col_x, 2, plot_params=style_var)
@@ -199,7 +199,7 @@ for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
 for sym in ["x", "v", "b"]:
     pgm.add_edge(f"p{sym}", f"{sym}0")
 
-for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
+for i, k in enumerate((0, 1, 2, 3, 4, 5, "k")):
     col_x = start_x + (i * col_spacing)
 
     pgm.add_node(
@@ -296,7 +296,7 @@ pgm_dvl_beams = copy.deepcopy(pgm)
 
 # --- VELOCITY DVL GRAPH ---
 
-for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
+for i, k in enumerate((0, 1, 2, 3, 4, 5, "k")):
     col_x = start_x + (i * col_spacing)
     pgm.add_node(
         f"dvl{i}",
@@ -314,7 +314,7 @@ save(pgm, "fg_dvl_vel", win_top)
 
 # --- PER-BEAM DVL GRAPH ---
 
-for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
+for i, k in enumerate((0, 1, 2, 3, 4, 5, "k")):
     col_x = start_x + (i * col_spacing)
 
     for beam in reversed(range(num_beams[i])):
@@ -468,7 +468,7 @@ for sym, row in [("x", 3), ("v", 2), ("b", 1)]:
         plot_params=style_prior,
     )
 
-for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
+for i, k in enumerate((0, 1, 2, 3, 4, 5, "k")):
     col_x = start_x + (i * col_spacing)
 
     pgm_multiagent.add_node(f"x{i}", f"$\\mathbf{{x}}^0_{{{k}}}$", col_x, 3, plot_params=style_var)
@@ -478,7 +478,7 @@ for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
 for sym in ["x", "v", "b"]:
     pgm_multiagent.add_edge(f"p{sym}", f"{sym}0")
 
-for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
+for i, k in enumerate((0, 1, 2, 3, 4, 5, "k")):
     col_x = start_x + (i * col_spacing)
 
     pgm_multiagent.add_node(
@@ -558,7 +558,7 @@ pgm_multiagent.add_node(
 pgm_multiagent.add_node("mag", "$\\mathbf{m}^{0*}$", mag_x, 0, plot_params=style_var)
 pgm_multiagent.add_edge("pm", "mag")
 
-for i, k in enumerate((0, 1, 2, 3, 4, 5, "n")):
+for i, k in enumerate((0, 1, 2, 3, 4, 5, "k")):
     col_x = start_x + (i * col_spacing)
 
     for beam in reversed(range(num_beams[i])):
@@ -603,7 +603,7 @@ pgm_multiagent.add_node(
     plot_params=style_prior,
 )
 
-for i, k in [(2, 2), (4, 4), (6, "n")]:
+for i, k in [(2, 2), (4, 4), (6, "k")]:
     col_x = start_x + (i * col_spacing)
     pgm_multiagent.add_node(
         f"x1_{i}",
@@ -615,7 +615,7 @@ for i, k in [(2, 2), (4, 4), (6, "n")]:
 
 pgm_multiagent.add_edge("px1", "x1_2")
 
-for i, k in [(2, 2), (4, 4), (6, "n")]:
+for i, k in [(2, 2), (4, 4), (6, "k")]:
     col_x = start_x + (i * col_spacing)
 
     pgm_multiagent.add_node(
@@ -659,7 +659,7 @@ inter_radius = math.hypot(0.4, 0.4)
 inter_dx = inter_radius * math.sin(math.radians(20))
 inter_dy = inter_radius * math.cos(math.radians(20))
 
-for i, k in [(2, 2), (4, 4), (6, "n")]:
+for i, k in [(2, 2), (4, 4), (6, "k")]:
     col_x = start_x + (i * col_spacing)
 
     pgm_multiagent.add_node(

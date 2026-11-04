@@ -20,7 +20,8 @@ from pathlib import Path
 
 import daft
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
+from matplotlib.patches import Ellipse, PathPatch
+from matplotlib.path import Path as MplPath
 from matplotlib.transforms import Bbox
 
 OUTPUT_DIR = Path(__file__).parent
@@ -66,6 +67,35 @@ win_bottom = 0 - win_pad + 0.175
 
 num_beams = {0: 4, 1: 3, 2: 2, 3: 2, 4: 4, 5: 2, 6: 4}
 
+loop_gap = 0.105
+loop_lead = 0.02
+loop_handle = 0.075
+loop_enter, loop_leave = 110, 250  # [deg]
+
+
+def bias_loop(factor: daft.Node, vel: daft.Node, bias: daft.Node, node_r: float) -> MplPath:
+    loop_r = node_r + loop_gap
+    arc = MplPath.arc(loop_enter, loop_leave)
+    arc_points = [(vel.x + loop_r * x, vel.y + loop_r * y) for x, y in arc.vertices]
+    enter, leave = math.radians(loop_enter), math.radians(loop_leave)
+    (in_x, in_y), (out_x, out_y) = arc_points[0], arc_points[-1]
+    top_y = factor.y - loop_lead
+    bottom_y = 2 * vel.y - top_y
+    points = [
+        (factor.x, factor.y),
+        (vel.x, top_y),
+        (vel.x, top_y - loop_handle),
+        (in_x + loop_handle * math.sin(enter), in_y - loop_handle * math.cos(enter)),
+        *arc_points,
+        (out_x - loop_handle * math.sin(leave), out_y + loop_handle * math.cos(leave)),
+        (vel.x, bottom_y + loop_handle),
+        (vel.x, bottom_y),
+        (bias.x, bias.y + node_r),
+    ]
+    codes = [MplPath.MOVETO, MplPath.LINETO, MplPath.CURVE4, MplPath.CURVE4, MplPath.CURVE4]
+    codes += [*arc.codes[1:], MplPath.CURVE4, MplPath.CURVE4, MplPath.CURVE4, MplPath.LINETO]
+    return MplPath(points, codes)
+
 
 def save(
     graph: daft.PGM, name: str, win_top: float, dots: tuple[tuple[float, float], ...] = ((5.5, 2),)
@@ -85,6 +115,21 @@ def save(
         if isinstance(patch, Ellipse):
             patch.set_zorder(3)
     ctx = graph._ctx
+    node_r = 0.5 * ctx.node_unit / ctx.grid_unit
+    for i in num_beams:
+        factor = graph._nodes.get(f"dvl{i}") or graph._nodes.get(f"dvl{i}_0")
+        if factor is None:
+            continue
+        path = bias_loop(factor, graph._nodes[f"v{i}"], graph._nodes[f"b{i}"], node_r)
+        ax.add_patch(
+            PathPatch(
+                MplPath([ctx.convert(x, y) for x, y in path.vertices], path.codes),
+                fill=False,
+                edgecolor=COLOR_OLD_EDGE if i == 0 else "black",
+                lw=ctx.line_width,
+                zorder=2,
+            )
+        )
     for (col, row), dx in itertools.product(dots, (-0.09, 0.0, 0.09)):
         dot = ctx.convert(start_x + col * col_spacing + dx, row)
         ax.add_patch(plt.Circle(dot, 0.02 * ctx.grid_unit, fc="black", lw=0, zorder=3))

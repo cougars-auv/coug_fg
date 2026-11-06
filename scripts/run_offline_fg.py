@@ -67,6 +67,9 @@ def main() -> None:
         str(config_snapshot / "fleet" / "coug_fg_params.yaml"),
         str(config_snapshot / f"{args.namespace}_params.yaml"),
     ]
+    override_path = config_snapshot / "override_params.yaml"
+    if override_path.exists():
+        cfg_paths.append(str(override_path))
 
     with logging_redirect_tqdm():
         for bag in args.bags:

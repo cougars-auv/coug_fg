@@ -1,0 +1,10 @@
+/**:
+  factor_graph_node:
+    ros__parameters:
+      keyframe_source: "DVL"
+      dvl:
+        enable_dvl: true
+      beams:
+        enable_beams: false
+      comparison:
+        enable_tight_dvl_preintegration: true

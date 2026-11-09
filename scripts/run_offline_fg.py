@@ -57,6 +57,7 @@ def main() -> None:
     parser.add_argument("--namespace", default=NAMESPACE)
     parser.add_argument("--prefix", default="offline")
     parser.add_argument("--evo-flags", default=" ".join(EVO_FLAGS))
+    parser.add_argument("--override")
     parser.add_argument("--no-show", action="store_true")
     args = parser.parse_args()
 
@@ -68,6 +69,8 @@ def main() -> None:
         str(config_snapshot / f"{args.namespace}_params.yaml"),
     ]
     override_path = config_snapshot / "override_params.yaml"
+    if args.override:
+        shutil.copy(args.override, override_path)
     if override_path.exists():
         cfg_paths.append(str(override_path))
 

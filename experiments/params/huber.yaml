@@ -1,0 +1,5 @@
+/**:
+  factor_graph_node:
+    ros__parameters:
+      beams:
+        robust_kernel: "Huber"

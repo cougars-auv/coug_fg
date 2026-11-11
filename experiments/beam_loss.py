@@ -35,7 +35,7 @@ from offline.extractors import EXTRACTORS
 
 NAMESPACE = "tank"
 BAGS = [
-    Path(os.environ["BAGS_DIR"]) / "tank/tank_ros2_dropout" / f"{seq}_ros2_dropout"
+    Path(os.environ["BAGS_DIR"]) / "tank/tank_ros2_beam_loss" / f"{seq}_ros2_beam_loss"
     for seq in ("Structure_Medium", "Structure_Hard")
 ]
 PARAMS_DIR = Path(__file__).parent / "params"
@@ -74,20 +74,20 @@ def _patch_dropout(prob: float, seed: int, pings: dict[float, tuple[Any, ...]]) 
             kept = [i for i, b in enumerate(beams) if b[3] and not dropped[i]]
             if len(kept) < 3:
                 return
-            quats = [self._urdf.lookup(frame_id, frame_ids[i])[1] for i in kept]  # type: ignore[union-attr, arg-type]
+            quats = [self._urdf.lookup(frame_id, frame_ids[i])[1] for i in kept]
             dirs = Rotation.from_quat(quats).apply([1, 0, 0])
             velocity = np.linalg.lstsq(dirs, [beams[i][1] for i in kept], rcond=None)[0]
             measurement = (stamp, velocity, measurement[2])
         _add_message(self, sensor, frame_id, measurement, log_time)
 
-    graph.OfflineFactorGraph.add_message = add_message  # type: ignore[method-assign]
+    graph.OfflineFactorGraph.add_message = add_message
 
 
 def main() -> None:
     for bag in BAGS:
         pings = _load_pings(bag)
         for (prob, seed), variant in itertools.product(DROPOUTS, VARIANTS):
-            prefix = f"dropout_{variant}_p{round(prob * 100)}_s{seed}"
+            prefix = f"beam_loss_{variant}_p{round(prob * 100)}_s{seed}"
             if (evo_cli.evo_agent_dir(bag, NAMESPACE) / prefix / "ape_trans.zip").exists():
                 continue
 

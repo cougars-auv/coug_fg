@@ -604,6 +604,9 @@ auto FactorGraphPy::optimize() -> pybind11::dict {
 
   result["processing_overflow"] = opt_result->processing_overflow;
   result["new_updates"] = opt_result->new_updates;
+  result["total_duration"] = opt_result->total_duration;
+  result["smoother_duration"] = opt_result->smoother_duration;
+  result["cov_duration"] = opt_result->cov_duration;
 
   pybind11::list neighbors;
   for (const auto& neighbor : opt_result->neighbors) {

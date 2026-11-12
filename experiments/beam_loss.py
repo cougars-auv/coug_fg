@@ -74,13 +74,14 @@ def _patch_dropout(prob: float, seed: int, pings: dict[float, tuple[Any, ...]]) 
             kept = [i for i, b in enumerate(beams) if b[3] and not dropped[i]]
             if len(kept) < 3:
                 return
+            assert self._urdf is not None and isinstance(frame_id, str)
             quats = [self._urdf.lookup(frame_id, frame_ids[i])[1] for i in kept]
             dirs = Rotation.from_quat(quats).apply([1, 0, 0])
             velocity = np.linalg.lstsq(dirs, [beams[i][1] for i in kept], rcond=None)[0]
             measurement = (stamp, velocity, measurement[2])
         _add_message(self, sensor, frame_id, measurement, log_time)
 
-    graph.OfflineFactorGraph.add_message = add_message
+    graph.OfflineFactorGraph.add_message = add_message  # type: ignore[method-assign, unused-ignore]
 
 
 def main() -> None:

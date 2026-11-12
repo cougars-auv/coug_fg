@@ -57,7 +57,7 @@ def _patch_offset(spacing: float, offset: int) -> None:
             anchor = self._last_target_time - offset / len(OFFSETS) * spacing
         self._last_target_time = anchor + (self._last_target_time - anchor) // spacing * spacing
 
-    graph.OfflineFactorGraph._update_graph = update_graph
+    graph.OfflineFactorGraph._update_graph = update_graph  # type: ignore[method-assign, unused-ignore]
 
 
 def main() -> None:
